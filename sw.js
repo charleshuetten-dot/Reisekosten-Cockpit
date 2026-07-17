@@ -1,10 +1,12 @@
-/* Dozenten-Cockpit — Service Worker
-   Zweck: App-Shell offline verfügbar halten (z. B. im ICE ohne Netz).
+/* Dozenten-Cockpit - Service Worker
+   Zweck: App-Shell offline verfuegbar halten (z. B. im ICE ohne Netz).
    Strategie:
    - Navigations-/HTML-Anfragen: network-first mit Cache-Fallback
-     (immer die frischeste Version, aber offline läuft die letzte bekannte)
+     (immer die frischeste Version, aber offline laeuft die letzte bekannte)
    - Fremd-APIs (Microsoft Graph, Claude-Proxy, Google): NIE cachen
-     (sonst würden veraltete Daten oder Tokens ausgeliefert)
+     (sonst wuerden veraltete Daten oder Tokens ausgeliefert)
+   Hinweis: Kommentare bewusst ohne Umlaute - Cloudflare liefert .js ohne
+   charset-Angabe aus, dann stellt der Browser Umlaute falsch dar.
 */
 const CACHE = 'dozenten-cockpit-v1';
 const SHELL = ['/', '/index.html'];
@@ -24,7 +26,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // Nur eigene Herkunft behandeln — APIs und Fremddomains unangetastet lassen
+  // Nur eigene Herkunft behandeln - APIs und Fremddomains unangetastet lassen
   if (url.origin !== self.location.origin) return;
 
   // Cloudflare-Function (Claude-Proxy) niemals cachen
