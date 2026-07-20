@@ -205,6 +205,48 @@ details.card[open]>summary::after{content:'–'}
   .trip{padding-top:12px;padding-bottom:12px}
   label{font-size:13px}
 }
+
+/* ---------- Untere Navigationsleiste (Daumenbereich) ---------- */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;
+  background:var(--ink);border-top:1px solid rgba(255,255,255,.12);
+  padding-bottom:env(safe-area-inset-bottom)}
+.tabbar button{flex:1;background:transparent;border:0;color:rgba(255,255,255,.62);
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:7px 2px 6px;cursor:pointer;font:600 10px/1.1 'Barlow Condensed',sans-serif;
+  text-transform:uppercase;letter-spacing:.04em;min-height:52px}
+.tabbar button .ic{font-size:19px;line-height:1}
+.tabbar button.on{color:#fff}
+.tabbar button.on .ic{filter:drop-shadow(0 0 6px rgba(255,80,80,.5))}
+/* Platz schaffen, damit die Leiste nichts überdeckt */
+body{padding-bottom:64px}
+/* Das alte Reiter-Band nur noch auf Desktop zeigen; Handy nutzt die untere Leiste */
+@media (pointer:coarse){ .bereiche{display:none} }
+@media (min-width:900px){ .tabbar{display:none} body{padding-bottom:0} }
+
+/* ---------- Mehr-Menü (Overlay) ---------- */
+.mehrOverlay{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);
+  display:none;align-items:flex-end}
+.mehrOverlay.auf{display:flex}
+.mehrSheet{background:var(--paper,#fff);width:100%;border-radius:16px 16px 0 0;
+  padding:16px 16px calc(20px + env(safe-area-inset-bottom));max-height:70vh;overflow-y:auto}
+.mehrSheet h3{margin:0 0 12px;font-family:'Barlow Condensed',sans-serif;
+  text-transform:uppercase;letter-spacing:.05em;font-size:15px}
+.mehrSheet button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  background:transparent;border:0;border-bottom:1px solid var(--line);
+  padding:14px 4px;font-size:15px;cursor:pointer;color:var(--ink)}
+.mehrSheet button .ic{font-size:20px;width:26px;text-align:center}
+
+/* ---------- Startseiten-Kacheln ---------- */
+.kacheln{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 16px}
+.kachel{background:var(--paper,#fff);border:1px solid var(--line);border-radius:14px;
+  padding:16px 14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;
+  transition:border-color .15s;text-align:left}
+.kachel:hover{border-color:var(--rot)}
+.kachel .ic{font-size:24px}
+.kachel .kt{font-family:'Barlow Condensed',sans-serif;font-weight:600;
+  text-transform:uppercase;letter-spacing:.03em;font-size:15px}
+.kachel .ks{font-size:12px;color:var(--grau)}
+@media (min-width:900px){ .kacheln{display:none} }
 </style>
 </head>
 <body>
@@ -216,8 +258,8 @@ details.card[open]>summary::after{content:'–'}
     <div class="bereiche">
       <button id="tabStart" class="on">Start</button>
       <button id="tabKalender">Kalender</button>
-      <button id="tabSeminare">Seminare</button>
-      <button id="tabReiseplanung">Reiseplanung</button>
+      <button id="tabSeminare">Seminare &amp; Reise</button>
+      <button id="tabReiseplanung" style="display:none">Reiseplanung</button>
       <button id="tabWerkstatt">Werkstatt</button>
       <button id="tabAbrechnung">Abrechnung</button>
       <button id="tabTools">Tools</button>
@@ -228,6 +270,15 @@ details.card[open]>summary::after{content:'–'}
 <div id="offlineBanner" style="display:none"></div>
 
 <div class="wrap" id="bereichStart">
+
+<div class="kacheln" id="startKacheln">
+  <button class="kachel" data-nav="seminare"><span class="ic">🎓</span><span class="kt">Seminare & Reise</span><span class="ks">Aufträge, Planung, Bahn</span></button>
+  <button class="kachel" data-nav="werkstatt"><span class="ic">🔧</span><span class="kt">Werkstatt</span><span class="ks">Erstellen, Werkzeuge, Zeit</span></button>
+  <button class="kachel" data-nav="abrechnung"><span class="ic">📊</span><span class="kt">Abrechnung</span><span class="ks">Rechnungen, Jahr, IHK</span></button>
+  <button class="kachel" data-nav="kalender"><span class="ic">📅</span><span class="kt">Kalender</span><span class="ks">Termine, Konflikte</span></button>
+  <button class="kachel" data-nav="tools"><span class="ic">⚙️</span><span class="kt">Tools</span><span class="ks">Verbindungen, Abos</span></button>
+  <button class="kachel" data-navmehr="__scrolldown"><span class="ic">⬇️</span><span class="kt">Mein Tag</span><span class="ks">Aufgaben & Notizen unten</span></button>
+</div>
 
 <div class="card">
     <h2>Outlook</h2>
@@ -464,9 +515,42 @@ details.card[open]>summary::after{content:'–'}
 
 <div class="wrap" id="bereichWerkstatt" style="display:none">
 
-<details class="card" id="werkstattCard">
-    <summary>Werkstatt</summary>
-    <div class="hint">Für Seminarunterlagen und DIHK-Klausuren, unabhängig von Reise/Abrechnung. Bereitet Ordner und Auftrag vor — die eigentliche Erstellung läuft dann in deinem Claude-Chat mit dem Gamma-Connector.</div>
+<div class="card">
+    <h2>Arbeitsaufgaben
+      <span class="tools"><button class="minibtn" id="btnWsAufgabenReload">Aktualisieren</button></span>
+    </h2>
+    <div class="hint">Deine offenen Aufgaben aus Going Public, BWV und IHK/DIHK — der Arbeits-Ausschnitt deiner To-Do-Listen.</div>
+    <div id="wsAufgaben" style="margin-top:8px"></div>
+  </div>
+
+<div class="card">
+    <h2>Werkzeuge</h2>
+    <div class="hint">Absprung zu den Tools zum Erstellen. Bei Präsentation, Klausur und Unterlagen liefert Claude dir einen fertigen Start-Prompt.</div>
+    <div id="werkzeugGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"></div>
+    <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
+      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin-bottom:8px">Vorlagen-Prompt erzeugen</div>
+      <div class="grid2">
+        <div class="f"><label>Was erstellst du?</label>
+          <select id="vpTyp"><option value="praesentation">Präsentation / Folien</option><option value="klausur">IHK-Klausur / Prüfungsfragen</option><option value="unterlagen">Unterlagen überarbeiten</option></select>
+        </div>
+        <div class="f"><label>Thema / Kurs</label><input type="text" id="vpThema" placeholder="z. B. Bausparen, Kapitel 3"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <button type="button" class="minibtn" id="btnVpGen">Prompt erzeugen</button>
+      </div>
+      <div class="f" id="vpWrap" style="display:none;margin-top:8px">
+        <textarea id="vpText" rows="6" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 13.5px/1.45 'IBM Plex Sans',sans-serif"></textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <button type="button" class="minibtn" id="btnVpCopyClaude">Kopieren & Claude öffnen</button>
+          <button type="button" class="minibtn" id="btnVpCopyGemini">Kopieren & Gemini öffnen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<div class="card" id="werkstattCard">
+    <h2>Ordner & Auftrag</h2>
+    <div class="hint">Für Seminarunterlagen und DIHK-Klausuren. Bereitet Ordner und Auftrag vor — die eigentliche Erstellung läuft dann in deinem Claude-Chat mit dem Gamma-Connector.</div>
 
     <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -521,7 +605,7 @@ details.card[open]>summary::after{content:'–'}
         <div id="azListe" style="margin-top:6px"></div>
       </div>
     </details>
-  </details>
+  </div>
 
 </div>
 
@@ -2773,20 +2857,45 @@ async function kalTerminAnlegen(){
 /* Bereichs-Wechsel */
 const BEREICHE=['start','kalender','seminare','reiseplanung','werkstatt','abrechnung','tools'];
 function bereichWechseln(b){
+  /* "Seminare & Reise" ist EIN Bereich für den Nutzer: der Reiseplanung-Block wird
+     im Seminare-Bereich mit eingeblendet, obwohl er technisch ein eigenes <div> ist. */
+  const zeigeReise=(b==='seminare');
   BEREICHE.forEach(x=>{
-    el('bereich'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=(x===b)?'block':'none';
-    el('tab'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('on',x===b);
+    const div=el('bereich'+x.charAt(0).toUpperCase()+x.slice(1));
+    if(x==='reiseplanung'){ div.style.display=zeigeReise?'block':'none'; }
+    else{ div.style.display=(x===b)?'block':'none'; }
+    const tab=el('tab'+x.charAt(0).toUpperCase()+x.slice(1));
+    if(tab)tab.classList.toggle('on',x===b);
+  });
+  /* Untere Leiste markieren — Kalender/Tools zählen unter "Mehr" */
+  document.querySelectorAll('.tabbar button[data-nav]').forEach(btn=>{
+    const ziel=btn.dataset.nav;
+    btn.classList.toggle('on', ziel===b || (ziel==='__mehr' && (b==='kalender'||b==='tools')));
   });
   if(b==='start'){renderMsStatus();renderGtasks(true);renderNachbereitung();renderBriefing();taskBoardLaden();autoKalenderCheck()}
   if(b==='kalender'){kalenderLaden();konfliktKalRender()}
-  if(b==='seminare'){renderMsStatus();renderMeetings()}
-  if(b==='reiseplanung'){renderReiseplanung()}
-  if(b==='werkstatt'){ordnerLaden();renderAzListe()}
+  if(b==='seminare'){renderMsStatus();renderMeetings();renderReiseplanung()}
+  if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderWerkstattAufgaben()}
   if(b==='abrechnung'){render()}
   if(b==='tools'){renderTools();renderOdStatus();renderGtasks(true)}
-  document.querySelector('.fab').style.display=(b==='abrechnung'||b==='reiseplanung')?'flex':'none';
+  document.querySelector('.fab').style.display=(b==='abrechnung'||b==='seminare')?'flex':'none';
   el('btnCsv').style.display=(b==='abrechnung')?'inline-block':'none';
   window.scrollTo({top:0,behavior:'instant'});
+}
+/* Navigation aus unterer Leiste, Kacheln und Mehr-Menü */
+function navBinden(){
+  document.querySelectorAll('[data-nav]').forEach(el2=>el2.addEventListener('click',()=>{
+    const z=el2.dataset.nav;
+    if(z==='__mehr'){el('mehrOverlay').classList.add('auf');return}
+    bereichWechseln(z);
+  }));
+  document.querySelectorAll('[data-navmehr]').forEach(el2=>el2.addEventListener('click',()=>{
+    const z=el2.dataset.navmehr;
+    el('mehrOverlay').classList.remove('auf');
+    if(z==='__scrolldown'){window.scrollTo({top:600,behavior:'smooth'});return}
+    bereichWechseln(z);
+  }));
+  el('mehrOverlay').addEventListener('click',e=>{if(e.target===el('mehrOverlay'))el('mehrOverlay').classList.remove('auf')});
 }
 function renderReiseplanung(){
   const box=el('reiseplanListe');if(!box)return;
@@ -3247,6 +3356,71 @@ async function inboxAnlegen(){
     toast('Aufgabe angelegt');
     taskBoardLaden();
   }catch(e){st.textContent='Anlegen fehlgeschlagen: '+e.message}
+}
+
+/* ---------- Werkstatt: Werkzeuge, Vorlagen-Prompts, Arbeitsaufgaben ---------- */
+const WERKZEUGE=[
+  {name:'Claude',url:'https://claude.ai',ic:'\u2728'},
+  {name:'Gemini',url:'https://gemini.google.com',ic:'\u2b50'},
+  {name:'Gemini Notebook',url:'https://notebooklm.google.com',ic:'\ud83d\udcd3'},
+  {name:'Microsoft Cowork',url:'https://m365.cloud.microsoft',ic:'\ud83d\udcbc'},
+  {name:'Canva',url:'https://www.canva.com',ic:'\ud83c\udfa8'},
+  {name:'Mentimeter',url:'https://www.mentimeter.com',ic:'\ud83d\udcca'},
+  {name:'HeyGen / ElevenLabs',url:'https://www.heygen.com',ic:'\ud83c\udfa4'},
+  {name:'Prompt Cowboy',url:'https://promptcowboy.ai',ic:'\ud83e\udd20'}
+];
+function renderWerkzeuge(){
+  const box=el('werkzeugGrid');if(!box)return;
+  box.innerHTML=WERKZEUGE.map(w=>
+    '<a href="'+w.url+'" target="_blank" rel="noopener" class="minibtn" style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-decoration:none;text-transform:none;letter-spacing:0;font-size:14px;padding:10px 12px">'+
+    '<span style="font-size:17px">'+w.ic+'</span>'+esc(w.name)+'</a>').join('');
+}
+function vorlagenPrompt(typ,thema){
+  const t=thema||'[Thema hier einsetzen]';
+  const basis='Kontext: Ich bin Charles H\u00fctten, Seminardozent f\u00fcr Finanzberatung, Versicherung, Immobilienmakler und Kommunikation. Zielgruppe sind Versicherungsvermittler und Finanzberater.\n\n';
+  if(typ==='klausur')
+    return basis+'Aufgabe: Erstelle IHK-Pr\u00fcfungsfragen zum Thema "'+t+'".\n\nAnforderungen:\n- Mischung aus Wissens-, Anwendungs- und Fallfragen\n- Jeweils Musterl\u00f6sung und Bewertungshinweise\n- Praxisn\u00e4he, realistische Kundensituationen\n- Niveau: IHK-Sachkundepr\u00fcfung\n\nGib zuerst eine kurze Struktur\u00fcbersicht, dann die Fragen.';
+  if(typ==='unterlagen')
+    return basis+'Aufgabe: \u00dcberarbeite/aktualisiere meine Seminarunterlagen zum Thema "'+t+'".\n\nVorgehen:\n- Frag mich zuerst, welche konkreten Abschnitte betroffen sind\n- Pr\u00fcfe auf veraltete Zahlen, Gesetze, Beispiele\n- Schlage moderne Praxisbeispiele vor\n- Achte auf verst\u00e4ndliche Sprache f\u00fcr die Zielgruppe';
+  return basis+'Aufgabe: Erstelle eine Pr\u00e4sentation/Foliensatz zum Thema "'+t+'".\n\nAnforderungen:\n- Klare Gliederung mit Lernzielen am Anfang\n- Pro Folie ein Kerngedanke, stichpunktartig\n- Praxisbeispiele und mind. eine \u00dcbung/Fallstudie\n- Sprechernotizen f\u00fcr mich als Dozent\n\nGib zuerst die Gliederung, dann die Folien.';
+}
+function vpGenerieren(){
+  const typ=el('vpTyp').value, thema=el('vpThema').value.trim();
+  el('vpText').value=vorlagenPrompt(typ,thema);
+  el('vpWrap').style.display='block';
+}
+async function renderWerkstattAufgaben(){
+  const box=el('wsAufgaben');if(!box)return;
+  if(!msAccount){box.innerHTML='<div class="hint">Mit Outlook verbinden, um Aufgaben zu sehen.</div>';return}
+  box.innerHTML='<div class="hint"><span class="spin"></span>Lade \u2026</div>';
+  try{
+    const listen=await taskListenHolen();
+    /* Nur die Arbeits-Listen: Going Public, BWV, IHK, DIHK */
+    const istArbeit=n=>{const l=(n||'').toLowerCase();return /going public|bwv|ihk|dihk/.test(l)};
+    const arbeit=listen.filter(l=>istArbeit(l.name));
+    if(!arbeit.length){box.innerHTML='<div class="hint">Keine Arbeits-Listen (Going Public, BWV, IHK/DIHK) gefunden. Lege sie in Microsoft To Do an.</div>';return}
+    const teile=await Promise.all(arbeit.map(async l=>{
+      try{const d=await graph('/me/todo/lists/'+encodeURIComponent(l.id)+'/tasks?$top=100');
+        return (d.value||[]).filter(t=>t.status!=='completed').map(t=>{t._listId=l.id;t._listName=l.name;return t});
+      }catch(e){return []}
+    }));
+    const items=teile.flat();
+    if(!items.length){box.innerHTML='<div class="hint">Keine offenen Arbeitsaufgaben.</div>';return}
+    box.innerHTML=items.map(t=>{
+      const due=t.dueDateTime&&t.dueDateTime.dateTime?t.dueDateTime.dateTime.slice(0,10):'';
+      return '<div style="border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;align-items:center">'+
+        '<div><div style="font-weight:600;font-size:14px">'+esc(t.title||'')+'</div>'+
+        '<div style="font-size:11.5px;color:var(--grau)">'+esc(t._listName)+(due?' \u00b7 f\u00e4llig '+dfmt(due):'')+'</div></div>'+
+        '<button type="button" class="minibtn" data-wsdone="'+esc(t._listId)+'|'+esc(t.id)+'">Fertig</button></div>';
+    }).join('');
+    box.querySelectorAll('[data-wsdone]').forEach(b=>b.addEventListener('click',async()=>{
+      const [lid,tid]=b.dataset.wsdone.split('|');
+      b.disabled=true;
+      try{await graph('/me/todo/lists/'+encodeURIComponent(lid)+'/tasks/'+encodeURIComponent(tid),{method:'PATCH',body:JSON.stringify({status:'completed'})});
+        b.closest('div[style*="border"]').remove();toast('Erledigt');
+      }catch(e){b.disabled=false}
+    }));
+  }catch(err){box.innerHTML='<div class="hint">Fehler: '+esc(err.message)+'</div>'}
 }
 
 /* ---------- Nachbereitung: gelaufene Seminare abhaken ----------
@@ -3978,6 +4152,11 @@ el('iStart').addEventListener('click',importKalender);
 
 /* Planung: Events */
 el('tabStart').addEventListener('click',()=>bereichWechseln('start'));
+navBinden();
+el('btnVpGen').addEventListener('click',vpGenerieren);
+el('btnVpCopyClaude').addEventListener('click',()=>{navigator.clipboard&&navigator.clipboard.writeText(el('vpText').value);window.open('https://claude.ai','_blank','noopener');toast('Prompt kopiert')});
+el('btnVpCopyGemini').addEventListener('click',()=>{navigator.clipboard&&navigator.clipboard.writeText(el('vpText').value);window.open('https://gemini.google.com','_blank','noopener');toast('Prompt kopiert')});
+el('btnWsAufgabenReload').addEventListener('click',()=>{taskListen=null;renderWerkstattAufgaben()});
 el('tabKalender').addEventListener('click',()=>bereichWechseln('kalender'));
 el('btnKalReload').addEventListener('click',kalenderLaden);
 el('btnKalNeu').addEventListener('click',()=>{
@@ -4055,5 +4234,23 @@ load().then(async()=>{
   }catch(e){/* Shortcut optional */}
 });
 </script>
+<!-- Untere Navigationsleiste (Handy) -->
+<nav class="tabbar" id="tabbar">
+  <button data-nav="start"><span class="ic">🏠</span>Start</button>
+  <button data-nav="seminare"><span class="ic">🎓</span>Seminare</button>
+  <button data-nav="werkstatt"><span class="ic">🔧</span>Werkstatt</button>
+  <button data-nav="abrechnung"><span class="ic">📊</span>Abrechnung</button>
+  <button data-nav="__mehr"><span class="ic">⋯</span>Mehr</button>
+</nav>
+
+<!-- Mehr-Menü -->
+<div class="mehrOverlay" id="mehrOverlay">
+  <div class="mehrSheet">
+    <h3>Weitere Bereiche</h3>
+    <button data-navmehr="kalender"><span class="ic">📅</span>Kalender</button>
+    <button data-navmehr="tools"><span class="ic">⚙️</span>Tools & Verbindungen</button>
+  </div>
+</div>
+
 </body>
 </html>
