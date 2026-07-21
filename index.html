@@ -299,7 +299,7 @@ body{padding-bottom:64px}
   <button class="kachel" data-nav="abrechnung"><span class="ic">📊</span><span class="kt">Abrechnung</span><span class="ks">Rechnungen, Jahr, IHK</span></button>
   <button class="kachel" data-nav="kalender"><span class="ic">📅</span><span class="kt">Kalender</span><span class="ks">Termine, Konflikte</span></button>
   <button class="kachel" data-nav="tools"><span class="ic">⚙️</span><span class="kt">Tools</span><span class="ks">Verbindungen, Abos</span></button>
-  <button class="kachel" data-navmehr="__scrolldown"><span class="ic">⬇️</span><span class="kt">Mein Tag</span><span class="ks">Aufgaben & Notizen unten</span></button>
+  <button class="kachel" data-navmehr="__neuereise"><span class="ic">➕</span><span class="kt">Neue Reise</span><span class="ks">Seminar/Reise sofort erfassen</span></button>
 </div>
 
 <div class="card" id="kalenderHinweis" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
@@ -745,8 +745,18 @@ body{padding-bottom:64px}
     </h2>
     <div class="hint">Alles, was du beruflich nutzt — Abos, Kosten, Laufzeiten, Use Cases. Klick auf ein Tool öffnet die Details.</div>
     <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 2px 4px;-webkit-overflow-scrolling:touch" id="toolFilter"></div>
+    <div style="display:flex;gap:6px;margin:2px 2px 6px" id="toolAnsicht">
+      <button type="button" class="minibtn" data-tview="karten">📇 Karten</button>
+      <button type="button" class="minibtn" data-tview="tabelle">📋 Tabelle</button>
+    </div>
     <div id="toolListe" style="margin-top:4px"></div>
   </div>
+
+<details class="card vollbreite" id="toolAuswertungCard">
+    <summary>Auswertung — Kosten & Verträge</summary>
+    <div class="hint" style="margin-top:6px">Alles aus deinen erfassten Tools. Fehlt bei einem Tool der Betrag, zählt es hier mit 0 — Lücken siehst du in der Tabelle als „—".</div>
+    <div id="toolAuswertung" style="margin-top:12px"></div>
+  </details>
 
 <div class="card vollbreite" id="toolFormCard" style="display:none">
     <h2 id="toolFormTitel">Tool bearbeiten</h2>
@@ -1611,6 +1621,7 @@ function toolTageBisAblauf(t){
   return Math.round((new Date(t.ablauf)-new Date())/86400000);
 }
 let toolFilterAktiv='alle';
+let toolAnsichtModus='karten';
 function renderTools(){
   const liste=toolListe();
   /* KPIs */
@@ -1656,11 +1667,116 @@ function renderTools(){
     fbox.innerHTML=kats.map(k=>'<button type="button" class="minibtn'+(toolFilterAktiv===k?' rot':'')+'" data-tfilter="'+esc(k)+'" style="flex:0 0 auto;font-size:11.5px;padding:4px 10px">'+(k==='alle'?'Alle':esc(k))+'</button>').join('');
     fbox.querySelectorAll('[data-tfilter]').forEach(b=>b.addEventListener('click',()=>{toolFilterAktiv=b.dataset.tfilter;renderTools()}));
   }
+  /* Ansicht-Umschalter markieren + verdrahten */
+  const vbox=el('toolAnsicht');
+  if(vbox){
+    vbox.querySelectorAll('[data-tview]').forEach(b=>{
+      b.classList.toggle('rot',b.dataset.tview===toolAnsichtModus);
+      b.onclick=()=>{toolAnsichtModus=b.dataset.tview;renderTools()};
+    });
+  }
   /* Liste */
   const box=el('toolListe');if(!box)return;
   const gefiltert=liste.filter(t=>toolFilterAktiv==='alle'||t.kategorie===toolFilterAktiv)
     .sort((a,b)=>(b.genutzt?1:0)-(a.genutzt?1:0)||a.name.localeCompare(b.name));
-  if(!gefiltert.length){box.innerHTML='<div class="hint">Noch keine Tools erfasst — leg unten aus den Vorschlägen los oder nutze „+ Tool".</div>';return}
+  if(!gefiltert.length){box.innerHTML='<div class="hint">Noch keine Tools erfasst — leg unten aus den Vorschlägen los oder nutze „+ Tool".</div>';renderToolVorschlaege();renderToolCheckStand();gmailScanAutoCheck();return}
+  if(toolAnsichtModus==='tabelle'){renderToolTabelle(gefiltert);}
+  else{renderToolKarten(gefiltert);}
+  box.querySelectorAll('[data-tedit]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();toolFormOeffnen(b.dataset.tedit)}));
+  renderToolVorschlaege();
+  renderToolCheckStand();
+  gmailScanAutoCheck();
+  renderToolAuswertung();
+}
+/* ---------- Tool-Auswertung: Kosten je Kategorie, je Konto, Vertrags-Zeitstrahl ----------
+   Reines SVG/HTML, keine Chart-Bibliothek (offline-tauglich, keine Abhängigkeit).
+   Basis: genutzte Tools mit Monatskosten (jährlich → /12 über toolMonatskosten). */
+function renderToolAuswertung(){
+  const box=el('toolAuswertung');if(!box)return;
+  const genutzt=toolListe().filter(t=>t.genutzt);
+  if(!genutzt.length){box.innerHTML='<div class="hint">Noch keine aktiven Tools erfasst.</div>';return}
+
+  /* Balken-Helfer: [{label, wert}] → horizontale Balkenreihe, wert als €/M */
+  function balken(daten, farbe){
+    const max=Math.max(1,...daten.map(d=>d.wert));
+    return '<div style="display:grid;gap:7px">'+daten.map(d=>{
+      const pct=Math.round(d.wert/max*100);
+      return '<div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:2px">'+
+          '<span>'+esc(d.label)+'</span><span class="mono" style="color:var(--grau)">'+eur(d.wert)+'/M</span></div>'+
+        '<div style="background:var(--bg);border-radius:5px;height:14px;overflow:hidden">'+
+          '<div style="width:'+pct+'%;height:100%;background:'+farbe+';border-radius:5px;min-width:'+(d.wert>0?'3px':'0')+'"></div>'+
+        '</div></div>';
+    }).join('')+'</div>';
+  }
+
+  /* 1) Kosten je Kategorie */
+  const proKat={};
+  genutzt.forEach(t=>{const k=t.kategorie||'Sonstiges';proKat[k]=(proKat[k]||0)+toolMonatskosten(t)});
+  const katDaten=Object.keys(proKat).map(k=>({label:k,wert:proKat[k]})).filter(d=>d.wert>0).sort((a,b)=>b.wert-a.wert);
+
+  /* 2) Kosten je Konto */
+  const proKonto={};
+  genutzt.forEach(t=>{const k=t.account||'(kein Konto)';proKonto[k]=(proKonto[k]||0)+toolMonatskosten(t)});
+  const kontoDaten=Object.keys(proKonto).map(k=>({label:k,wert:proKonto[k]})).filter(d=>d.wert>0).sort((a,b)=>b.wert-a.wert);
+
+  const gesamt=genutzt.reduce((s,t)=>s+toolMonatskosten(t),0);
+
+  /* 3) Vertrags-Zeitstrahl: nächste 12 Monate, Tools mit Ablaufdatum einsortieren */
+  const heute=new Date(); heute.setDate(1); heute.setHours(0,0,0,0);
+  const monate=[];
+  for(let i=0;i<12;i++){const d=new Date(heute.getFullYear(),heute.getMonth()+i,1);monate.push({d,tools:[]})}
+  const spaeter=[];
+  genutzt.filter(t=>t.ablauf).forEach(t=>{
+    const a=new Date(t.ablauf);
+    const idx=monate.findIndex(m=>m.d.getFullYear()===a.getFullYear()&&m.d.getMonth()===a.getMonth());
+    if(idx>=0)monate[idx].tools.push(t);
+    else if(a>=heute)spaeter.push(t); /* später als 12 Monate */
+  });
+  const monatsName=d=>['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][d.getMonth()]+' '+String(d.getFullYear()).slice(2);
+  const maxTools=Math.max(1,...monate.map(m=>m.tools.length));
+  const zeitstrahl='<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px;align-items:end;height:70px">'+
+    monate.map(m=>{
+      const n=m.tools.length;
+      const h=n?Math.round(n/maxTools*56)+8:3;
+      const tip=n?m.tools.map(t=>t.name+' ('+dfmt(t.ablauf)+')').join(', '):'keine Verträge';
+      return '<div title="'+esc(monatsName(m.d)+': '+tip)+'" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">'+
+        (n?'<span class="mono" style="font-size:10px;color:var(--grau)">'+n+'</span>':'')+
+        '<div style="width:100%;height:'+h+'px;background:'+(n?'var(--rot)':'var(--line)')+';border-radius:3px"></div>'+
+      '</div>';
+    }).join('')+'</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-top:3px">'+
+      monate.map(m=>'<div style="font-size:9px;color:var(--grau);text-align:center;transform:rotate(-45deg);transform-origin:center;white-space:nowrap">'+monatsName(m.d)+'</div>').join('')+
+    '</div>';
+
+  /* Auslaufende Verträge als Liste darunter (die nächsten, chronologisch) */
+  const auslaufend=genutzt.filter(t=>t.ablauf).map(t=>({t,d:new Date(t.ablauf)})).filter(x=>x.d>=heute).sort((a,b)=>a.d-b.d).slice(0,6);
+
+  box.innerHTML=
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:14px">'+
+      '<span style="font-weight:600">Gesamt aktiv</span>'+
+      '<span class="mono" style="font-size:18px;font-weight:600">'+eur(gesamt)+'/M <span style="font-size:12px;color:var(--grau)">· '+eur(gesamt*12)+'/J</span></span>'+
+    '</div>'+
+
+    '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin-bottom:8px">Kosten je Kategorie</div>'+
+    (katDaten.length?balken(katDaten,'var(--ink)'):'<div class="hint">Noch keine Beträge erfasst.</div>')+
+
+    '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin:18px 0 8px">Kosten je Konto</div>'+
+    (kontoDaten.length?balken(kontoDaten,'var(--rot)'):'<div class="hint">Noch keine Beträge erfasst.</div>')+
+
+    '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin:18px 0 8px">Vertrags-Verlängerungen (nächste 12 Monate)</div>'+
+    zeitstrahl+
+    (auslaufend.length?
+      '<div style="margin-top:14px;display:grid;gap:4px">'+auslaufend.map(x=>{
+        const tage=Math.round((x.d-new Date())/86400000);
+        const farbe=tage<=30?'var(--rot)':(tage<=60?'#b8860b':'var(--grau)');
+        return '<div class="agrow"><span>'+esc(x.t.name)+'</span><span class="mono" style="color:'+farbe+'">'+dfmt(x.t.ablauf)+' · in '+tage+' T</span></div>';
+      }).join('')+'</div>'
+      :'<div class="hint" style="margin-top:10px">Keine Verträge mit hinterlegtem Ablaufdatum.</div>')+
+    (spaeter.length?'<div class="hint" style="margin-top:6px">'+spaeter.length+' weitere(r) Vertrag/Verträge laufen erst nach 12 Monaten aus.</div>':'');
+}
+function renderToolKarten(gefiltert){
+  const box=el('toolListe');
   box.innerHTML=gefiltert.map(t=>{
     const tage=toolTageBisAblauf(t);
     const ampel=tage===null?'':(tage<=30?'<span style="color:var(--rot)">●</span> ':(tage<=60?'<span style="color:#b8860b">●</span> ':''));
@@ -1687,15 +1803,48 @@ function renderTools(){
         '</div>'+
       '</div></details>';
   }).join('');
-  box.querySelectorAll('[data-tedit]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();toolFormOeffnen(b.dataset.tedit)}));
-  renderToolVorschlaege();
-  renderToolCheckStand();
-  gmailScanAutoCheck();
+}
+/* Kompakte Gesamtübersicht aller Tools als Tabelle (am Handy horizontal scrollbar).
+   Zeigt genau die Felder, die man zum Überblick braucht: Abo, Kosten+Rhythmus, Konto,
+   Vertragsende, Kurzbeschreibung. Jährliche Kosten zusätzlich auf den Monat umgerechnet. */
+function renderToolTabelle(gefiltert){
+  const box=el('toolListe');
+  const rhythmus=t=>({monatlich:'monatlich',jaehrlich:'jährlich',einmalig:'einmalig',kostenlos:'kostenlos'})[t.intervall]||esc(t.intervall||'');
+  const kostenText=t=>{
+    if(t.intervall==='kostenlos'||(!t.betrag&&t.intervall!=='monatlich'))return t.intervall==='kostenlos'?'kostenlos':'—';
+    if(!t.betrag)return '—';
+    if(t.intervall==='jaehrlich')return eur(+t.betrag)+'/J <span style="color:var(--grau)">('+eur(+t.betrag/12)+'/M)</span>';
+    if(t.intervall==='einmalig')return eur(+t.betrag)+' einm.';
+    return eur(+t.betrag)+'/M';
+  };
+  const rows=gefiltert.map(t=>{
+    const tage=toolTageBisAblauf(t);
+    const ablauf=t.ablauf?('<span'+(tage!==null&&tage<=60?' style="color:'+(tage<=30?'var(--rot)':'#b8860b')+'"':'')+'>'+dfmt(t.ablauf)+'</span>'):'—';
+    return '<tr style="border-bottom:1px solid var(--line)">'+
+      '<td style="padding:7px 8px;font-weight:600;white-space:nowrap">'+(t.genutzt?'':'<span style="opacity:.5">○ </span>')+esc(t.name)+
+        (t.connector?' 🔌':'')+(t.skill?' ⚡':'')+'</td>'+
+      '<td style="padding:7px 8px;white-space:nowrap">'+(t.tarif?esc(t.tarif):'—')+'</td>'+
+      '<td style="padding:7px 8px;white-space:nowrap" class="mono">'+kostenText(t)+'</td>'+
+      '<td style="padding:7px 8px;white-space:nowrap">'+rhythmus(t)+'</td>'+
+      '<td style="padding:7px 8px;white-space:nowrap">'+(t.account?esc(t.account):'—')+'</td>'+
+      '<td style="padding:7px 8px;white-space:nowrap">'+ablauf+'</td>'+
+      '<td style="padding:7px 8px;min-width:180px;color:var(--grau)">'+(t.useCases?esc(t.useCases):'—')+'</td>'+
+      '<td style="padding:7px 8px"><button type="button" class="minibtn" data-tedit="'+t.id+'" style="padding:2px 8px;font-size:11px">✎</button></td>'+
+      '</tr>';
+  }).join('');
+  box.innerHTML='<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
+    '<thead><tr style="border-bottom:2px solid var(--ink);text-align:left">'+
+      '<th style="padding:6px 8px">Tool</th><th style="padding:6px 8px">Abo</th><th style="padding:6px 8px">Kosten</th>'+
+      '<th style="padding:6px 8px">Rhythmus</th><th style="padding:6px 8px">Konto</th><th style="padding:6px 8px">Läuft bis</th>'+
+      '<th style="padding:6px 8px">Wofür</th><th style="padding:6px 8px"></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 function renderToolVorschlaege(){
   const box=el('toolVorschlaege');if(!box)return;
-  const vorhanden=toolListe().map(t=>t.name.toLowerCase());
-  const offen=TOOL_DB.filter(v=>!vorhanden.includes(v.name.toLowerCase()));
+  /* Tolerant abgleichen: "Claude" == "Claude (Anthropic)" == "Claude Pro" — sonst
+     werden bereits erfasste Tools erneut vorgeschlagen und doppelt angelegt. */
+  const vorhanden=toolListe().map(t=>norm2(t.name));
+  const offen=TOOL_DB.filter(v=>!vorhanden.includes(norm2(v.name)));
   if(!offen.length){box.innerHTML='<div class="hint">Alle Vorschläge sind bereits erfasst.</div>';return}
   box.innerHTML=offen.map((v,i)=>'<div class="agrow"><span>'+esc(v.name)+' <span style="color:var(--grau);font-size:11.5px">· '+esc(v.kategorie)+'</span></span>'+
     '<button type="button" class="minibtn" data-tadd="'+i+'" style="padding:2px 10px;font-size:11px">+ Übernehmen</button></div>').join('');
@@ -3121,7 +3270,7 @@ function navBinden(){
     if(navm){
       const z=navm.dataset.navmehr;
       const o=el('mehrOverlay');if(o)o.classList.remove('auf');
-      if(z==='__scrolldown'){window.scrollTo({top:600,behavior:'smooth'});return}
+      if(z==='__neuereise'){bereichWechseln('seminare');setTimeout(()=>openForm(null),60);return}
       bereichWechseln(z);return;
     }
     /* Klick auf den dunklen Rand des Mehr-Menues schliesst es */
@@ -3565,7 +3714,7 @@ async function gmailScan(){
     }).join('');
   }catch(err){st.textContent='Fehler: '+err.message}
 }
-function norm2(s){return (s||'').toLowerCase().replace(/\s*\(.*/,'').trim()}
+function norm2(s){return (s||'').toLowerCase().replace(/\s*\(.*/,'').replace(/\s+(pro|plus|team|max|creator|professional|individual|business|premium)\b.*$/,'').trim()}
 let gmailScanErgebnis=[];
 function gmailAboUebernehmen(i){
   const f=gmailScanErgebnis[i];if(!f)return;
