@@ -1087,6 +1087,14 @@ async function load(){
   // Migration: altes km-Gedächtnis in Orte-Speicher überführen
   Object.keys(state.kmMemo).forEach(k=>{if(!state.orte[k])state.orte[k]={name:k,adresse:'',lat:null,lon:null,km:state.kmMemo[k],count:1}});
   state.kmMemo={};
+  /* Einmalige Reparatur: defekte Orte ohne name aussortieren (Alt-Bug, ließ die
+     Adresssuche mit einem TypeError abstürzen). name notfalls aus dem Schlüssel. */
+  Object.keys(state.orte).forEach(k=>{
+    const o=state.orte[k];
+    if(!o){delete state.orte[k];return}
+    if(!o.name)o.name=k||'';
+    if(!o.name)delete state.orte[k];
+  });
   // Migration V1 -> V2
   state.trips.forEach(t=>{
     if(!t.belege){t.belege=t.neben>0?[{art:'Nebenkosten',betrag:+t.neben,eigen:false}]:[];delete t.neben}
@@ -1429,7 +1437,9 @@ async function ensureHome(){
 }
 function stammziele(q){
   const ql=q.toLowerCase();
-  return Object.values(state.orte).filter(o=>o.name.toLowerCase().includes(ql))
+  /* Gegen defekte Alt-Einträge absichern: Orte ohne name überspringen, sonst
+     wirft o.name.toLowerCase() einen TypeError und die ganze Suche stirbt. */
+  return Object.values(state.orte).filter(o=>o&&o.name&&o.name.toLowerCase().includes(ql))
     .sort((a,b)=>(b.count||0)-(a.count||0)).slice(0,3);
 }
 function renderSugg(items){
