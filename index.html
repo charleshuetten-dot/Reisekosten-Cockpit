@@ -1390,7 +1390,7 @@ function calcPreview(){
 /* ---------- Adresssuche & Route (OpenStreetMap: Photon + OSRM, kostenlos) ---------- */
 let geoOff=false, selZiel=null, suggTimer=null;
 async function geoFetch(url){
-  try{const r=await fetch(url);if(!r.ok)throw 0;return await r.json()}
+  try{const r=await fetch(url);if(!r.ok)throw 0;const j=await r.json();geoOff=false;return j}
   catch(e){geoOff=true;return null}
 }
 async function photon(q){
@@ -1480,10 +1480,18 @@ function kOrtSuchen(){
   kOrtSuggTimer=setTimeout(async()=>{
     const eigene=stammziele(q).map(o=>Object.assign({stamm:true},o));
     renderKOrtSugg(eigene);
-    if(!geoOff&&q.length>=3){
+    /* Websuche immer versuchen (geoOff nicht als Dauer-Sperre nehmen — ein früherer
+       Fehler soll die Vorschläge hier nicht abschalten). Ab 3 Zeichen sinnvoll. */
+    if(q.length>=3){
       const web=await photon(q);
       const namen=new Set(eigene.map(o=>o.name.toLowerCase()));
-      renderKOrtSugg(eigene.concat(web.filter(w=>!namen.has(w.name.toLowerCase()))));
+      const alle=eigene.concat(web.filter(w=>!namen.has(w.name.toLowerCase())));
+      renderKOrtSugg(alle);
+      if(!alle.length){
+        const box=el('kOrtSugg');
+        box.innerHTML='<div style="color:var(--grau);cursor:default">Keine Treffer — Adresse genauer eingeben (Straße, Ort)</div>';
+        box.style.display='block';
+      }
     }
   },350);
 }
