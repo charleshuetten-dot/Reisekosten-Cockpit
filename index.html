@@ -405,7 +405,7 @@ body{padding-bottom:64px}
       <div class="hint" id="kZielHint" style="margin-top:4px"></div>
     </div>
     <div class="f"><label>Titel</label><input type="text" id="kTitel" placeholder="z. B. Going Public Akademie AllianzFRP"></div>
-    <div class="f"><label>Auftraggeber <span style="color:var(--grau);font-weight:400;text-transform:none;letter-spacing:0">— wird als Outlook-Kategorie gesetzt</span></label>
+    <div class="f" id="kAgWrap"><label>Auftraggeber <span style="color:var(--grau);font-weight:400;text-transform:none;letter-spacing:0">— wird als Outlook-Kategorie gesetzt</span></label>
       <select id="kAg" class="ag-select"></select>
     </div>
     <div class="grid2">
@@ -418,7 +418,9 @@ body{padding-bottom:64px}
       <div class="f"><label>Von</label><input type="time" id="kVon" value="09:00"></div>
       <div class="f"><label>Bis</label><input type="time" id="kBis" value="17:00"></div>
     </div>
-    <div class="f"><label>Ort / Adresse</label><input type="text" id="kOrt" placeholder="Adresse — wird für die km-Berechnung übernommen"></div>
+    <div class="f suggwrap"><label>Ort / Adresse</label><input type="text" id="kOrt" placeholder="Adresse eingeben — Vorschläge erscheinen automatisch" autocomplete="off">
+      <div class="sugg" id="kOrtSugg" style="display:none"></div>
+    </div>
     <div class="f"><label>Notiz</label><input type="text" id="kNotiz" placeholder="optional"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
       <button type="button" class="minibtn" id="btnKalSpeichern">Termin anlegen</button>
@@ -1452,6 +1454,45 @@ async function waehleZiel(o){
     rh.textContent=(o.adresse?o.adresse+' · ':'')+'Route nicht verfügbar — km bitte manuell eintragen';
   }
   calcPreview();
+}
+/* ---------- Adress-Autovervollständigung fürs Kalender-Ort-Feld (#kOrt) ----------
+   Nutzt dieselbe Photon-Suche wie das Reise-Formular, aber ein eigenes Overlay
+   (#kOrtSugg), damit sich die beiden Felder nicht gegenseitig überschreiben. Für den
+   Kalender brauchen wir keine km-Berechnung — die Adresse ist reine Ortsangabe. */
+let kOrtSuggTimer=null;
+function renderKOrtSugg(items){
+  const box=el('kOrtSugg');if(!box)return;
+  if(!items.length){box.style.display='none';return}
+  box.innerHTML=items.map((o,i)=>'<div data-i="'+i+'" tabindex="0">'+(o.stamm?'<span class="star">★</span>':'')+esc(o.name)
+    +(o.adresse?'<span class="adr">'+esc(o.adresse)+'</span>':'')+'</div>').join('');
+  box.style.display='block';
+  box.querySelectorAll('div[data-i]').forEach(n=>n.addEventListener('mousedown',e=>{e.preventDefault();
+    const o=items[+n.dataset.i];
+    /* Volle Adresse eintragen, wenn vorhanden, sonst den Namen */
+    el('kOrt').value=o.adresse?(o.name+', '+o.adresse).replace(/^, /,''):o.name;
+    box.style.display='none';
+  }));
+}
+function kOrtSuchen(){
+  const q=(el('kOrt').value||'').trim();
+  clearTimeout(kOrtSuggTimer);
+  if(q.length<2){el('kOrtSugg').style.display='none';return}
+  kOrtSuggTimer=setTimeout(async()=>{
+    const eigene=stammziele(q).map(o=>Object.assign({stamm:true},o));
+    renderKOrtSugg(eigene);
+    if(!geoOff&&q.length>=3){
+      const web=await photon(q);
+      const namen=new Set(eigene.map(o=>o.name.toLowerCase()));
+      renderKOrtSugg(eigene.concat(web.filter(w=>!namen.has(w.name.toLowerCase()))));
+    }
+  },350);
+}
+/* Auftraggeber-Feld nur zeigen, wenn nach Outlook geschrieben wird — bei einem
+   Google-Termin (privat/Familie) steuert der Auftraggeber nichts. */
+function kZielAnwenden(){
+  const ziel=(el('kZielKalender')&&el('kZielKalender').value)||'outlook';
+  const nachGoogle=ziel.startsWith('g:');
+  if(el('kAgWrap'))el('kAgWrap').style.display=nachGoogle?'none':'block';
 }
 /* Kalender-Adresse eines Entwurfs auflösen: geocodieren + Route ab Zuhause */
 async function zielKmBerechnen(){
@@ -2955,6 +2996,7 @@ async function kalZieleLaden(){
     el('kZielHint').textContent='Nur Outlook verfügbar. Für den Google-Familienkalender: Tools → Verbindungen → Google verbinden.';
   }
   sel.innerHTML=html;
+  kZielAnwenden();
 }
 async function kalTerminAnlegen(){
   const st=el('kalFormStatus');
@@ -4494,6 +4536,11 @@ el('fZiel').addEventListener('input',()=>{
 });
 el('fZiel').addEventListener('blur',()=>setTimeout(()=>el('zielSugg').style.display='none',180));
 
+/* Kalender-Ort-Feld: Autovervollständigung + Kalenderwechsel blendet Auftraggeber */
+el('kOrt').addEventListener('input',kOrtSuchen);
+el('kOrt').addEventListener('blur',()=>setTimeout(()=>{el('kOrtSugg').style.display='none'},180));
+el('kZielKalender').addEventListener('change',kZielAnwenden);
+
 /* Heimatadresse */
 el('setHome').addEventListener('change',async()=>{
   const a=el('setHome').value.trim(); if(!a)return;
@@ -4650,6 +4697,7 @@ el('btnKalNeu').addEventListener('click',()=>{
   el('kTitel').value='';el('kDatum').value=heuteISO();
   el('kGanztag').value='nein';el('kVon').value='09:00';el('kBis').value='17:00';
   el('kOrt').value='';el('kNotiz').value='';el('kalFormStatus').textContent='';
+  if(el('kOrtSugg'))el('kOrtSugg').style.display='none';
   if(el('kAg').options.length)el('kAg').selectedIndex=0;
   el('kZeitWrap').style.display='grid';
   el('kalFormCard').scrollIntoView({behavior:'smooth'});
