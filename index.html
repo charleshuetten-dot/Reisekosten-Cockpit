@@ -741,7 +741,7 @@ body{padding-bottom:64px}
 
 <div class="card vollbreite">
     <h2>Mein Tool-Stack
-      <span class="tools"><button class="minibtn" id="btnAboImport">Abos importieren</button><button class="minibtn" id="btnWerkzeugeStack">Werkzeuge übernehmen</button><button class="minibtn" id="btnToolNeu">+ Tool</button></span>
+      <span class="tools"><button class="minibtn" id="btnAboImport">Abos importieren</button><button class="minibtn" id="btnToolAufraeumen">Aufräumen</button><button class="minibtn" id="btnWerkzeugeStack">Werkzeuge übernehmen</button><button class="minibtn" id="btnToolNeu">+ Tool</button></span>
     </h2>
     <div class="hint">Alles, was du beruflich nutzt — Abos, Kosten, Laufzeiten, Use Cases. Klick auf ein Tool öffnet die Details.</div>
     <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 2px 4px;-webkit-overflow-scrolling:touch" id="toolFilter"></div>
@@ -1914,7 +1914,7 @@ function toolFormOeffnen(id){
   el('tNotiz').value=t&&t.notiz?t.notiz:'';
   el('toolFormCard').scrollIntoView({behavior:'smooth'});
 }
-async function accountsListe(){ if(!Array.isArray(state.settings.accounts))state.settings.accounts=[]; return state.settings.accounts; }
+function accountsListe(){ if(!Array.isArray(state.settings.accounts))state.settings.accounts=[]; return state.settings.accounts; }
 function tAccountFuellen(aktiv){
   const sel=el('tAccount');if(!sel)return;
   const konten=accountsListe();
@@ -3999,6 +3999,49 @@ async function abosImportieren(){
   await save();renderTools();
   toast(neu+' neu, '+akt+' aktualisiert');
 }
+/* Räumt Dubletten und Namensvarianten in der Tool-Liste auf.
+   - Claude-Varianten ("Anthropic (Claude)", "Claude", "Claude (Anthropic)") → ein Eintrag
+   - "HeyGen / ElevenLabs" (kombiniertes Alt-Werkzeug) → gelöscht, da HeyGen & ElevenLabs einzeln existieren
+   - Nicht genutzte Tools (ChatGPT, Telekom, Prompt Cowboy, Mentimeter) → genutzt:false
+   Beim Zusammenführen gewinnt der Eintrag mit den meisten harten Daten (Betrag+Konto). */
+async function toolAufraeumen(){
+  const liste=toolListe();
+  const norm=s=>(s||'').toLowerCase().replace(/[()\/]/g,' ').replace(/\s+/g,' ').trim();
+  /* Score: wie "vollständig" ist ein Eintrag? Betrag und Konto zählen am meisten. */
+  const score=t=>(t.betrag?4:0)+(t.account?3:0)+(t.ablauf?1:0)+(t.tarif?1:0)+(t.useCases?1:0);
+
+  /* 1) Claude-Varianten zusammenführen: alles was "claude" oder "anthropic" enthält */
+  const claudeIdx=[];
+  liste.forEach((t,i)=>{const n=norm(t.name); if(n.includes('claude')||n.includes('anthropic'))claudeIdx.push(i)});
+  if(claudeIdx.length>1){
+    /* besten Eintrag als Basis wählen */
+    claudeIdx.sort((a,b)=>score(liste[b])-score(liste[a]));
+    const basis=liste[claudeIdx[0]];
+    basis.name='Claude (Anthropic)';
+    /* fehlende Felder aus den anderen auffüllen, dann andere markieren */
+    claudeIdx.slice(1).forEach(i=>{
+      const t=liste[i];
+      ['betrag','account','ablauf','tarif','url','useCases','notiz'].forEach(f=>{if(!basis[f]&&t[f])basis[f]=t[f]});
+      if(t.connector)basis.connector=true; if(t.skill)basis.skill=true;
+    });
+  }
+  /* Indizes der zu entfernenden Claude-Dubletten (alle außer der Basis) */
+  const entfernen=new Set(claudeIdx.slice(1));
+
+  /* 2) "HeyGen / ElevenLabs" entfernen, wenn HeyGen ODER ElevenLabs einzeln existiert */
+  const hatEinzel=liste.some(t=>{const n=norm(t.name);return (n==='heygen'||n==='elevenlabs')});
+  liste.forEach((t,i)=>{const n=norm(t.name); if(n.includes('heygen')&&n.includes('elevenlabs')&&hatEinzel)entfernen.add(i)});
+
+  /* 3) Nicht genutzte Tools auf inaktiv setzen */
+  const inaktivNamen=['chatgpt','telekom','prompt cowboy','mentimeter'];
+  liste.forEach(t=>{if(inaktivNamen.includes(norm(t.name)))t.genutzt=false});
+
+  /* Entfernen (rückwärts, damit Indizes stabil bleiben) */
+  [...entfernen].sort((a,b)=>b-a).forEach(i=>liste.splice(i,1));
+
+  await save();renderTools();
+  toast('Aufgeräumt: '+entfernen.size+' Dublette(n) entfernt, '+inaktivNamen.length+' auf inaktiv');
+}
 function werkzeugeInStack(){
   const liste=toolListe();
   const vorhanden=new Set();
@@ -4824,6 +4867,7 @@ el('iStart').addEventListener('click',importKalender);
 el('tabStart').addEventListener('click',()=>bereichWechseln('start'));
 navBinden();
 el('btnWerkzeugeStack').addEventListener('click',werkzeugeInStack);
+el('btnToolAufraeumen').addEventListener('click',()=>{if(confirm('Tool-Liste aufräumen? Claude-Varianten werden zu einem Eintrag zusammengeführt, „HeyGen / ElevenLabs" entfernt (die beiden gibt es einzeln), und ChatGPT, Telekom, Prompt Cowboy, Mentimeter auf inaktiv gesetzt. Beträge und Konten bleiben erhalten.'))toolAufraeumen()});
 el('btnAboImport').addEventListener('click',()=>{if(confirm('Die geprüften Abo-Daten (Stand 21.07.2026) importieren? 9 Tools mit Tarif, Betrag, Konto und Vertragsende. Vorhandene Tools mit gleichem Namen werden aktualisiert, neue angelegt. Konten SCC-KK, Coaching-Karte und Optima werden bei Bedarf angelegt.'))abosImportieren()});
 el('btnGmailScan').addEventListener('click',gmailScan);
 document.addEventListener('click',e=>{const b=e.target.closest('[data-gmailadd]');if(b)gmailAboUebernehmen(+b.getAttribute('data-gmailadd'))});
