@@ -38,7 +38,7 @@ header h1 em{font-style:normal;color:var(--rot)}
   .wrap.spalten{column-count:2;column-gap:20px}
   .wrap.spalten>.card,.wrap.spalten>details.card{break-inside:avoid;margin-bottom:20px;display:inline-block;width:100%}
   /* Kacheln und der Zurück-Knopf sollen volle Breite behalten, nicht in eine Spalte */
-  .wrap.spalten>.kacheln,.wrap.spalten>.zurueckStart,.wrap.spalten>.kpis{column-span:all}
+  .wrap.spalten>.kacheln,.wrap.spalten>.zurueckStart,.wrap.spalten>.kpis,.wrap.spalten>.vollbreite{column-span:all}
 }
 header .wrap{padding:0 2px}
 
@@ -394,11 +394,15 @@ body{padding-bottom:64px}
 <div class="card" id="kalFormCard" style="display:none">
     <h2>Neuer Outlook-Termin</h2>
     <div style="background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:11px;margin-bottom:12px" id="kShotZone">
-      <div style="font-size:13px;font-weight:600;margin-bottom:3px">📷 Aus Screenshot / Foto erstellen</div>
-      <div class="hint" style="margin-bottom:8px">Screenshot einer Einladung, Mail oder eines Aushangs — Claude füllt Titel, Datum und Uhrzeit unten aus. <b>Einfügen mit Strg&nbsp;+&nbsp;V</b>, hierher ziehen, oder Bild auswählen. Du prüfst, dann speichern.</div>
-      <input type="file" id="kShotFile" accept="image/png,image/jpeg,image/jpg,application/pdf" style="display:none">
-      <button type="button" class="minibtn" id="btnKShot">Bild auswählen</button>
+      <div style="font-size:13px;font-weight:600;margin-bottom:3px">📎 Aus E-Mail, PDF oder Screenshot erstellen</div>
+      <div class="hint" style="margin-bottom:8px">Wirf eine <b>E-Mail (.eml/.msg)</b>, ein <b>PDF</b> oder einen <b>Screenshot</b> hier rein — Claude füllt Titel, Datum und Uhrzeit unten aus. <b>Einfügen mit Strg&nbsp;+&nbsp;V</b>, hierher ziehen, oder Datei auswählen. Du prüfst, dann speichern.</div>
+      <input type="file" id="kShotFile" accept="image/png,image/jpeg,image/jpg,application/pdf,.eml,.msg,message/rfc822" style="display:none">
+      <button type="button" class="minibtn" id="btnKShot">Datei auswählen</button>
       <div class="hint" id="kShotStatus" style="margin-top:6px"></div>
+    </div>
+    <div class="f" id="kZielWrap"><label>Kalender</label>
+      <select id="kZielKalender"><option value="outlook">Outlook (Optima)</option></select>
+      <div class="hint" id="kZielHint" style="margin-top:4px"></div>
     </div>
     <div class="f"><label>Titel</label><input type="text" id="kTitel" placeholder="z. B. Going Public Akademie AllianzFRP"></div>
     <div class="f"><label>Auftraggeber <span style="color:var(--grau);font-weight:400;text-transform:none;letter-spacing:0">— wird als Outlook-Kategorie gesetzt</span></label>
@@ -629,7 +633,7 @@ body{padding-bottom:64px}
 
 </div>
 
-<div class="wrap" id="bereichAbrechnung" style="display:none">
+<div class="wrap spalten" id="bereichAbrechnung" style="display:none">
 
   <div class="quicknav">
     <button type="button" data-jump="rechnungCard">Kundenrechnungen</button>
@@ -672,7 +676,7 @@ body{padding-bottom:64px}
     <a href="https://tibros.ihk-koeln.de/tibrosPP/aweRechnungen.jsp" target="_blank" class="minibtn" style="display:inline-block;text-decoration:none;margin-top:8px">Zum IHK-Abrechnungsportal →</a>
   </div>
 
-<div class="card" id="jahrCard" style="display:none">
+<div class="card vollbreite" id="jahrCard" style="display:none">
     <h2>Jahresüberblick <span id="jahrTitel"></span></h2>
     <div id="jahrStats"></div>
     <div class="f" style="margin-top:10px"><label>Seminartage je Monat</label><div id="jahrMonate" style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;height:64px"></div></div>
@@ -725,7 +729,7 @@ body{padding-bottom:64px}
 
 </div>
 
-<div class="wrap" id="bereichTools" style="display:none">
+<div class="wrap spalten" id="bereichTools" style="display:none">
 
 <div class="card">
     <h2>Verbindungen</h2>
@@ -750,16 +754,16 @@ body{padding-bottom:64px}
 
 <div class="card" id="toolWarnCard" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
 
-<div class="card">
+<div class="card vollbreite">
     <h2>Mein Tool-Stack
-      <span class="tools"><button class="minibtn" id="btnToolNeu">+ Tool</button></span>
+      <span class="tools"><button class="minibtn" id="btnWerkzeugeStack">Werkzeuge übernehmen</button><button class="minibtn" id="btnToolNeu">+ Tool</button></span>
     </h2>
     <div class="hint">Alles, was du beruflich nutzt — Abos, Kosten, Laufzeiten, Use Cases. Klick auf ein Tool öffnet die Details.</div>
     <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 2px 4px;-webkit-overflow-scrolling:touch" id="toolFilter"></div>
     <div id="toolListe" style="margin-top:4px"></div>
   </div>
 
-<div class="card" id="toolFormCard" style="display:none">
+<div class="card vollbreite" id="toolFormCard" style="display:none">
     <h2 id="toolFormTitel">Tool bearbeiten</h2>
     <div class="grid2">
       <div class="f"><label>Name</label><input type="text" id="tName" placeholder="z. B. Claude Pro"></div>
@@ -790,7 +794,7 @@ body{padding-bottom:64px}
     </div>
   </div>
 
-<details class="card" id="toolCheckCard">
+<details class="card vollbreite" id="toolCheckCard">
     <summary>Monatlicher Tool-Check</summary>
     <div class="hint" style="margin-top:8px" id="toolCheckStand"></div>
     <button type="button" class="minibtn" id="btnToolCheck" style="margin-top:6px">🔍 Jetzt nach neuen Tools suchen</button>
@@ -2870,14 +2874,50 @@ function werkstattVorbefuellen(quelle){
   },50);
 }
 /* Termin in Outlook anlegen */
+async function kalZieleLaden(){
+  const sel=el('kZielKalender');if(!sel)return;
+  /* Outlook ist immer erste Option. Google-Kalender dazu, wenn verbunden & Scope da. */
+  let html='<option value="outlook">Outlook (Optima)</option>';
+  el('kZielHint').textContent='';
+  if(gdConfigured()&&gdToken){
+    try{
+      const kals=await gcalListe();
+      /* Familienkalender nach vorne, wenn im Namen "famili" steht */
+      kals.sort((a,b)=>(/famili/i.test(b.name)?1:0)-(/famili/i.test(a.name)?1:0));
+      kals.forEach(k=>{html+='<option value="g:'+esc(k.id)+'">Google: '+esc(k.name)+'</option>'});
+      if(kals.length)el('kZielHint').textContent='Outlook schreibt ins Optima-Postfach, Google in den gewählten Familienkalender.';
+    }catch(e){
+      el('kZielHint').textContent='Google-Kalender nicht abrufbar — evtl. neu verbinden (Tools → Verbindungen).';
+    }
+  }else{
+    el('kZielHint').textContent='Nur Outlook verfügbar. Für den Google-Familienkalender: Tools → Verbindungen → Google verbinden.';
+  }
+  sel.innerHTML=html;
+}
 async function kalTerminAnlegen(){
   const st=el('kalFormStatus');
   const titel=el('kTitel').value.trim(), datum=el('kDatum').value;
   if(!titel||!datum){st.textContent='Bitte Titel und Datum angeben.';return}
-  if(!msAccount){st.textContent='Bitte zuerst Outlook verbinden.';return}
+  const ziel=(el('kZielKalender')&&el('kZielKalender').value)||'outlook';
+  const nachGoogle=ziel.startsWith('g:');
+  if(!nachGoogle&&!msAccount){st.textContent='Bitte zuerst Outlook verbinden.';return}
+  if(nachGoogle&&!gdToken){st.textContent='Bitte zuerst Google verbinden (Tools → Verbindungen).';return}
   st.innerHTML='<span class="spin"></span>Lege Termin an …';
   try{
     const ganztag=el('kGanztag').value==='ja';
+    /* --- Ziel Google-Familienkalender --- */
+    if(nachGoogle){
+      await gcalTerminAnlegen(ziel.slice(2),{
+        titel, datum, ganztag,
+        von:el('kVon').value, bis:el('kBis').value,
+        ort:el('kOrt').value.trim(), notiz:el('kNotiz').value.trim()
+      });
+      st.textContent='✓ Termin im Google-Kalender angelegt.';
+      el('kTitel').value='';el('kOrt').value='';el('kNotiz').value='';
+      setTimeout(()=>{el('kalFormCard').style.display='none';kalenderLaden()},800);
+      toast('Termin angelegt');
+      return;
+    }
     const kAgWert=el('kAg').value==='__frei'?'':el('kAg').value;
     const body={
       subject:titel,
@@ -2969,19 +3009,30 @@ function navBinden(){
 }
 async function kShotParse(file){
   const status=el('kShotStatus');
-  if(!/png|jpe?g|pdf/i.test(file.type)&&!/\.(png|jpe?g|pdf)$/i.test(file.name)){status.textContent='Bitte ein Bild (PNG/JPG) oder PDF wählen.';return}
+  const istMail=/\.(eml|msg)$/i.test(file.name)||/message\/rfc822/i.test(file.type);
+  const istBildPdf=/png|jpe?g|pdf/i.test(file.type)||/\.(png|jpe?g|pdf)$/i.test(file.name);
+  if(!istMail&&!istBildPdf){status.textContent='Bitte ein Bild (PNG/JPG), PDF oder eine E-Mail-Datei (.eml/.msg) wählen.';return}
   status.innerHTML='<span class="spin"></span>Claude liest den Termin \u2026';
   try{
-    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
-    const isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name);
-    const quelle=isPdf
-      ? {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
-      : {type:'image',source:{type:'base64',media_type:(/png/i.test(file.type)?'image/png':'image/jpeg'),data:b64}};
+    let quelle;
+    if(istMail){
+      /* E-Mail als Text einlesen — Header + Body reichen Claude, .msg ist teils binär,
+         wir schicken den lesbaren Textanteil. */
+      let text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsText(file)});
+      text=(text||'').replace(/=\r?\n/g,'').slice(0,12000);
+      quelle={type:'text',text:'E-Mail-Datei (Rohtext):\n\n'+text};
+    }else{
+      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
+      const isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name);
+      quelle=isPdf
+        ? {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
+        : {type:'image',source:{type:'base64',media_type:(/png/i.test(file.type)?'image/png':'image/jpeg'),data:b64}};
+    }
     const resp=await fetch(claudeEndpoint(),{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,
         messages:[{role:'user',content:[quelle,{type:'text',text:
-          'Das ist ein Screenshot oder Foto von etwas Terminlichem (Einladung, Mail, Aushang, Kalenderausschnitt). Extrahiere EINEN Kalendertermin daraus.\n\n'+
+          'Das ist eine Einladung, E-Mail, ein Aushang, PDF oder Screenshot mit einem Termin. Extrahiere EINEN Kalendertermin daraus.\n\n'+
           'Heute ist '+heuteISO()+' \u2014 nutze das, um relative oder unvollständige Angaben (Wochentag, "nächsten Dienstag", fehlendes Jahr) korrekt aufzulösen.\n\n'+
           'Antworte AUSSCHLIESSLICH mit JSON, ohne Markdown:\n'+
           '{"titel":"","datum":"YYYY-MM-DD","ganztag":false,"von":"HH:MM","bis":"HH:MM","ort":"","notiz":""}\n\n'+
@@ -3304,6 +3355,37 @@ function inboxDiktToggle(){
    auch hier), uebernimmt sie nach Microsoft To Do und der Google-Task wird abgehakt.
    Nutzt denselben OAuth-Token-Client wie das Drive-Backup, nur mit Tasks-Scope. */
 let gtaskCache=[];
+/* ---------- Google Kalender (Familienkalender als Ziel) ---------- */
+async function gcalApi(pfad,opt){
+  const tok=await gdEnsureToken();
+  if(!tok)throw new Error('Keine Google-Verbindung');
+  const r=await fetch('https://www.googleapis.com/calendar/v3'+pfad,Object.assign({
+    headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'}
+  },opt||{}));
+  if(!r.ok){const t=await r.text().catch(()=>'');throw new Error('Google Kalender '+r.status+(t?': '+t.slice(0,120):''))}
+  return r.status===204?null:r.json();
+}
+async function gcalListe(){
+  /* Alle Kalender, in die er schreiben darf (owner/writer) */
+  const d=await gcalApi('/users/me/calendarList');
+  return (d.items||[]).filter(c=>c.accessRole==='owner'||c.accessRole==='writer')
+    .map(c=>({id:c.id,name:c.summary,primary:!!c.primary}));
+}
+async function gcalTerminAnlegen(kalId, ev){
+  /* ev: {titel, datum(YYYY-MM-DD), ganztag, von(HH:MM), bis, ort, notiz} */
+  const body={summary:ev.titel||'Termin'};
+  if(ev.ort)body.location=ev.ort;
+  if(ev.notiz)body.description=ev.notiz;
+  if(ev.ganztag||!ev.von){
+    body.start={date:ev.datum};
+    body.end={date:ev.datum};
+  }else{
+    const bis=ev.bis||ev.von;
+    body.start={dateTime:ev.datum+'T'+ev.von+':00',timeZone:'Europe/Berlin'};
+    body.end={dateTime:ev.datum+'T'+bis+':00',timeZone:'Europe/Berlin'};
+  }
+  return gcalApi('/calendars/'+encodeURIComponent(kalId)+'/events',{method:'POST',body:JSON.stringify(body)});
+}
 async function gtaskApi(pfad,opt){
   const tok=await gdEnsureToken();
   if(!tok)throw new Error('Keine Google-Verbindung');
@@ -3478,6 +3560,39 @@ const WERKZEUGE=[
   {name:'HeyGen / ElevenLabs',url:'https://www.heygen.com',ic:'\ud83c\udfa4'},
   {name:'Prompt Cowboy',url:'https://promptcowboy.ai',ic:'\ud83e\udd20'}
 ];
+/* Die Werkstatt-Werkzeuge als aktive Tool-Stack-Einträge übernehmen. Kategorie und
+   Use-Case sind vorbelegt; Kosten/Laufzeit trägt er selbst nach. Duplikate (nach Name
+   oder URL, unabhängig von Groß/Klein) werden übersprungen. */
+const WERKZEUG_META={
+  'Claude':{kat:'KI & Assistenz',uc:'Cockpit, Unterlagen konzipieren, Klausuren, Recherche'},
+  'Gemini':{kat:'KI & Assistenz',uc:'Alternative KI, Google-Integration'},
+  'Gemini Notebook':{kat:'KI & Assistenz',uc:'Eigene Unterlagen befragen, Audio-Zusammenfassungen'},
+  'Microsoft Cowork':{kat:'Microsoft & Office',uc:'KI-gestütztes Arbeiten in Microsoft 365'},
+  'Canva':{kat:'Unterlagen & Design',uc:'Grafiken, Handouts, Vorlagen'},
+  'Mentimeter':{kat:'Seminar & Interaktion',uc:'Live-Umfragen und Quiz im Seminar'},
+  'HeyGen / ElevenLabs':{kat:'Video & Audio',uc:'KI-Avatar-Videos und -Stimmen für Lernmodule'},
+  'Prompt Cowboy':{kat:'KI & Assistenz',uc:'Prompts verbessern und ausformulieren'}
+};
+function werkzeugeInStack(){
+  const liste=toolListe();
+  const vorhanden=new Set();
+  liste.forEach(t=>{vorhanden.add((t.name||'').toLowerCase());if(t.url)vorhanden.add(t.url.replace(/\/$/,'').toLowerCase())});
+  let neu=0;
+  WERKZEUGE.forEach(w=>{
+    const nm=w.name.toLowerCase(), u=w.url.replace(/\/$/,'').toLowerCase();
+    if(vorhanden.has(nm)||vorhanden.has(u))return;
+    const meta=WERKZEUG_META[w.name]||{kat:'Sonstiges',uc:''};
+    liste.push({
+      id:'tl'+Date.now()+Math.floor(Math.random()*1000),
+      name:w.name, kategorie:meta.kat, genutzt:true,
+      tarif:'', intervall:'monatlich', betrag:0, ablauf:'',
+      useCases:meta.uc, url:w.url, connector:false, skill:false, notiz:''
+    });
+    neu++;
+  });
+  if(neu>0){save();renderTools();toast(neu+' Werkzeug(e) in den Tool-Stack übernommen');}
+  else toast('Alle Werkzeuge sind bereits im Tool-Stack');
+}
 function renderWerkzeuge(){
   const box=el('werkzeugGrid');if(!box)return;
   box.innerHTML=WERKZEUGE.map(w=>
@@ -3735,7 +3850,7 @@ async function bahnVergleich(){
 
 /* ---------- Google-Drive-Sync (Drive API, appDataFolder, Pop-up-Login via Google Identity Services) ---------- */
 const GD_CLIENT_ID='544176092247-ibp6ki7tfb4un8brg3hip3te8pq5eepq.apps.googleusercontent.com';
-const GD_SCOPE='https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/tasks';
+const GD_SCOPE='https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/calendar.events';
 const GD_TOKEN_KEY='rk-gd-token';
 const GD_FILENAME='reisekosten-daten.json';
 let gdToken=null, gdPushTimer=null, gdFileId=null, gdTokenClient=null;
@@ -4276,6 +4391,7 @@ el('iStart').addEventListener('click',importKalender);
 /* Planung: Events */
 el('tabStart').addEventListener('click',()=>bereichWechseln('start'));
 navBinden();
+el('btnWerkzeugeStack').addEventListener('click',werkzeugeInStack);
 el('btnZielKm').addEventListener('click',zielKmBerechnen);
 el('btnKShot').addEventListener('click',()=>el('kShotFile').click());
 el('kShotFile').addEventListener('change',e=>{if(e.target.files&&e.target.files[0])kShotParse(e.target.files[0]);e.target.value=''});
@@ -4310,6 +4426,7 @@ el('tabKalender').addEventListener('click',()=>bereichWechseln('kalender'));
 el('btnKalReload').addEventListener('click',kalenderLaden);
 el('btnKalNeu').addEventListener('click',()=>{
   el('kalFormCard').style.display='block';
+  kalZieleLaden();
   el('kTitel').value='';el('kDatum').value=heuteISO();
   el('kGanztag').value='nein';el('kVon').value='09:00';el('kBis').value='17:00';
   el('kOrt').value='';el('kNotiz').value='';el('kalFormStatus').textContent='';
