@@ -30,6 +30,7 @@ header .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spac
 header h1{font-size:30px;font-weight:700;text-transform:uppercase;line-height:1.05;margin-top:2px}
 header h1 em{font-style:normal;color:var(--rot)}
 .wrap{max-width:820px;margin:0 auto;padding:0 14px}
+@media (min-width:900px){ .wrap{max-width:1100px} }
 header .wrap{padding:0 2px}
 
 .qbar{display:flex;gap:8px;align-items:center;margin:14px 0 10px;flex-wrap:wrap}
@@ -222,6 +223,16 @@ body{padding-bottom:64px}
 /* Das alte Reiter-Band nur noch auf Desktop zeigen; Handy nutzt die untere Leiste */
 @media (pointer:coarse){ .bereiche{display:none} }
 @media (min-width:900px){ .tabbar{display:none} body{padding-bottom:0} }
+/* Obere Reiter-Leiste komplett ausgeblendet — Navigation läuft über Kacheln (Desktop)
+   und untere Leiste (Handy). "‹ Start" führt aus jedem Bereich zurück. */
+.bereiche{display:none!important}
+.zurueckStart{display:inline-flex;align-items:center;gap:6px;background:transparent;
+  border:1px solid var(--line);border-radius:999px;padding:6px 14px;margin-bottom:14px;
+  cursor:pointer;font:600 12px/1 'Barlow Condensed',sans-serif;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--ink)}
+.zurueckStart:hover{border-color:var(--rot);color:var(--rot)}
+/* Am Handy nicht nötig — dort gibt es die untere Leiste mit Start */
+@media (pointer:coarse){ .zurueckStart{display:none} }
 
 /* ---------- Mehr-Menü (Overlay) ---------- */
 .mehrOverlay{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);
@@ -247,6 +258,7 @@ body{padding-bottom:64px}
   text-transform:uppercase;letter-spacing:.03em;font-size:15px}
 .kachel .ks{font-size:12px;color:var(--grau)}
 @media (min-width:900px){ .kacheln{grid-template-columns:1fr 1fr 1fr} }
+.kShotZone-drag{border-color:var(--rot)!important;background:var(--rot-dim,rgba(226,0,26,.06))!important}
 </style>
 </head>
 <body>
@@ -279,15 +291,6 @@ body{padding-bottom:64px}
   <button class="kachel" data-nav="tools"><span class="ic">⚙️</span><span class="kt">Tools</span><span class="ks">Verbindungen, Abos</span></button>
   <button class="kachel" data-navmehr="__scrolldown"><span class="ic">⬇️</span><span class="kt">Mein Tag</span><span class="ks">Aufgaben & Notizen unten</span></button>
 </div>
-
-<div class="card">
-    <h2>Outlook</h2>
-    <div class="hint" id="msStatus">Wird geprüft …</div>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-      <button class="minibtn" id="btnMsConnect" style="display:none">Mit Outlook verbinden</button>
-      <button class="minibtn rot" id="btnMsDisconnect" style="display:none">Trennen</button>
-    </div>
-  </div>
 
 <div class="card" id="kalenderHinweis" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
 
@@ -380,9 +383,9 @@ body{padding-bottom:64px}
 
 <div class="card" id="kalFormCard" style="display:none">
     <h2>Neuer Outlook-Termin</h2>
-    <div style="background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:11px;margin-bottom:12px">
+    <div style="background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:11px;margin-bottom:12px" id="kShotZone">
       <div style="font-size:13px;font-weight:600;margin-bottom:3px">📷 Aus Screenshot / Foto erstellen</div>
-      <div class="hint" style="margin-bottom:8px">Screenshot einer Einladung, Mail oder eines Aushangs hochladen — Claude füllt Titel, Datum und Uhrzeit unten aus. Du prüfst, dann speichern.</div>
+      <div class="hint" style="margin-bottom:8px">Screenshot einer Einladung, Mail oder eines Aushangs — Claude füllt Titel, Datum und Uhrzeit unten aus. <b>Einfügen mit Strg&nbsp;+&nbsp;V</b>, hierher ziehen, oder Bild auswählen. Du prüfst, dann speichern.</div>
       <input type="file" id="kShotFile" accept="image/png,image/jpeg,image/jpg,application/pdf" style="display:none">
       <button type="button" class="minibtn" id="btnKShot">Bild auswählen</button>
       <div class="hint" id="kShotStatus" style="margin-top:6px"></div>
@@ -716,7 +719,14 @@ body{padding-bottom:64px}
 
 <div class="card">
     <h2>Verbindungen</h2>
-    <div class="hint">Google für Kalender-Sync, Daten-Backup und die vom Handy diktierten Aufgaben (Google Tasks).</div>
+    <div class="f" style="margin-top:6px"><label>Outlook (Optima)</label>
+      <div class="hint" id="msStatus">Wird geprüft …</div>
+      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+        <button class="minibtn" id="btnMsConnect" style="display:none">Mit Outlook verbinden</button>
+        <button class="minibtn rot" id="btnMsDisconnect" style="display:none">Trennen</button>
+      </div>
+    </div>
+    <div class="hint" style="margin-top:12px">Google für Kalender-Sync, Daten-Backup und die vom Handy diktierten Aufgaben (Google Tasks).</div>
     <div class="f" style="margin-top:10px"><label>Google</label>
       <div class="hint" id="odStatus2">Wird geprüft …</div>
       <div style="display:flex;gap:8px;margin-top:6px">
@@ -1155,9 +1165,13 @@ function openForm(id){
   selZiel=null; el('routeHint').textContent=''; el('zielSugg').style.display='none';
   setLock(t?t.abgerechnet:false);
   syncVm(); syncTage(); renderMahl(); renderBelege(); calcPreview();
+  ihkModusAnwenden();
   if(t&&t.zielAdresse){
     if(t.vm==='auto'&&!t.km&&!t.abgerechnet)autoKmAusAdresse(t.zielAdresse);
     else el('routeHint').textContent=t.zielAdresse;
+  }else if(istIHKPruefung(el('fAg').value)&&t&&t.ziel&&!t.km&&!t.abgerechnet){
+    /* IHK-Prüfung ohne hinterlegte Adresse: km live aus dem Zielort suchen */
+    autoKmAusAdresse(t.ziel);
   }
   el('modal').classList.add('open');
 }
@@ -2879,18 +2893,31 @@ function bereichWechseln(b){
     const ziel=btn.dataset.nav;
     btn.classList.toggle('on', ziel===b || (ziel==='__mehr' && (b==='kalender'||b==='tools')));
   });
-  if(b==='start'){renderMsStatus();renderGtasks(true);renderNachbereitung();renderBriefing();taskBoardLaden();autoKalenderCheck()}
+  if(b==='start'){renderGtasks(true);renderNachbereitung();renderBriefing();taskBoardLaden();autoKalenderCheck()}
   if(b==='kalender'){kalenderLaden();konfliktKalRender()}
   if(b==='seminare'){renderMsStatus();renderMeetings();renderReiseplanung()}
   if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderWerkstattAufgaben()}
   if(b==='abrechnung'){render()}
-  if(b==='tools'){renderTools();renderOdStatus();renderGtasks(true)}
+  if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true)}
   document.querySelector('.fab').style.display=(b==='abrechnung'||b==='seminare')?'flex':'none';
   el('btnCsv').style.display=(b==='abrechnung')?'inline-block':'none';
   window.scrollTo({top:0,behavior:'instant'});
 }
 /* Navigation aus unterer Leiste, Kacheln und Mehr-Menü */
+function zurueckKnoepfeSetzen(){
+  /* Am Desktop ist die obere Reiter-Leiste ausgeblendet — jeder Bereich außer Start
+     bekommt oben einen "‹ Start"-Knopf, damit man ohne obere Leiste zurückfindet. */
+  ['Kalender','Seminare','Reiseplanung','Werkstatt','Abrechnung','Tools'].forEach(name=>{
+    const bereich=el('bereich'+name);
+    if(!bereich||bereich.querySelector('.zurueckStart'))return;
+    const b=document.createElement('button');
+    b.type='button';b.className='zurueckStart';b.dataset.nav='start';
+    b.innerHTML='\u2039 Start';
+    bereich.insertBefore(b,bereich.firstChild);
+  });
+}
 function navBinden(){
+  zurueckKnoepfeSetzen();
   /* Event-Delegation am document: funktioniert unabhaengig davon, ob die Buttons
      (untere Leiste, Mehr-Menue) im HTML vor oder nach diesem Script stehen. Der
      frühere Direktbind lief, bevor die tabbar im DOM existierte — Klicks blieben tot. */
@@ -3980,12 +4007,26 @@ const KONTAKTE={
   'Going Public Akademie':{name:'Susan Grund',mail:'s.grund@going-public.edu'},
   'BWV Rheinland':{name:'Daniela Papajewski',mail:'daniela.papajewski@bwv-rheinland.de'}
 };
+function istIHKPruefung(ag){
+  /* IHK-Prüfungen brauchen keinen Buchungsstatus, keine Belege, kein Seminar-Memo —
+     nur Fahrtkosten (km) zählen. Erkennung am Auftraggeber. */
+  return /ihk/i.test(ag||'');
+}
+function ihkModusAnwenden(){
+  const ihk=istIHKPruefung(el('fAg').value);
+  ['statusWrap','belegWrap','memoWrap'].forEach(id=>{
+    const e=el(id); if(e)e.style.display=ihk?'none':'';
+  });
+  /* Bei IHK: Hinweis, dass der Zielort per Adresssuche km rechnet */
+  const zh=el('fZiel');
+  if(zh)zh.placeholder=ihk?'Prüfungsort — Adresse eingeben, km werden berechnet':'Ort oder Adresse';
+}
 function zeigeKontakt(){
   const ag=el('fAg').value;
   const k=KONTAKTE[ag];
   el('kontaktBox').innerHTML=k?'Ansprechpartner: '+esc(k.name)+' · <a href="mailto:'+esc(k.mail)+'">'+esc(k.mail)+'</a>':'';
 }
-el('fAg').addEventListener('change',()=>{el('fAgFrei').style.display=el('fAg').value==='__frei'?'block':'none';zeigeKontakt();kgMemoApply(el('fAg').value,'fKategorie','fGesellschaft','fGesellschaftFrei')});
+el('fAg').addEventListener('change',()=>{el('fAgFrei').style.display=el('fAg').value==='__frei'?'block':'none';zeigeKontakt();kgMemoApply(el('fAg').value,'fKategorie','fGesellschaft','fGesellschaftFrei');ihkModusAnwenden()});
 el('fGesellschaft').addEventListener('change',()=>{el('fGesellschaftFrei').style.display=el('fGesellschaft').value==='__frei'?'block':'none'});
 el('segAuto').addEventListener('click',()=>{verkehrsmittel='auto';syncVm();calcPreview()});
 el('btnGtaskReload').addEventListener('click',()=>renderGtasks(false));
@@ -4210,6 +4251,29 @@ el('tabStart').addEventListener('click',()=>bereichWechseln('start'));
 navBinden();
 el('btnKShot').addEventListener('click',()=>el('kShotFile').click());
 el('kShotFile').addEventListener('change',e=>{if(e.target.files&&e.target.files[0])kShotParse(e.target.files[0]);e.target.value=''});
+/* Strg+V: eingefügtes Bild aus der Zwischenablage annehmen — nur wenn die
+   Termin-Karte offen ist, sonst würde Einfügen anderswo ungewollt greifen. */
+document.addEventListener('paste',e=>{
+  const karte=el('kalFormCard');
+  if(!karte||karte.style.display==='none')return;
+  const items=(e.clipboardData||{}).items||[];
+  for(const it of items){
+    if(it.type&&it.type.indexOf('image')===0){
+      const blob=it.getAsFile();
+      if(blob){e.preventDefault();kShotParse(blob);return}
+    }
+  }
+});
+/* Drag & Drop auf die Zone */
+(function(){
+  const z=el('kShotZone');if(!z)return;
+  ['dragenter','dragover'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.add('kShotZone-drag')}));
+  ['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove('kShotZone-drag')}));
+  z.addEventListener('drop',e=>{
+    const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+    if(f)kShotParse(f);
+  });
+})();
 el('btnVpGen').addEventListener('click',vpGenerieren);
 el('btnVpCopyClaude').addEventListener('click',()=>{navigator.clipboard&&navigator.clipboard.writeText(el('vpText').value);window.open('https://claude.ai','_blank','noopener');toast('Prompt kopiert')});
 el('btnVpCopyGemini').addEventListener('click',()=>{navigator.clipboard&&navigator.clipboard.writeText(el('vpText').value);window.open('https://gemini.google.com','_blank','noopener');toast('Prompt kopiert')});
