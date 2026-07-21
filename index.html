@@ -537,7 +537,7 @@ body{padding-bottom:64px}
 
 </div>
 
-<div class="wrap spalten" id="bereichWerkstatt" style="display:none">
+<div class="wrap" id="bereichWerkstatt" style="display:none">
 
 <div class="card">
     <h2>Arbeitsaufgaben
@@ -572,8 +572,8 @@ body{padding-bottom:64px}
     </div>
   </div>
 
-<div class="card" id="werkstattCard">
-    <h2>Ordner & Auftrag</h2>
+<details class="card" id="werkstattCard">
+    <summary>Ordner & Auftrag</summary>
     <div class="hint">Für Seminarunterlagen und DIHK-Klausuren. Bereitet Ordner und Auftrag vor — die eigentliche Erstellung läuft dann in deinem Claude-Chat mit dem Gamma-Connector.</div>
 
     <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
@@ -629,7 +629,7 @@ body{padding-bottom:64px}
         <div id="azListe" style="margin-top:6px"></div>
       </div>
     </details>
-  </div>
+  </details>
 
 </div>
 
@@ -731,32 +731,15 @@ body{padding-bottom:64px}
 
 <div class="wrap spalten" id="bereichTools" style="display:none">
 
-<div class="card">
-    <h2>Verbindungen</h2>
-    <div class="f" style="margin-top:6px"><label>Outlook (Optima)</label>
-      <div class="hint" id="msStatus">Wird geprüft …</div>
-      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
-        <button class="minibtn" id="btnMsConnect" style="display:none">Mit Outlook verbinden</button>
-        <button class="minibtn rot" id="btnMsDisconnect" style="display:none">Trennen</button>
-      </div>
-    </div>
-    <div class="hint" style="margin-top:12px">Google für Kalender-Sync, Daten-Backup und die vom Handy diktierten Aufgaben (Google Tasks).</div>
-    <div class="f" style="margin-top:10px"><label>Google</label>
-      <div class="hint" id="odStatus2">Wird geprüft …</div>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <button class="minibtn" id="btnOdConnect2" style="display:none">Mit Google verbinden</button>
-        <button class="minibtn rot" id="btnOdDisconnect2" style="display:none">Trennen</button>
-      </div>
-    </div>
-  </div>
-
 <div class="kpis" id="toolKpis"></div>
+
+<div class="card vollbreite" id="toolKontenCard" style="display:none"><h2>Kosten je Konto</h2><div id="toolKonten"></div></div>
 
 <div class="card" id="toolWarnCard" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
 
 <div class="card vollbreite">
     <h2>Mein Tool-Stack
-      <span class="tools"><button class="minibtn" id="btnWerkzeugeStack">Werkzeuge übernehmen</button><button class="minibtn" id="btnToolNeu">+ Tool</button></span>
+      <span class="tools"><button class="minibtn" id="btnAboImport">Abos importieren</button><button class="minibtn" id="btnWerkzeugeStack">Werkzeuge übernehmen</button><button class="minibtn" id="btnToolNeu">+ Tool</button></span>
     </h2>
     <div class="hint">Alles, was du beruflich nutzt — Abos, Kosten, Laufzeiten, Use Cases. Klick auf ein Tool öffnet die Details.</div>
     <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 2px 4px;-webkit-overflow-scrolling:touch" id="toolFilter"></div>
@@ -780,6 +763,12 @@ body{padding-bottom:64px}
       <div class="f"><label>Betrag (€, netto)</label><input type="number" id="tBetrag" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></div>
       <div class="f"><label>Vertrag läuft bis</label><input type="date" id="tAblauf"></div>
     </div>
+    <div class="f"><label>Belastet von Konto</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="tAccount" style="flex:1;min-width:180px"></select>
+        <button type="button" class="minibtn" id="btnAccountNeu">+ Neues Konto</button>
+      </div>
+    </div>
     <div class="f"><label>Use Cases — wofür nutze ich das?</label><textarea id="tUseCases" rows="2" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 14px/1.45 'IBM Plex Sans',sans-serif" placeholder="z. B. Seminarunterlagen erstellen, Folien aus Text generieren"></textarea></div>
     <div class="f"><label>Link zur Anwendung</label><input type="url" id="tUrl" placeholder="https://…"></div>
     <div class="grid2">
@@ -793,6 +782,15 @@ body{padding-bottom:64px}
       <button type="button" class="minibtn rot" id="btnToolLoeschen" style="margin-left:auto">Löschen</button>
     </div>
   </div>
+
+<details class="card vollbreite" id="gmailScanCard">
+    <summary>📧 Gmail nach Rechnungen &amp; Abos durchsuchen</summary>
+    <div class="hint" style="margin:6px 0 10px">Durchsucht dein verbundenes Gmail-Postfach nach Rechnungen und Abo-Bestätigungen der letzten 90 Tage. Claude wertet die Treffer aus und zeigt mögliche Abos — du übernimmst sie einzeln per Klick. Es wird nichts automatisch angelegt und nichts gelesen außer den Treffern.</div>
+    <button class="minibtn" id="btnGmailScan">Postfach jetzt durchsuchen</button>
+    <div class="hint" id="gmailScanStand" style="margin-top:8px"></div>
+    <div class="hint" id="gmailScanStatus" style="margin-top:8px"></div>
+    <div id="gmailScanTreffer" style="margin-top:10px"></div>
+  </details>
 
 <details class="card vollbreite" id="toolCheckCard">
     <summary>Monatlicher Tool-Check</summary>
@@ -808,6 +806,26 @@ body{padding-bottom:64px}
     <div id="toolVorschlaege" style="margin-top:8px"></div>
   </details>
 
+
+
+<div class="card">
+    <h2>Verbindungen</h2>
+    <div class="f" style="margin-top:6px"><label>Outlook (Optima)</label>
+      <div class="hint" id="msStatus">Wird geprüft …</div>
+      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+        <button class="minibtn" id="btnMsConnect" style="display:none">Mit Outlook verbinden</button>
+        <button class="minibtn rot" id="btnMsDisconnect" style="display:none">Trennen</button>
+      </div>
+    </div>
+    <div class="hint" style="margin-top:12px">Google für Kalender-Sync, Daten-Backup und die vom Handy diktierten Aufgaben (Google Tasks).</div>
+    <div class="f" style="margin-top:10px"><label>Google</label>
+      <div class="hint" id="odStatus2">Wird geprüft …</div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="minibtn" id="btnOdConnect2" style="display:none">Mit Google verbinden</button>
+        <button class="minibtn rot" id="btnOdDisconnect2" style="display:none">Trennen</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="fab">
@@ -1074,6 +1092,12 @@ async function load(){
     if(t.abgerechnet===undefined)t.abgerechnet=false;
     if(t.mitternacht===undefined)t.mitternacht=false;
   });
+  // Migration: Konten (accounts) für die Tool-Kostenverwaltung
+  if(!Array.isArray(state.settings.accounts))state.settings.accounts=[];
+  if(!state.settings.accounts.includes('SCC Kreditkarte (Mastercard •0838)'))
+    state.settings.accounts.unshift('SCC Kreditkarte (Mastercard •0838)');
+  // Migration: fehlendes account-Feld bei bestehenden Tools mit "" ergänzen
+  state.tools.forEach(t=>{ if(t.account===undefined)t.account=''; });
 }
 async function save(){
   try{
@@ -1539,6 +1563,22 @@ function renderTools(){
     '<div class="kpi"><div class="lab">Hochgerechnet aufs Jahr</div><div class="val">'+eur(monat*12)+'</div></div>'+
     '<div class="kpi"><div class="lab">Tools aktiv</div><div class="val">'+genutzt.length+'</div></div>'+
     '<div class="kpi"><div class="lab">Mit Connector</div><div class="val">'+genutzt.filter(t=>t.connector).length+'</div></div>';
+  /* Kosten je Konto gruppiert */
+  const kontenCard=el('toolKontenCard'), kontenBox=el('toolKonten');
+  if(kontenBox){
+    const proKonto={};
+    genutzt.forEach(t=>{
+      const km=toolMonatskosten(t); if(!km)return;
+      const k=t.account||'(kein Konto zugeordnet)';
+      proKonto[k]=(proKonto[k]||0)+km;
+    });
+    const eintraege=Object.keys(proKonto).sort((a,b)=>proKonto[b]-proKonto[a]);
+    if(eintraege.length){
+      if(kontenCard)kontenCard.style.display='block';
+      kontenBox.innerHTML=eintraege.map(k=>
+        '<div class="agrow"><span>'+esc(k)+'</span><span class="mono">'+eur(proKonto[k])+'/M</span></div>').join('');
+    }else if(kontenCard)kontenCard.style.display='none';
+  }
   /* Renewal-Warnungen */
   const warn=el('toolWarnCard');
   const faellig=genutzt.map(t=>({t,tage:toolTageBisAblauf(t)})).filter(x=>x.tage!==null&&x.tage<=60).sort((a,b)=>a.tage-b.tage);
@@ -1578,6 +1618,7 @@ function renderTools(){
         '<div class="hint" style="margin:0">'+[
           t.tarif?'Tarif: '+esc(t.tarif):null,
           t.betrag?'Betrag: '+eur(+t.betrag)+' '+esc(t.intervall||''):null,
+          t.account?'Konto: '+esc(t.account):null,
           t.ablauf?'Läuft bis '+dfmt(t.ablauf):null,
           t.notiz?esc(t.notiz):null
         ].filter(Boolean).join(' · ')+'</div>'+
@@ -1590,6 +1631,7 @@ function renderTools(){
   box.querySelectorAll('[data-tedit]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();toolFormOeffnen(b.dataset.tedit)}));
   renderToolVorschlaege();
   renderToolCheckStand();
+  gmailScanAutoCheck();
 }
 function renderToolVorschlaege(){
   const box=el('toolVorschlaege');if(!box)return;
@@ -1656,12 +1698,31 @@ function toolFormOeffnen(id){
   el('tIntervall').value=t&&t.intervall?t.intervall:'monatlich';
   el('tBetrag').value=t&&t.betrag?t.betrag:'';
   el('tAblauf').value=t&&t.ablauf?t.ablauf:'';
+  tAccountFuellen(t&&t.account?t.account:'');
   el('tUseCases').value=t&&t.useCases?t.useCases:'';
   el('tUrl').value=t&&t.url?t.url:'';
   el('tConnector').checked=t?!!t.connector:false;
   el('tSkill').checked=t?!!t.skill:false;
   el('tNotiz').value=t&&t.notiz?t.notiz:'';
   el('toolFormCard').scrollIntoView({behavior:'smooth'});
+}
+async function accountsListe(){ if(!Array.isArray(state.settings.accounts))state.settings.accounts=[]; return state.settings.accounts; }
+function tAccountFuellen(aktiv){
+  const sel=el('tAccount');if(!sel)return;
+  const konten=accountsListe();
+  let html='<option value="">— nicht zugeordnet —</option>';
+  konten.forEach(k=>{html+='<option value="'+esc(k)+'"'+(k===aktiv?' selected':'')+'>'+esc(k)+'</option>'});
+  sel.innerHTML=html;
+}
+async function accountNeu(){
+  const name=prompt('Name des Kontos (z. B. "Privat Visa", "Optima Girokonto"):');
+  if(!name||!name.trim())return;
+  const n=name.trim();
+  const konten=accountsListe();
+  if(!konten.includes(n))konten.push(n);
+  await save();
+  tAccountFuellen(n);
+  toast('Konto angelegt');
 }
 async function toolSpeichern(){
   const name=el('tName').value.trim();
@@ -1673,7 +1734,7 @@ async function toolSpeichern(){
     betrag:+el('tBetrag').value||0, ablauf:el('tAblauf').value,
     useCases:el('tUseCases').value.trim(), url:el('tUrl').value.trim(),
     connector:el('tConnector').checked, skill:el('tSkill').checked,
-    notiz:el('tNotiz').value.trim()
+    notiz:el('tNotiz').value.trim(), account:el('tAccount').value
   };
   const liste=toolListe();
   const idx=liste.findIndex(x=>x.id===obj.id);
@@ -3355,6 +3416,115 @@ function inboxDiktToggle(){
    auch hier), uebernimmt sie nach Microsoft To Do und der Google-Task wird abgehakt.
    Nutzt denselben OAuth-Token-Client wie das Drive-Backup, nur mit Tasks-Scope. */
 let gtaskCache=[];
+/* ---------- Gmail-Scan nach Rechnungen & Abos ---------- */
+async function gmailApi(pfad){
+  const tok=await gdEnsureToken();
+  if(!tok)throw new Error('Keine Google-Verbindung');
+  const r=await fetch('https://gmail.googleapis.com/gmail/v1/users/me'+pfad,{
+    headers:{Authorization:'Bearer '+tok}
+  });
+  if(!r.ok){const t=await r.text().catch(()=>'');throw new Error('Gmail '+r.status+(t?': '+t.slice(0,120):''))}
+  return r.json();
+}
+function gmailBodyText(payload){
+  /* rekursiv den Text/Plain- oder HTML-Body aus der MIME-Struktur ziehen */
+  if(!payload)return '';
+  let out='';
+  const dec=data=>{try{return decodeURIComponent(escape(atob(data.replace(/-/g,'+').replace(/_/g,'/'))))}catch(e){try{return atob(data.replace(/-/g,'+').replace(/_/g,'/'))}catch(_){return ''}}};
+  if(payload.body&&payload.body.data)out+=dec(payload.body.data)+'\n';
+  if(payload.parts)payload.parts.forEach(p=>{out+=gmailBodyText(p)});
+  return out;
+}
+function gmailScanStandZeigen(){
+  const st=el('gmailScanStand');if(!st)return;
+  const letzter=state.settings.gmailScanDatum;
+  if(!letzter){st.textContent='Noch nie durchsucht.';return}
+  const tage=Math.round((new Date()-new Date(letzter))/86400000);
+  st.innerHTML='Zuletzt: '+dfmt(letzter)+' (vor '+tage+' Tagen).'+(tage>=30?' <span style="color:var(--rot)">Wieder fällig.</span>':'');
+}
+let gmailAutoScanGelaufen=false;
+function gmailScanAutoCheck(){
+  /* Beim Öffnen des Tools-Reichs: Stand zeigen, und wenn >30 Tage her (oder nie)
+     und Google verbunden, EINMAL pro Sitzung automatisch scannen — er muss nichts klicken. */
+  gmailScanStandZeigen();
+  if(!gdToken||gmailAutoScanGelaufen)return;
+  const letzter=state.settings.gmailScanDatum;
+  const tage=letzter?Math.round((new Date()-new Date(letzter))/86400000):9999;
+  if(tage>=30){
+    gmailAutoScanGelaufen=true;
+    el('gmailScanCard').open=true;
+    gmailScan();
+  }
+}
+async function gmailScan(){
+  const st=el('gmailScanStatus'), box=el('gmailScanTreffer');
+  if(!gdToken){st.textContent='Bitte zuerst Google verbinden (Tools → Verbindungen).';return}
+  st.innerHTML='<span class="spin"></span>Suche Rechnungen und Abos im Postfach \u2026';
+  if(box)box.innerHTML='';
+  try{
+    /* Gezielte Gmail-Suche: Rechnungen/Abos der letzten 90 Tage, Werbung raus */
+    const q=encodeURIComponent('(invoice OR receipt OR rechnung OR abo OR subscription OR "payment" OR "zahlung" OR quittung) newer_than:90d -category:promotions');
+    const liste=await gmailApi('/messages?q='+q+'&maxResults=25');
+    const ids=(liste.messages||[]).map(m=>m.id);
+    if(!ids.length){st.textContent='Keine passenden Rechnungs- oder Abo-Mails der letzten 90 Tage gefunden.';return}
+    st.innerHTML='<span class="spin"></span>Lese '+ids.length+' Mails und werte aus \u2026';
+    /* Header + Snippet je Mail holen (metadata reicht für Absender/Betreff/Datum, Snippet gibt Kontext) */
+    const mails=[];
+    for(const id of ids.slice(0,20)){
+      try{
+        const m=await gmailApi('/messages/'+id+'?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date');
+        const h={};(m.payload&&m.payload.headers||[]).forEach(x=>{h[x.name.toLowerCase()]=x.value});
+        mails.push({from:h.from||'',subject:h.subject||'',date:h.date||'',snippet:m.snippet||''});
+      }catch(e){}
+    }
+    /* Claude wertet die Sammlung aus und liefert erkannte Abos als JSON */
+    const prompt='Hier sind Betreff, Absender und Vorschau von E-Mails aus einem Rechnungs-/Abo-Scan. '+
+      'Erkenne wiederkehrende ABONNEMENTS und Software-Dienste (keine einmaligen Einkäufe, keine Werbung). '+
+      'Fasse pro Dienst EINEN Eintrag zusammen, auch wenn mehrere Mails dazu da sind.\n\n'+
+      'Antworte AUSSCHLIESSLICH mit JSON-Array, ohne Markdown:\n'+
+      '[{"name":"Dienstname","betrag":Zahl oder null,"waehrung":"EUR/USD","intervall":"monatlich/jaehrlich/unklar","hinweis":"kurzer Kontext, z.B. Abbuchungsdatum"}]\n\n'+
+      'E-Mails:\n'+mails.map((m,i)=>(i+1)+'. Von: '+m.from+' | Betreff: '+m.subject+' | '+m.snippet).join('\n').slice(0,9000);
+    const resp=await fetch(claudeEndpoint(),{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,messages:[{role:'user',content:prompt}]})
+    });
+    const data=await resp.json();
+    let txt=(data.content&&data.content[0]&&data.content[0].text||'').trim().replace(/^```json|^```|```$/g,'').trim();
+    let funde=[];try{funde=JSON.parse(txt)}catch(e){}
+    gmailScanErgebnis=funde;
+    if(!funde.length){st.textContent='Fertig — Claude hat in '+mails.length+' Mails keine klaren Abos erkannt.';return}
+    st.textContent='Gefunden: '+funde.length+' mögliche Abos aus '+mails.length+' Mails. Prüfe und übernimm einzeln:';
+    state.settings.gmailScanDatum=heuteISO();save();
+    box.innerHTML=funde.map((f,i)=>{
+      const schon=toolListe().some(t=>norm2(t.name)===norm2(f.name));
+      const betr=f.betrag?f.betrag+' '+(f.waehrung||''):'Betrag offen';
+      return '<div class="agrow" style="align-items:flex-start"><span><b>'+esc(f.name)+'</b> · '+esc(betr)+' · '+esc(f.intervall||'')+
+        (f.hinweis?'<br><span class="hint" style="margin:0">'+esc(f.hinweis)+'</span>':'')+'</span>'+
+        (schon?'<span class="hint" style="margin:0">schon erfasst</span>':'<button class="minibtn" data-gmailadd="'+i+'">übernehmen</button>')+'</div>';
+    }).join('');
+  }catch(err){st.textContent='Fehler: '+err.message}
+}
+function norm2(s){return (s||'').toLowerCase().replace(/\s*\(.*/,'').trim()}
+let gmailScanErgebnis=[];
+function gmailAboUebernehmen(i){
+  const f=gmailScanErgebnis[i];if(!f)return;
+  const kk='SCC Kreditkarte (Mastercard •0838)';
+  const w=(f.waehrung||'').toUpperCase();
+  let betrag=+f.betrag||0; if(w==='USD'&&betrag)betrag=Math.round(betrag*0.91*100)/100;
+  toolListe().push({
+    id:'tl'+Date.now()+Math.floor(Math.random()*1000),
+    name:f.name, kategorie:'KI & Assistenz', genutzt:true,
+    tarif:'', intervall:(f.intervall==='monatlich'||f.intervall==='jaehrlich')?f.intervall:'monatlich',
+    betrag:betrag, ablauf:'', useCases:'', url:'', connector:false, skill:false,
+    account:kk, notiz:'Aus Gmail-Scan übernommen'+(f.hinweis?': '+f.hinweis:'')+(w==='USD'?' (aus USD umgerechnet)':'')
+  });
+  save();renderTools();
+  toast(f.name+' übernommen');
+  /* Zeile als erledigt markieren */
+  const btn=document.querySelector('[data-gmailadd="'+i+'"]');
+  if(btn)btn.outerHTML='<span class="hint" style="margin:0">✓ übernommen</span>';
+}
+
 /* ---------- Google Kalender (Familienkalender als Ziel) ---------- */
 async function gcalApi(pfad,opt){
   const tok=await gdEnsureToken();
@@ -3573,6 +3743,50 @@ const WERKZEUG_META={
   'HeyGen / ElevenLabs':{kat:'Video & Audio',uc:'KI-Avatar-Videos und -Stimmen für Lernmodule'},
   'Prompt Cowboy':{kat:'KI & Assistenz',uc:'Prompts verbessern und ausformulieren'}
 };
+const ABO_IMPORT=[
+  {name:'Dify (LangGenius)',kategorie:'KI & Assistenz',tarif:'Professional Plan',intervall:'monatlich',betrag:54,account:'SCC-KK',genutzt:true,url:'https://dify.ai',notiz:'Neu seit 20.07.2026 (Rechnung #0001). 59 USD ≈ 54 €. Abbuchung am 20.'},
+  {name:'Claude (Anthropic)',kategorie:'KI & Assistenz',tarif:'Individual Plan + Prepaid Extra Usage',intervall:'monatlich',betrag:0,account:'SCC-KK',genutzt:true,notiz:'Monatlich + verbrauchsabhängig. Juli: 45,52 € Extra Usage (15.07.) plus 2 Abbuchungen am 08.07. Regelmäßige Extra-Usage-Käufe → prüfen ob Max-Plan günstiger wäre.'},
+  {name:'ElevenLabs',kategorie:'Video & Audio',tarif:'Creator',intervall:'monatlich',betrag:20,account:'SCC-KK',genutzt:true,notiz:'22 USD ≈ 20 €. Abbuchung am 9. Läuft seit mind. März 2026.'},
+  {name:'HeyGen',kategorie:'Video & Audio',tarif:'',intervall:'monatlich',betrag:0,account:'SCC-KK',genutzt:true,notiz:'Tarif unbekannt. Abbuchung am 26. Betrag aus Rechnungs-PDF nachtragen.'},
+  {name:'Netlify',kategorie:'Web & Hosting',tarif:'1.000 Credits/Monat',intervall:'monatlich',betrag:8.20,account:'SCC-KK',genutzt:true,url:'https://netlify.com',notiz:'9 USD ≈ 8,20 €. Abbuchung am 16. Konto vermutlich SCC-KK, prüfen.'},
+  {name:'Google AI Pro (Google One)',kategorie:'KI & Assistenz',tarif:'5 TB + Gemini',intervall:'monatlich',betrag:21.99,account:'',genutzt:true,notiz:'Seit 01.06.2026, vorher AI Plus seit März 2026. Betrag in Google-Kontoeinstellungen prüfen (Standard 21,99 €). Konto offen.'},
+  {name:'Canva',kategorie:'Unterlagen & Design',tarif:'Pro',intervall:'jaehrlich',betrag:0,ablauf:'2027-02-14',account:'',genutzt:true,url:'https://canva.com',notiz:'Jährlich, gezahlt 14.02.2026 → Vertragsende 14.02.2027. Betrag + Konto nachtragen.'},
+  {name:'Gamma',kategorie:'Unterlagen & Design',tarif:'',intervall:'jaehrlich',betrag:0,ablauf:'2026-10-09',account:'',genutzt:true,url:'https://gamma.app',notiz:'Letzte Zahlung 09.10.2025, falls Jahresabo Vertragsende 09.10.2026. Kündigung prüfen.'},
+  {name:'CapCut',kategorie:'Video & Audio',tarif:'',intervall:'kostenlos',betrag:0,account:'',genutzt:false,notiz:'Abo ausgelaufen ~Mai 2026, nutze ich nicht mehr.'},
+  {name:'Loom',kategorie:'Video & Audio',tarif:'',intervall:'kostenlos',betrag:0,account:'',genutzt:false,notiz:'Beendet Oktober 2025, nutze ich nicht mehr.'}
+];
+async function abosImportieren(){
+  const liste=toolListe();
+  const kkName='SCC Kreditkarte (Mastercard •0838)';
+  /* Konto sicherstellen */
+  if(!accountsListe().includes(kkName))accountsListe().unshift(kkName);
+  let neu=0, akt=0;
+  ABO_IMPORT.forEach(a=>{
+    const konto = a.account==='SCC-KK' ? kkName : (a.account||'');
+    const daten={
+      kategorie:a.kategorie, tarif:a.tarif||'', intervall:a.intervall,
+      betrag:a.betrag||0, ablauf:a.ablauf||'', account:konto,
+      genutzt:a.genutzt, notiz:a.notiz||''
+    };
+    if(a.url)daten.url=a.url;
+    /* Vorhandenes Tool nach Name aktualisieren. Präzise, damit "HeyGen" nicht auf
+       das kombinierte Werkzeug "HeyGen / ElevenLabs" matcht: exakter Name, oder der
+       Abo-Name beginnt mit dem Tool-Namen gefolgt von " (" (z.B. "Claude (Anthropic)"
+       trifft "Claude"), oder der Tool-Name beginnt mit dem Abo-Namen + " (". */
+    const norm=s=>(s||'').toLowerCase().trim();
+    const idx=liste.findIndex(t=>{
+      const tn=norm(t.name), an=norm(a.name);
+      if(tn===an)return true;
+      if(an.startsWith(tn+' ('))return true;   // Abo "Claude (Anthropic)" ~ Tool "Claude"
+      if(tn.startsWith(an+' ('))return true;   // Tool "X (Y)" ~ Abo "X"
+      return false;
+    });
+    if(idx>=0){ Object.assign(liste[idx],daten); akt++; }
+    else{ liste.push(Object.assign({id:'tl'+Date.now()+Math.floor(Math.random()*1000),name:a.name,connector:false,skill:false,useCases:''},daten)); neu++; }
+  });
+  await save();renderTools();
+  toast(neu+' neu, '+akt+' aktualisiert');
+}
 function werkzeugeInStack(){
   const liste=toolListe();
   const vorhanden=new Set();
@@ -3850,7 +4064,7 @@ async function bahnVergleich(){
 
 /* ---------- Google-Drive-Sync (Drive API, appDataFolder, Pop-up-Login via Google Identity Services) ---------- */
 const GD_CLIENT_ID='544176092247-ibp6ki7tfb4un8brg3hip3te8pq5eepq.apps.googleusercontent.com';
-const GD_SCOPE='https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/calendar.events';
+const GD_SCOPE='https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly';
 const GD_TOKEN_KEY='rk-gd-token';
 const GD_FILENAME='reisekosten-daten.json';
 let gdToken=null, gdPushTimer=null, gdFileId=null, gdTokenClient=null;
@@ -4392,6 +4606,10 @@ el('iStart').addEventListener('click',importKalender);
 el('tabStart').addEventListener('click',()=>bereichWechseln('start'));
 navBinden();
 el('btnWerkzeugeStack').addEventListener('click',werkzeugeInStack);
+el('btnAboImport').addEventListener('click',()=>{if(confirm('Die Abo-Daten aus dem Gmail-Scan (Juli 2026) importieren? Vorhandene Tools mit gleichem Namen werden aktualisiert, neue angelegt.'))abosImportieren()});
+el('btnGmailScan').addEventListener('click',gmailScan);
+document.addEventListener('click',e=>{const b=e.target.closest('[data-gmailadd]');if(b)gmailAboUebernehmen(+b.getAttribute('data-gmailadd'))});
+el('btnAccountNeu').addEventListener('click',accountNeu);
 el('btnZielKm').addEventListener('click',zielKmBerechnen);
 el('btnKShot').addEventListener('click',()=>el('kShotFile').click());
 el('kShotFile').addEventListener('change',e=>{if(e.target.files&&e.target.files[0])kShotParse(e.target.files[0]);e.target.value=''});
