@@ -4065,7 +4065,7 @@ async function bahnVergleich(){
 
 /* ---------- Google-Drive-Sync (Drive API, appDataFolder, Pop-up-Login via Google Identity Services) ---------- */
 const GD_CLIENT_ID='544176092247-ibp6ki7tfb4un8brg3hip3te8pq5eepq.apps.googleusercontent.com';
-const GD_SCOPE='https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly';
+const GD_SCOPE='https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.calendarlist.readonly';
 const GD_TOKEN_KEY='rk-gd-token';
 const GD_FILENAME='reisekosten-daten.json';
 let gdToken=null, gdPushTimer=null, gdFileId=null, gdTokenClient=null;
