@@ -2947,8 +2947,9 @@ async function kalZieleLaden(){
       kals.sort((a,b)=>(/famili/i.test(b.name)?1:0)-(/famili/i.test(a.name)?1:0));
       kals.forEach(k=>{html+='<option value="g:'+esc(k.id)+'">Google: '+esc(k.name)+'</option>'});
       if(kals.length)el('kZielHint').textContent='Outlook schreibt ins Optima-Postfach, Google in den gewählten Familienkalender.';
+      else el('kZielHint').innerHTML='<span style="color:var(--rot)">Google ist verbunden, aber es kamen keine beschreibbaren Kalender zurück. Bitte Google in den Verbindungen trennen und NEU verbinden — beim Login muss „Kalender" mit angehakt sein.</span>';
     }catch(e){
-      el('kZielHint').textContent='Google-Kalender nicht abrufbar — evtl. neu verbinden (Tools → Verbindungen).';
+      el('kZielHint').innerHTML='<span style="color:var(--rot)">Google-Kalender-Fehler: '+esc((e&&e.message)||'unbekannt')+'. Meist fehlt die Kalender-Berechtigung — Google trennen und neu verbinden (Verbindungen), „Kalender" bestätigen.</span>';
     }
   }else{
     el('kZielHint').textContent='Nur Outlook verfügbar. Für den Google-Familienkalender: Tools → Verbindungen → Google verbinden.';
@@ -4104,7 +4105,7 @@ async function gdConnect(){
   if(!gdConfigured()){odMeldung('Google ist noch nicht eingerichtet.');return}
   if(!gdInitClient()){odMeldung('Google-Anmeldung wird geladen … bitte kurz warten und erneut klicken.');return}
   odMeldung('Google-Anmeldefenster wird geöffnet — Pop-ups für diese Seite erlauben, falls nichts erscheint.');
-  const tok=await gdRequestToken();
+  const tok=await gdRequestToken('consent'); // consent erzwingen, damit neue Berechtigungen (Kalender) abgefragt werden
   if(tok){odMeldung('Verbunden — synchronisiere …');await gdPullMerge();await gdPush();renderOdStatus();renderGtasks(true)}
   else{odMeldung('Anmeldung abgebrochen oder fehlgeschlagen.')}
 }
