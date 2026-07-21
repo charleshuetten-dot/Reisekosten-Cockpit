@@ -4073,7 +4073,7 @@ let gdToken=null, gdPushTimer=null, gdFileId=null, gdTokenClient=null;
 function gdConfigured(){return GD_CLIENT_ID&&!GD_CLIENT_ID.startsWith('HIER-')}
 function gdLoadToken(){try{const v=localStorage.getItem(GD_TOKEN_KEY);if(v)gdToken=JSON.parse(v)}catch(e){}}
 function gdSaveToken(t){gdToken=t;try{localStorage.setItem(GD_TOKEN_KEY,JSON.stringify(t))}catch(e){}}
-function gdClearToken(){gdToken=null;gdFileId=null;try{localStorage.removeItem(GD_TOKEN_KEY)}catch(e){}}
+function gdClearToken(){gdToken=null;gdFileId=null;gdTokenClient=null;try{localStorage.removeItem(GD_TOKEN_KEY)}catch(e){}}
 
 function gdInitClient(){
   if(!gdConfigured()||typeof google==='undefined'||!google.accounts||!google.accounts.oauth2)return false;
@@ -4103,6 +4103,7 @@ function odMeldung(txt){/* auf beide Karten schreiben */
 }
 async function gdConnect(){
   if(!gdConfigured()){odMeldung('Google ist noch nicht eingerichtet.');return}
+  gdTokenClient=null; // Client-Cache leeren, damit er frisch mit dem vollen GD_SCOPE (inkl. Kalender) entsteht
   if(!gdInitClient()){odMeldung('Google-Anmeldung wird geladen … bitte kurz warten und erneut klicken.');return}
   odMeldung('Google-Anmeldefenster wird geöffnet — Pop-ups für diese Seite erlauben, falls nichts erscheint.');
   const tok=await gdRequestToken('consent'); // consent erzwingen, damit neue Berechtigungen (Kalender) abgefragt werden
