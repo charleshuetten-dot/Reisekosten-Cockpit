@@ -97,6 +97,32 @@ header .wrap{padding:0 2px}
 .route .strecke::after{content:'';position:absolute;right:-1px;top:-4.5px;border:5px solid transparent;border-left:7px solid var(--ink)}
 .trip .meta{display:flex;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--grau)}
 .badge{display:inline-block;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-family:'IBM Plex Mono',monospace;font-size:11px}
+/* ---------- Status als Farb-Chip (Redesign-Punkt 5) ----------
+   Vorher trugen alle Zustände dieselbe neutrale Badge — offen sah aus wie
+   abgerechnet. Farbe codiert den Zustand jetzt auf einen Blick, ohne Emoji. */
+.chip{display:inline-block;border-radius:999px;padding:3px 10px;font-family:'Barlow Condensed',sans-serif;
+  font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border:1.5px solid transparent}
+.chip.offen{background:var(--rot-dim);color:var(--rot);border-color:var(--rot)}
+.chip.arbeit{background:var(--warn-dim);color:var(--warn);border-color:var(--warn)}
+.chip.geliefert{background:#EAF1FA;color:#1F4E79;border-color:#1F4E79}
+.chip.abgerechnet{background:var(--ok-dim);color:var(--ok);border-color:var(--ok)}
+/* ---------- Ladezustand als Skelett statt Text (Redesign-Punkt 3) ----------
+   "Wird geprüft …" ist eine System-Innerei. Ein ruhig pulsierender Platzhalter
+   sagt dasselbe, ohne den Nutzer mit dem Innenleben zu behelligen. */
+.skel{background:linear-gradient(90deg,var(--bg) 25%,#EDF1F5 50%,var(--bg) 75%);
+  background-size:200% 100%;animation:skelpuls 1.4s ease-in-out infinite;border-radius:6px;height:13px;margin:5px 0}
+.skel.kurz{width:45%} .skel.mittel{width:70%} .skel.lang{width:92%}
+@keyframes skelpuls{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* ---------- Hilfe-Popover statt Erklär-Fließtext (Redesign-Punkt 3) ---------- */
+.hilfe{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+  border:1.5px solid var(--line);border-radius:999px;background:#fff;color:var(--grau);
+  font-size:12px;font-weight:700;cursor:help;position:relative;vertical-align:middle;margin-left:6px;padding:0}
+.hilfe:hover,.hilfe:focus{border-color:var(--ink);color:var(--ink)}
+.hilfe::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);
+  width:min(300px,70vw);background:var(--ink);color:#fff;padding:9px 11px;border-radius:8px;
+  font-family:'IBM Plex Sans',sans-serif;font-size:12.5px;font-weight:400;line-height:1.45;
+  text-transform:none;letter-spacing:0;text-align:left;opacity:0;pointer-events:none;transition:opacity .15s;z-index:70}
+.hilfe:hover::after,.hilfe:focus::after{opacity:1}
 .badge.bahn{color:var(--rot);border-color:var(--rot)}
 .badge.entwurf{background:var(--rot-dim);color:var(--rot);border-color:transparent}
 .badge.fest{background:var(--ok-dim);color:var(--ok);border-color:transparent}
@@ -389,7 +415,7 @@ body{padding-bottom:64px}
     <h2>Aufgaben
       <span class="tools"><button class="minibtn" id="btnTaskReload">Aktualisieren</button><button class="minibtn haupt" id="btnTaskNeu">+ Aufgabe</button></span>
     </h2>
-    <div class="hint">Zeigt deine Aufgaben aus Microsoft To Do — ein Filter je Liste. „Alle" zeigt alles, jeder Bereich (Optima, SCC, FRMD PASN, Privat, deine Auftraggeber …) hat einen eigenen Chip. Geflaggte Outlook-Mails erscheinen unter „Gekennzeichnete E-Mail". Nach dem Anlegen neuer Listen: „Aktualisieren".</div>
+    <div class="hint">Aufgaben aus Microsoft To Do<button type="button" class="hilfe" data-tip="Ein Filter je Liste. „Alle&quot; zeigt alles, jeder Bereich (Optima, SCC, FRMD PASN, Privat, Auftraggeber) hat einen eigenen Chip. Geflaggte Outlook-Mails erscheinen unter „Gekennzeichnete E-Mail&quot;. Nach dem Anlegen neuer Listen auf „Aktualisieren&quot;." aria-label="Erklärung">?</button></div>
     <div id="taskForm" style="display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
       <div class="f"><label>Titel</label><input type="text" id="tkTitel" placeholder="z. B. Unterlagen Kapitel 3 überarbeiten"></div>
       <div class="grid2">
@@ -468,7 +494,7 @@ body{padding-bottom:64px}
   <details class="card" id="konfliktCard">
     <summary style="cursor:pointer;list-style:none"><h2 style="display:inline">Konfliktprüfung <span style="float:right;color:var(--grau);font-weight:400">+</span></h2></summary>
     <div class="hint" style="margin-top:8px">Bevor die App eine Anreise oder ein Seminar in Outlook anlegt, prüft sie diese Kalender auf Überschneidungen. Dein <b>Hauptkalender ist immer dabei</b>. Kreuze zusätzlich an, was eine Reise verhindern soll — etwa den Familienkalender, damit dir kein Arzttermin oder Geburtstag dazwischenkommt.<br>Das betrifft nur die Warnung: Termine aus diesen Kalendern erscheinen <b>nicht</b> in der Terminliste oben.</div>
-    <div id="konfliktKalListe" style="margin-top:8px"><div class="hint">Wird geladen …</div></div>
+    <div id="konfliktKalListe" style="margin-top:8px"><div class="skel lang"></div><div class="skel mittel"></div></div>
     <div class="hint" id="konfliktKalStatus"></div>
   </details>
 
@@ -480,7 +506,7 @@ body{padding-bottom:64px}
     <h2>Seminaraufträge aus Outlook
       <span class="tools"><button class="minibtn" id="btnMailCheck">Mails prüfen</button></span>
     </h2>
-    <div class="hint">Gelesen werden Mails auf drei Wegen: Kategorie <strong>„Seminarauftrag"</strong> vergeben (Mail bleibt wo sie ist — empfohlen), Fähnchen setzen, oder in den Outlook-Ordner <strong>„Seminaraufträge"</strong> legen.</div>
+    <div class="hint">Markierte Mails aus Outlook<button type="button" class="hilfe" data-tip="Drei Wege: Kategorie &quot;Seminarauftrag&quot; vergeben (Mail bleibt wo sie ist — empfohlen), F&auml;hnchen setzen, oder in den Outlook-Ordner &quot;Seminaraufträge&quot; legen." aria-label="Erklärung">?</button></div>
     <div id="mailList" style="margin-top:8px"></div>
   </div>
 
@@ -871,7 +897,7 @@ body{padding-bottom:64px}
       <input type="text" id="setLokalPfad" placeholder="C:\Users\DeinName\OneDrive - Optima Gruppe AG"></div>
     <div class="f"><label>Link zum IHK-Tutor-Projekt (optional)</label><input type="text" id="setIhkTutorUrl" placeholder="https://…"></div>
     <div class="f"><label>Google-Drive-Sync</label>
-      <div class="hint" id="odStatus">Wird geprüft …</div>
+      <div class="hint" id="odStatus"><span class="skel kurz" style="display:inline-block"></span></div>
       <div style="display:flex;gap:8px;margin-top:6px">
         <button class="minibtn" id="btnOdConnect" style="display:none">Mit Google Drive verbinden</button>
         <button class="minibtn rot" id="btnOdDisconnect" style="display:none">Trennen</button>
@@ -980,7 +1006,7 @@ body{padding-bottom:64px}
 <div class="card">
     <h2>Verbindungen</h2>
     <div class="f" style="margin-top:6px"><label>Outlook (Optima)</label>
-      <div class="hint" id="msStatus">Wird geprüft …</div>
+      <div class="hint" id="msStatus"><span class="skel kurz" style="display:inline-block"></span></div>
       <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
         <button class="minibtn" id="btnMsConnect" style="display:none">Mit Outlook verbinden</button>
         <button class="minibtn rot" id="btnMsDisconnect" style="display:none">Trennen</button>
@@ -988,7 +1014,7 @@ body{padding-bottom:64px}
     </div>
     <div class="hint" style="margin-top:12px">Google für Kalender-Sync, Daten-Backup und die vom Handy diktierten Aufgaben (Google Tasks).</div>
     <div class="f" style="margin-top:10px"><label>Google</label>
-      <div class="hint" id="odStatus2">Wird geprüft …</div>
+      <div class="hint" id="odStatus2"><span class="skel kurz" style="display:inline-block"></span></div>
       <div style="display:flex;gap:8px;margin-top:6px">
         <button class="minibtn" id="btnOdConnect2" style="display:none">Mit Google verbinden</button>
         <button class="minibtn rot" id="btnOdDisconnect2" style="display:none">Trennen</button>
@@ -2636,7 +2662,7 @@ function renderJobs(){
         '<span style="font-weight:600">'+esc(j.titel)+'</span>'+
         '<span class="mono" style="font-size:12px;color:var(--grau)">'+(b?eur(b):(j.modus==='extern'?'IHK-Portal':'—'))+'</span>'+
       '</div>'+
-      '<div class="meta" style="margin-top:3px"><span class="badge">'+st+'</span>'+
+      '<div class="meta" style="margin-top:3px"><span class="chip '+(j.status||'offen')+'">'+st+'</span>'+
         '<span>'+esc(JOB_ARTEN[j.art]||'')+'</span>'+
         (j.ag?'<span>· '+esc(j.ag)+'</span>':'')+
         (j.auftragsnr?'<span>· '+esc(j.auftragsnr)+'</span>':'')+
@@ -4783,7 +4809,8 @@ const ABO_IMPORT=[
   {name:'Google AI Pro (Google One)',kategorie:'KI & Assistenz',tarif:'Pro (5 TB)',intervall:'monatlich',betrag:10.99,account:'Coaching',genutzt:true,notiz:'Bestätigt 21.07.2026. 10,99 €/M (monatlich, nicht Jahresabo). Konto Coaching-Konto •1808.'},
   {name:'Canva',kategorie:'Unterlagen & Design',tarif:'Pro',intervall:'jaehrlich',betrag:110,ablauf:'2027-02-14',account:'Coaching',genutzt:true,url:'https://canva.com',notiz:'Bestätigt 21.07.2026. 110 €/Jahr = 9,17 €/M. Letzte Zahlung 14.02.2026, Verlängerung 14.02.2027. Konto Coaching-Karte •1808.'},
   {name:'HeyGen',kategorie:'Video & Audio',tarif:'Free',intervall:'kostenlos',betrag:0,account:'',genutzt:true,url:'https://heygen.com',notiz:'Bestätigt 21.07.2026. Free-Tarif — kostenlos, kein Konto belastet.'},
-  {name:'Wispr Flow',kategorie:'KI & Assistenz',tarif:'Free',intervall:'kostenlos',betrag:0,account:'',genutzt:true,url:'https://wisprflow.ai',notiz:'Bestätigt 21.07.2026. Aktuell kostenlos. Diktier-/Spracheingabe-Tool.'}
+  {name:'Wispr Flow',kategorie:'KI & Assistenz',tarif:'Free',intervall:'kostenlos',betrag:0,account:'',genutzt:true,url:'https://wisprflow.ai',notiz:'Bestätigt 21.07.2026. Aktuell kostenlos. Diktier-/Spracheingabe-Tool.'},
+  {name:'Adobe Creative Cloud Pro',kategorie:'Unterlagen & Design',tarif:'Creative Cloud Pro (50 Programme, 100 GB)',intervall:'jaehrlich',betrag:417.74,ablauf:'2027-05-28',account:'SCC-KK',genutzt:true,url:'https://account.adobe.com',notiz:'Bestätigt 22.07.2026. 417,74 €/Jahr = 34,81 €/M. Abonnent seit 28.05.2025, Verlängerung 28.05.2027. Konto SCC-Kreditkarte •0838. Enthält Acrobat — u.a. zum Ausfüllen der IHK-Kundenfälle.'}
 ];
 async function abosImportieren(){
   const liste=toolListe();
