@@ -80,6 +80,10 @@ header .wrap{padding:0 2px}
 /* Hauptaktion einer Karte — gefüllt, damit sie ohne Suchen ins Auge fällt.
    Er arbeitet viel am Handy; wichtige Knöpfe dürfen nicht wie Beiwerk aussehen. */
 .minibtn.haupt{background:var(--ink);border-color:var(--ink);color:#fff}
+/* Knöpfe in Listenzeilen: kompakter als die Hauptknöpfe, damit dichte Listen nicht
+   auseinanderfallen — aber mit ordentlichem Tippziel statt der früheren 11px/2px,
+   die als Inline-Style überall die Klasse überschrieben haben. */
+.minibtn.klein{padding:6px 12px;font-size:13px;min-height:32px}
 .minibtn.haupt:hover{background:var(--rot);border-color:var(--rot)}
 
 .trip{border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;background:var(--paper);cursor:pointer;transition:border-color .15s}
@@ -222,6 +226,7 @@ details.card[open]>summary::after{content:'–'}
    Seminar zählt jeder Fehlgriff. */
 @media (pointer:coarse){
   .minibtn{padding:11px 18px;font-size:16px;min-height:44px}
+  .minibtn.klein{padding:8px 14px;font-size:14.5px;min-height:40px}
   .trow select,.trow input[type="date"]{min-height:44px;font-size:16px}
   button{min-height:44px}
   select,input[type="date"],input[type="time"],input[type="number"],input[type="text"]{min-height:44px;font-size:16px}
@@ -1066,7 +1071,7 @@ body{padding-bottom:64px}
           <button type="button" data-bew="3">3</button><button type="button" data-bew="4">4</button>
           <button type="button" data-bew="5">5</button>
         </div>
-        <button type="button" class="minibtn" id="btnBewLeeren" style="padding:3px 10px;font-size:11px">zurücksetzen</button>
+        <button type="button" class="minibtn klein" id="btnBewLeeren" >zurücksetzen</button>
       </div>
       <input type="text" id="fBewNotiz" placeholder="Kurz: was lief gut, was ändere ich beim nächsten Mal?" style="margin-top:6px">
     </div>
@@ -1363,7 +1368,7 @@ function render(){
   el('rechnungCard').style.display=reTrips.length?'block':'none';
   el('rechnungList').innerHTML=reTrips.map(t=>{const k=berechneKundenkosten(t);
     return '<div class="agrow"><span>'+esc(t.ag)+(t.auftragsnr?' · '+esc(t.auftragsnr):'')+' — '+esc(t.ziel||'')+'</span><span style="display:flex;gap:8px;align-items:center"><span class="mono">'+eur(k.gesamt)+'</span>'+
-      (t.rechnungPdfUrl?'<a href="'+esc(t.rechnungPdfUrl)+'" target="_blank" class="minibtn" style="padding:2px 8px;font-size:11px;text-decoration:none">📄 Rechnung</a>':'<button type="button" class="minibtn" data-rupload="'+t.id+'" style="padding:2px 8px;font-size:11px">Rechnung hochladen</button>')+
+      (t.rechnungPdfUrl?'<a href="'+esc(t.rechnungPdfUrl)+'" target="_blank" class="minibtn klein" style="text-decoration:none">📄 Rechnung</a>':'<button type="button" class="minibtn klein" data-rupload="'+t.id+'" >Rechnung hochladen</button>')+
       '</span></div>';
   }).join('');
   el('rechnungList').querySelectorAll('[data-rupload]').forEach(b=>b.addEventListener('click',()=>{rechnungUploadZielId=b.dataset.rupload;el('rechnungPdfFile').click()}));
@@ -1811,7 +1816,7 @@ async function ordnerLaden(pfad){
     const dateien=items.filter(i=>i.file);
     const teile=ordnerPfad.split('/');
     const crumb=teile.map((t,i)=>'<button type="button" class="crumb" data-pfad="'+esc(teile.slice(0,i+1).join('/'))+'">'+esc(t)+'</button>').join('<span class="crumb-sep">/</span>');
-    let html='<div class="breadcrumb">'+crumb+'<a href="'+esc(meta.webUrl||'')+'" target="_blank" class="minibtn" style="margin-left:auto;text-decoration:none;padding:3px 10px;font-size:11px">In OneDrive öffnen ↗</a></div>';
+    let html='<div class="breadcrumb">'+crumb+'<a href="'+esc(meta.webUrl||'')+'" target="_blank" class="minibtn klein" style="margin-left:auto;text-decoration:none">In OneDrive öffnen ↗</a></div>';
     if(!ordner.length&&!dateien.length){
       html+='<div class="hint">Dieser Ordner ist noch leer.</div>';
     }else{
@@ -1907,7 +1912,7 @@ function renderTools(){
   const fbox=el('toolFilter');
   if(fbox){
     const kats=['alle'].concat(TOOL_KATEGORIEN.filter(k=>liste.some(t=>t.kategorie===k)));
-    fbox.innerHTML=kats.map(k=>'<button type="button" class="minibtn'+(toolFilterAktiv===k?' rot':'')+'" data-tfilter="'+esc(k)+'" style="flex:0 0 auto;font-size:11.5px;padding:4px 10px">'+(k==='alle'?'Alle':esc(k))+'</button>').join('');
+    fbox.innerHTML=kats.map(k=>'<button type="button" class="minibtn klein'+(toolFilterAktiv===k?' rot':'')+'" data-tfilter="'+esc(k)+'" style="flex:0 0 auto">'+(k==='alle'?'Alle':esc(k))+'</button>').join('');
     fbox.querySelectorAll('[data-tfilter]').forEach(b=>b.addEventListener('click',()=>{toolFilterAktiv=b.dataset.tfilter;renderTools()}));
   }
   /* Ansicht-Umschalter markieren + verdrahten */
@@ -2041,8 +2046,8 @@ function renderToolKarten(gefiltert){
           t.notiz?esc(t.notiz):null
         ].filter(Boolean).join(' · ')+'</div>'+
         '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">'+
-          (t.url?'<a href="'+esc(t.url)+'" target="_blank" class="minibtn" style="text-decoration:none;padding:3px 10px;font-size:11px">Öffnen ↗</a>':'')+
-          '<button type="button" class="minibtn" data-tedit="'+t.id+'" style="padding:3px 10px;font-size:11px">Bearbeiten</button>'+
+          (t.url?'<a href="'+esc(t.url)+'" target="_blank" class="minibtn klein" style="text-decoration:none">Öffnen ↗</a>':'')+
+          '<button type="button" class="minibtn klein" data-tedit="'+t.id+'" >Bearbeiten</button>'+
         '</div>'+
       '</div></details>';
   }).join('');
@@ -2072,7 +2077,7 @@ function renderToolTabelle(gefiltert){
       '<td style="padding:7px 8px;white-space:nowrap">'+(t.account?esc(t.account):'—')+'</td>'+
       '<td style="padding:7px 8px;white-space:nowrap">'+ablauf+'</td>'+
       '<td style="padding:7px 8px;min-width:180px;color:var(--grau)">'+(t.useCases?esc(t.useCases):'—')+'</td>'+
-      '<td style="padding:7px 8px"><button type="button" class="minibtn" data-tedit="'+t.id+'" style="padding:2px 8px;font-size:11px">✎</button></td>'+
+      '<td style="padding:7px 8px"><button type="button" class="minibtn klein" data-tedit="'+t.id+'" >✎</button></td>'+
       '</tr>';
   }).join('');
   box.innerHTML='<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:13px">'+
@@ -2090,7 +2095,7 @@ function renderToolVorschlaege(){
   const offen=TOOL_DB.filter(v=>!vorhanden.includes(norm2(v.name)));
   if(!offen.length){box.innerHTML='<div class="hint">Alle Vorschläge sind bereits erfasst.</div>';return}
   box.innerHTML=offen.map((v,i)=>'<div class="agrow"><span>'+esc(v.name)+' <span style="color:var(--grau);font-size:11.5px">· '+esc(v.kategorie)+'</span></span>'+
-    '<button type="button" class="minibtn" data-tadd="'+i+'" style="padding:2px 10px;font-size:11px">+ Übernehmen</button></div>').join('');
+    '<button type="button" class="minibtn klein" data-tadd="'+i+'" >+ Übernehmen</button></div>').join('');
   box.querySelectorAll('[data-tadd]').forEach(b=>b.addEventListener('click',async()=>{
     const v=offen[+b.dataset.tadd];
     toolListe().push({id:'tl'+Date.now(),name:v.name,kategorie:v.kategorie,url:v.url,useCases:v.useCases,
@@ -2434,8 +2439,8 @@ function taskRowHtml(t){
     (t.importance==='high'?'<span class="tpill prio-high">Hoch</span>':'')+
     '<input type="date" data-tdue="'+t.id+'" value="'+due+'" style="font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 4px">'+
     '<select data-tprio="'+t.id+'" style="width:auto"><option value="normal"'+(t.importance==='normal'?' selected':'')+'>Normal</option><option value="high"'+(t.importance==='high'?' selected':'')+'>Hoch</option><option value="low"'+(t.importance==='low'?' selected':'')+'>Niedrig</option></select>'+
-    (t.status!=='inProgress'?'<button type="button" class="minibtn" data-tstart="'+t.id+'" style="padding:2px 8px;font-size:11px">Start</button>':'')+
-    '<button type="button" class="minibtn" data-tdone="'+t.id+'" style="padding:2px 8px;font-size:11px">✓ Fertig</button>'+
+    (t.status!=='inProgress'?'<button type="button" class="minibtn klein" data-tstart="'+t.id+'" >Start</button>':'')+
+    '<button type="button" class="minibtn klein" data-tdone="'+t.id+'" >✓ Fertig</button>'+
     '</div></div>';
 }
 async function taskAendern(id,patch){
@@ -2639,10 +2644,10 @@ function renderJobs(){
         (j.umfang?'<span>· '+esc(j.umfang)+'</span>':'')+
       '</div>'+
       '<div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">'+
-        (naechster?'<button type="button" class="minibtn" data-jnext="'+j.id+'" style="padding:3px 10px;font-size:11px">→ '+((JOB_STATUS[JOB_STATUS.findIndex(s=>s[0]===(j.status||'offen'))+1]||[])[1]||'')+'</button>':'')+
-        ((j.status==='geliefert'&&j.modus!=='extern'&&!j.rechnungsAufgabe)?'<button type="button" class="minibtn" data-jinv="'+j.id+'" style="padding:3px 10px;font-size:11px">Rechnungs-Aufgabe</button>':'')+
+        (naechster?'<button type="button" class="minibtn klein" data-jnext="'+j.id+'" >→ '+((JOB_STATUS[JOB_STATUS.findIndex(s=>s[0]===(j.status||'offen'))+1]||[])[1]||'')+'</button>':'')+
+        ((j.status==='geliefert'&&j.modus!=='extern'&&!j.rechnungsAufgabe)?'<button type="button" class="minibtn klein" data-jinv="'+j.id+'" >Rechnungs-Aufgabe</button>':'')+
         (j.rechnungsAufgabe?'<span class="hint" style="margin:0;align-self:center">✓ Rechnungs-Aufgabe angelegt</span>':'')+
-        '<button type="button" class="minibtn" data-jedit="'+j.id+'" style="padding:3px 10px;font-size:11px">Bearbeiten</button>'+
+        '<button type="button" class="minibtn klein" data-jedit="'+j.id+'" >Bearbeiten</button>'+
       '</div>'+
     '</div>';
   }).join('');
@@ -3731,7 +3736,7 @@ async function kalenderLaden(){
   /* Zeitraum-Chips */
   const zbox=el('kalZeitraum');
   if(zbox){
-    zbox.innerHTML=[30,60,90].map(t=>'<button type="button" class="minibtn'+(kalTage===t?' rot':'')+'" data-kaltage="'+t+'" style="font-size:11.5px;padding:4px 10px">'+t+' Tage</button>').join('');
+    zbox.innerHTML=[30,60,90].map(t=>'<button type="button" class="minibtn klein'+(kalTage===t?' rot':'')+'" data-kaltage="'+t+'" >'+t+' Tage</button>').join('');
     zbox.querySelectorAll('[data-kaltage]').forEach(b=>b.addEventListener('click',()=>{kalTage=+b.dataset.kaltage;kalenderLaden()}));
   }
   if(!msAccount){box.innerHTML='<div class="hint">Bitte zuerst im Bereich Start Outlook verbinden.</div>';return}
@@ -3761,7 +3766,7 @@ function renderKalender(){
   const versteckt=kalIgnoriertTitel();
   const verstecktHtml=versteckt.length
     ? '<div class="hint" style="margin-bottom:6px">Dauerhaft ausgeblendet: '+versteckt.map(t=>esc(t)).join(' · ')+
-      ' <button type="button" class="minibtn" id="btnIgnTitelReset" style="padding:1px 6px;font-size:10.5px;margin-left:4px">zurücksetzen</button></div>'
+      ' <button type="button" class="minibtn klein" id="btnIgnTitelReset" style="margin-left:4px">zurücksetzen</button></div>'
     : '';
   if(!sichtbar.length){box.innerHTML=verstecktHtml+'<div class="hint">Keine Termine im gewählten Zeitraum.</div>';kalResetVerdrahten();return}
   const heute=heuteISO();
@@ -3778,18 +3783,18 @@ function renderKalender(){
       const name=z.typ==='reise'?(z.ref.ziel||z.ref.zweck||'Reise'):(z.ref.thema||'Meeting');
       statusHtml='<span style="color:#1a7a3c;font-size:11.5px">✓ '+(z.auto?'erkannt als':'verknüpft mit')+' '+esc(name)+'</span>';
       aktionen=(z.typ==='reise'
-        ?'<button type="button" class="minibtn" data-kreise="'+z.ref.id+'" style="padding:2px 8px;font-size:11px">Reise</button>'
-        :'<button type="button" class="minibtn" data-kmeet="'+z.ref.id+'" style="padding:2px 8px;font-size:11px">Meeting</button>')+
-        '<button type="button" class="minibtn" data-kwerk="'+z.typ+':'+z.ref.id+'" style="padding:2px 8px;font-size:11px">Unterlagen</button>'+
-        (z.typ==='reise'?'<button type="button" class="minibtn" data-kabr="'+z.ref.id+'" style="padding:2px 8px;font-size:11px">Abrechnung</button>':'');
-      if(z.auto)aktionen+='<button type="button" class="minibtn" data-kfest="'+z.typ+':'+z.ref.id+':'+e.id+'" style="padding:2px 8px;font-size:11px">Merken</button>';
-      if(katAg===null&&z.ref.ag)aktionen+='<button type="button" class="minibtn" data-kkat="'+e.id+':'+esc(z.ref.ag)+'" style="padding:2px 8px;font-size:11px">Kategorisieren</button>';
+        ?'<button type="button" class="minibtn klein" data-kreise="'+z.ref.id+'" >Reise</button>'
+        :'<button type="button" class="minibtn klein" data-kmeet="'+z.ref.id+'" >Meeting</button>')+
+        '<button type="button" class="minibtn klein" data-kwerk="'+z.typ+':'+z.ref.id+'" >Unterlagen</button>'+
+        (z.typ==='reise'?'<button type="button" class="minibtn klein" data-kabr="'+z.ref.id+'" >Abrechnung</button>':'');
+      if(z.auto)aktionen+='<button type="button" class="minibtn klein" data-kfest="'+z.typ+':'+z.ref.id+':'+e.id+'" >Merken</button>';
+      if(katAg===null&&z.ref.ag)aktionen+='<button type="button" class="minibtn klein" data-kkat="'+e.id+':'+esc(z.ref.ag)+'" >Kategorisieren</button>';
     }else{
       statusHtml='<span style="color:var(--grau);font-size:11.5px">○ nicht zugeordnet</span>';
-      aktionen='<button type="button" class="minibtn" data-kneu="'+e.id+'" style="padding:2px 8px;font-size:11px">Als Reise</button>'+
-        '<button type="button" class="minibtn" data-kneumeet="'+e.id+'" style="padding:2px 8px;font-size:11px">Als Meeting</button>'+
-        '<button type="button" class="minibtn" data-kign="'+e.id+'" style="padding:2px 8px;font-size:11px">Ignorieren</button>'+
-        '<button type="button" class="minibtn" data-kigntitel="'+esc(e.titel)+'" style="padding:2px 8px;font-size:11px" title="Alle Termine mit diesem Titel dauerhaft ausblenden">Immer</button>';
+      aktionen='<button type="button" class="minibtn klein" data-kneu="'+e.id+'" >Als Reise</button>'+
+        '<button type="button" class="minibtn klein" data-kneumeet="'+e.id+'" >Als Meeting</button>'+
+        '<button type="button" class="minibtn klein" data-kign="'+e.id+'" >Ignorieren</button>'+
+        '<button type="button" class="minibtn klein" data-kigntitel="'+esc(e.titel)+'"  title="Alle Termine mit diesem Titel dauerhaft ausblenden">Immer</button>';
     }
     return '<div style="border-bottom:1px solid var(--line);padding:9px 0'+(istHeute?';background:var(--rot-dim);margin:0 -14px;padding-left:14px;padding-right:14px':'')+'">'+
       '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline">'+
@@ -4146,7 +4151,7 @@ function renderReiseplanung(){
   box.innerHTML=kommend.map(t=>{
     const s=t.status||{};
     const offen=[!s.bahn&&t.vm==='bahn'?'Bahn':null,!s.hotel?'Hotel':null,!s.termine?'Termine':null,!s.unterlagen?'Unterlagen':null].filter(Boolean);
-    return '<div class="agrow"><span>'+dfmt(t.von)+(t.bis&&t.bis!==t.von?'–'+dfmt(t.bis):'')+' · '+esc(t.ag)+' — '+esc(t.ziel||'')+(offen.length?' <span style="color:var(--rot);font-size:11.5px">('+offen.join(', ')+' offen)</span>':' <span style="color:#1a7a3c;font-size:11.5px">(bereit)</span>')+'</span><button type="button" class="minibtn" data-openreise="'+t.id+'" style="padding:2px 10px;font-size:11px">Öffnen</button></div>';
+    return '<div class="agrow"><span>'+dfmt(t.von)+(t.bis&&t.bis!==t.von?'–'+dfmt(t.bis):'')+' · '+esc(t.ag)+' — '+esc(t.ziel||'')+(offen.length?' <span style="color:var(--rot);font-size:11.5px">('+offen.join(', ')+' offen)</span>':' <span style="color:#1a7a3c;font-size:11.5px">(bereit)</span>')+'</span><button type="button" class="minibtn klein" data-openreise="'+t.id+'" >Öffnen</button></div>';
   }).join('');
   box.querySelectorAll('[data-openreise]').forEach(b=>b.addEventListener('click',()=>{bereichWechseln('abrechnung');setTimeout(()=>openForm(b.dataset.openreise),50)}));
 }
@@ -5080,9 +5085,9 @@ function renderNachbereitung(){
     const v=(t.mahl&&t.mahl[k])||0;
     return '<div style="display:flex;align-items:center;gap:6px">'+
       '<span style="font-size:12.5px;min-width:62px;color:var(--grau)">'+label+'</span>'+
-      '<button type="button" class="minibtn" data-nm="'+t.id+'" data-nk="'+k+'" data-nd="-1" style="padding:2px 9px">\u2212</button>'+
+      '<button type="button" class="minibtn klein" data-nm="'+t.id+'" data-nk="'+k+'" data-nd="-1" >\u2212</button>'+
       '<b style="min-width:14px;text-align:center;font-size:14px">'+v+'</b>'+
-      '<button type="button" class="minibtn" data-nm="'+t.id+'" data-nk="'+k+'" data-nd="1" style="padding:2px 9px">+</button>'+
+      '<button type="button" class="minibtn klein" data-nm="'+t.id+'" data-nk="'+k+'" data-nd="1" >+</button>'+
       '</div>';
   };
   el('nachListe').innerHTML=offen.map(t=>{
