@@ -697,8 +697,18 @@ body{padding-bottom:64px}
             <select id="gaMenge"><option value="brief">knapp</option><option value="medium" selected>mittel</option><option value="detailed">ausführlich</option></select>
           </div>
         </div>
-        <div class="f" style="margin-top:6px"><label>Dateiname / Thema <span style="color:var(--grau);font-weight:400;text-transform:none;letter-spacing:0">— wird zu Folien_&lt;Thema&gt;_v1.pptx</span></label>
-          <input type="text" id="gaThema" placeholder="z. B. Allgefahren-vs-klassisch"></div>
+        <div class="grid2" style="margin-top:6px">
+          <div class="f"><label>Dateiname / Thema</label>
+            <input type="text" id="gaThema" placeholder="z. B. Allgefahren-vs-klassisch"></div>
+          <div class="f"><label>Ablage als</label>
+            <select id="gaArt">
+              <option value="Folien">Folien</option>
+              <option value="Übung">Übung / Fall</option>
+              <option value="Handout">Handout (Teilnehmer)</option>
+              <option value="Skript">Skript</option>
+            </select></div>
+        </div>
+        <div class="hint" id="gaZielHinweis" style="margin-top:2px"></div>
         <div class="btnreihe">
           <button type="button" class="minibtn" id="btnGammaGen">✨ Deck erzeugen</button>
           <button type="button" class="minibtn" id="btnGammaAblage" style="display:none">In Kursordner ablegen</button>
@@ -2807,16 +2817,34 @@ async function gammaAblegen(){
       || (el('wsAuftrag').value||'Unterlage').trim().split(/\s+/).slice(0,4).join(' ');
     const kurz=roh.replace(/\s+/g,'-').replace(/[\\/:*?"<>|#%]/g,'').slice(0,60);
     const ver=gammaVersion(kurz);
-    const name='Folien_'+kurz+'_v'+ver+'.pptx';
-    const ag=(el('wsAg').value==='__frei'&&el('wsAgFrei'))?el('wsAgFrei').value:el('wsAg').value;
-    const ges=(el('wsGesellschaft')&&el('wsGesellschaft').value==='__frei'&&el('wsGesellschaftFrei'))
-      ?el('wsGesellschaftFrei').value:(el('wsGesellschaft')?el('wsGesellschaft').value:'');
-    const ordner=kursOrdner(ag, el('wsKategorie')?el('wsKategorie').value:'', ges);
-    await odPutFile(ordner+'/Folien/'+name, b64ToBlob(d.base64,d.mime), d.mime);
+    const ziel=gammaZiel();
+    const name=ziel.praefix+'_'+kurz+'_v'+ver+'.pptx';
+    await odPutFile(ziel.pfad+'/'+name, b64ToBlob(d.base64,d.mime), d.mime);
+    const ordner=ziel.pfad;
     gammaVersionHoch(kurz); await save();
-    st.textContent='\u2713 Abgelegt: '+ordner+'/Folien/'+name;
+    st.textContent='\u2713 Abgelegt: '+ordner+'/'+name;
     toast('Deck in OneDrive abgelegt');
   }catch(e){ st.textContent='Ablage fehlgeschlagen: '+e.message; }
+}
+
+/* Wohin genau die erzeugte Datei geht. Nutzt die vorhandene wsPfad(), die auch den
+   DIHK-Sonderfall kennt (DIHK/<Thema>/Klausuren statt Kurse/…) — vorher baute die
+   Gamma-Ablage den Pfad selbst und wäre bei DIHK im falschen Ordner gelandet.
+   Unterordner und Datei-Präfix folgen der Konvention aus dem Skill dozenten-ablage. */
+function gammaZiel(){
+  const basis=wsPfad();
+  if(wsIstDihk())return {pfad:basis, praefix:'Klausur'};
+  const art=(el('gaArt')&&el('gaArt').value)||'Folien';
+  const unterordner={'Folien':'Folien','Übung':'Übungen-Fälle','Handout':'Teilnehmerunterlagen','Skript':'Teilnehmerunterlagen'}[art]||'Folien';
+  return {pfad:basis+'/'+unterordner, praefix:art};
+}
+function gammaZielHinweis(){
+  const box=el('gaZielHinweis'); if(!box)return;
+  try{
+    const z=gammaZiel();
+    const thema=((el('gaThema').value||'').trim().replace(/\s+/g,'-')||'<Thema>');
+    box.textContent='Landet als: '+z.pfad+'/'+z.praefix+'_'+thema+'_v'+gammaVersion(thema)+'.pptx';
+  }catch(e){ box.textContent=''; }
 }
 
 /* Versionszähler je Dateiname — damit eine überarbeitete Fassung als _v2 landet
@@ -5755,6 +5783,9 @@ el('btnGammaAblage').addEventListener('click',gammaAblegen);
 el('btnGammaUpdate').addEventListener('click',gammaAktualisieren);
 el('btnPfadKopieren').addEventListener('click',()=>pfadKopieren(ordnerPfad));
 el('btnGammaFremd').addEventListener('click',gammaFremdHolen);
+['gaArt','gaThema','wsAg','wsKategorie','wsGesellschaft','wsDihkThema'].forEach(id=>{
+  const e=el(id); if(e)e.addEventListener(e.tagName==='SELECT'?'change':'input',gammaZielHinweis);
+});
 document.querySelectorAll('#bewSeg [data-bew]').forEach(b=>b.addEventListener('click',()=>{
   bewertungWert=(bewertungWert===+b.dataset.bew)?0:+b.dataset.bew; renderBewertung();
 }));
