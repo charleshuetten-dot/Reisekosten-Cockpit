@@ -239,7 +239,12 @@ details.card[open]>summary::after{content:'–'}
 body{padding-bottom:64px}
 /* Das alte Reiter-Band nur noch auf Desktop zeigen; Handy nutzt die untere Leiste */
 @media (pointer:coarse){ .bereiche{display:none} }
-@media (min-width:900px){ .tabbar{display:none} body{padding-bottom:0} }
+@media (min-width:900px){ .tabbar{display:none} body{padding-bottom:84px} }
+/* Die Aktionsleiste (.fab) ist seit Welle 3 in JEDEM Bereich sichtbar. Beide Leisten
+   kleben am unteren Rand — am Handy muss die Aktionsleiste deshalb ÜBER der
+   Navigationsleiste sitzen, und die Seite braucht Platz für beide, sonst verdecken
+   sie den letzten Knopf (genau das ist in der Werkstatt passiert). */
+@media (max-width:899px){ .fab{bottom:64px} body{padding-bottom:132px} }
 /* Obere Reiter-Leiste komplett ausgeblendet — Navigation läuft über Kacheln (Desktop)
    und untere Leiste (Handy). "‹ Start" führt aus jedem Bereich zurück. */
 .bereiche{display:none!important}
@@ -621,6 +626,7 @@ body{padding-bottom:64px}
     <h2>Werkzeuge</h2>
     <div class="hint">Absprung zu den Tools zum Erstellen. Bei Präsentation, Klausur und Unterlagen liefert Claude dir einen fertigen Start-Prompt.</div>
     <div id="werkzeugGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"></div>
+    <div class="hint" id="wzHinweis" style="margin-top:6px"></div>
     <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
       <div class="lbl-klein" style="margin-bottom:8px">Vorlagen-Prompt erzeugen</div>
       <div class="grid2">
@@ -649,7 +655,7 @@ body{padding-bottom:64px}
     <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau)">Kursordner</span>
-        <button class="minibtn" id="btnOrdnerReload">Aktualisieren</button>
+        <button class="minibtn" id="btnOrdnerReload">Aktualisieren</button><button class="minibtn" id="btnPfadKopieren">Pfad kopieren</button>
       </div>
       <div class="hint">Klick auf einen Ordner blättert direkt hier weiter, Dateien öffnen sich in OneDrive.</div>
       <div id="ordnerGrid" style="margin-top:8px"></div>
@@ -691,11 +697,20 @@ body{padding-bottom:64px}
             <select id="gaMenge"><option value="brief">knapp</option><option value="medium" selected>mittel</option><option value="detailed">ausführlich</option></select>
           </div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <div class="f" style="margin-top:6px"><label>Dateiname / Thema <span style="color:var(--grau);font-weight:400;text-transform:none;letter-spacing:0">— wird zu Folien_&lt;Thema&gt;_v1.pptx</span></label>
+          <input type="text" id="gaThema" placeholder="z. B. Allgefahren-vs-klassisch"></div>
+        <div class="btnreihe">
           <button type="button" class="minibtn" id="btnGammaGen">✨ Deck erzeugen</button>
           <button type="button" class="minibtn" id="btnGammaAblage" style="display:none">In Kursordner ablegen</button>
+          <button type="button" class="minibtn" id="btnGammaUpdate" style="display:none">Aktualisierte Fassung holen</button>
           <a href="#" target="_blank" rel="noopener" class="minibtn" id="gaLink" style="display:none;text-decoration:none">In Gamma öffnen ↗</a>
         </div>
+        <details style="margin-top:8px">
+          <summary style="cursor:pointer;font-size:12.5px;color:var(--grau)">Bestehendes Gamma-Deck aus deiner Bibliothek holen</summary>
+          <div class="f" style="margin-top:6px"><label>Gamma-ID oder Link</label>
+            <input type="text" id="gaFremdId" placeholder="g_… oder https://gamma.app/docs/…"></div>
+          <button type="button" class="minibtn" id="btnGammaFremd">Diese Fassung holen</button>
+        </details>
         <div class="hint" id="gaStatus" style="margin-top:6px"></div>
       </div>
       <div class="f" id="wsPromptWrap" style="display:none;margin-top:8px">
@@ -801,6 +816,8 @@ body{padding-bottom:64px}
 <details class="card">
     <summary>Daten &amp; App</summary>
     <div class="f" style="margin-top:10px"><label>Heimatadresse (Startpunkt für km-Berechnung)</label><input type="text" id="setHome"></div>
+    <div class="f" style="margin-top:10px"><label>Lokaler OneDrive-Pfad <span style="color:var(--grau);font-weight:400;text-transform:none;letter-spacing:0">— für „Pfad kopieren"; im Explorer in die Adresszeile klicken, dann steht er dort</span></label>
+      <input type="text" id="setLokalPfad" placeholder="C:\Users\DeinName\OneDrive - Optima Gruppe AG"></div>
     <div class="f"><label>Link zum IHK-Tutor-Projekt (optional)</label><input type="text" id="setIhkTutorUrl" placeholder="https://…"></div>
     <div class="f"><label>Google-Drive-Sync</label>
       <div class="hint" id="odStatus">Wird geprüft …</div>
@@ -1758,6 +1775,7 @@ async function ordnerLaden(pfad){
     box.innerHTML=html;
     box.querySelectorAll('[data-drill]').forEach(e2=>e2.addEventListener('click',()=>ordnerLaden(e2.dataset.drill)));
     box.querySelectorAll('.crumb').forEach(e2=>e2.addEventListener('click',()=>ordnerLaden(e2.dataset.pfad)));
+    renderWerkzeuge(); /* der Ordnerpfad ist Teil des Werkzeug-Kontexts */
   }catch(err){box.innerHTML='<div class="hint">Fehler: '+esc(err.message)+'</div>'}
 }
 
@@ -2201,6 +2219,7 @@ async function wsPromptGenerieren(){
     el('wsPromptText').value=promptText;
     el('wsPromptWrap').style.display='block';
     st.textContent='Prompt entworfen — bei Bedarf anpassen, dann kopieren.';
+    renderWerkzeuge(); /* Hinweis über den Werkzeug-Knöpfen aktualisieren */
     el('wsPromptWrap').scrollIntoView({behavior:'smooth'});
   }catch(err){
     st.textContent='Generieren fehlgeschlagen ('+err.message+') — einfacher Standard-Prompt stattdessen:';
@@ -2767,6 +2786,9 @@ async function gammaErzeugen(){
     gammaErgebnis=ergebnis;
     if(ergebnis.gammaUrl){el('gaLink').href=ergebnis.gammaUrl;el('gaLink').style.display='inline-block'}
     if(ergebnis.exportUrl)el('btnGammaAblage').style.display='inline-block';
+    /* gammaId merken — sie ist der Schlüssel für den Rundlauf (Deck in Gamma
+       bearbeiten, danach die neue Fassung wieder abholen). */
+    if(ergebnis.gammaId)el('btnGammaUpdate').style.display='inline-block';
     const cr=ergebnis.credits&&typeof ergebnis.credits.remaining!=='undefined'?(' \u00b7 Credits \u00fcbrig: '+ergebnis.credits.remaining):'';
     st.textContent='\u2713 Deck fertig'+cr+'. Jetzt \u00f6ffnen oder im Kursordner ablegen.';
   }catch(e){ st.textContent='Fehlgeschlagen: '+e.message; }
@@ -2779,16 +2801,91 @@ async function gammaAblegen(){
   st.innerHTML='<span class="spin"></span>Lade herunter und lege ab \u2026';
   try{
     const d=await gammaProxy({action:'download',url:gammaErgebnis.exportUrl});
-    const kurz=((el('wsAuftrag').value||'Unterlage').trim().split(/\s+/).slice(0,4).join('-')).replace(/[\\/:*?"<>|#%]/g,'');
-    const name='Folien_'+kurz+'_v1.pptx';
+    /* Dateiname: eigenes Themenfeld hat Vorrang. Der Auftragstext ist Fließtext und
+       ergab vorher unbrauchbare Namen wie "Folien_eine-kurze-praesentation-die_v1". */
+    const roh=(el('gaThema').value||'').trim()
+      || (el('wsAuftrag').value||'Unterlage').trim().split(/\s+/).slice(0,4).join(' ');
+    const kurz=roh.replace(/\s+/g,'-').replace(/[\\/:*?"<>|#%]/g,'').slice(0,60);
+    const ver=gammaVersion(kurz);
+    const name='Folien_'+kurz+'_v'+ver+'.pptx';
     const ag=(el('wsAg').value==='__frei'&&el('wsAgFrei'))?el('wsAgFrei').value:el('wsAg').value;
     const ges=(el('wsGesellschaft')&&el('wsGesellschaft').value==='__frei'&&el('wsGesellschaftFrei'))
       ?el('wsGesellschaftFrei').value:(el('wsGesellschaft')?el('wsGesellschaft').value:'');
     const ordner=kursOrdner(ag, el('wsKategorie')?el('wsKategorie').value:'', ges);
     await odPutFile(ordner+'/Folien/'+name, b64ToBlob(d.base64,d.mime), d.mime);
+    gammaVersionHoch(kurz); await save();
     st.textContent='\u2713 Abgelegt: '+ordner+'/Folien/'+name;
     toast('Deck in OneDrive abgelegt');
   }catch(e){ st.textContent='Ablage fehlgeschlagen: '+e.message; }
+}
+
+/* Versionszähler je Dateiname — damit eine überarbeitete Fassung als _v2 landet
+   statt die _v1 zu überschreiben (Konvention aus dem Skill dozenten-ablage). */
+function gammaVersion(kurz){
+  if(!state.gammaVer)state.gammaVer={};
+  return state.gammaVer[kurz]||1;
+}
+function gammaVersionHoch(kurz){
+  if(!state.gammaVer)state.gammaVer={};
+  state.gammaVer[kurz]=(state.gammaVer[kurz]||1)+1;
+}
+/* Eine in Gamma bearbeitete Fassung erneut exportieren und abholen.
+   Wichtig: Die API kann bestehende Gammas nicht ÄNDERN, aber exportieren —
+   bearbeitet wird also in Gamma, die App holt nur die neue Fassung. */
+async function gammaExportHolen(gammaId){
+  const st=el('gaStatus');
+  st.innerHTML='<span class="spin"></span>Fordere aktuelle Fassung an \u2026';
+  const start=await gammaProxy({action:'export',gammaId:gammaId,format:'pptx'});
+  const exportId=start.exportId||start.id;
+  if(!exportId)throw new Error('Keine exportId erhalten');
+  for(let i=0;i<36;i++){
+    await new Promise(r=>setTimeout(r,5000));
+    const stat=await gammaProxy({action:'exportstatus',exportId:exportId});
+    if(stat.status==='completed'){ return stat }
+    if(stat.status==='failed')throw new Error('Export fehlgeschlagen');
+    st.innerHTML='<span class="spin"></span>Export l\u00e4uft \u2026 ('+((i+1)*5)+' s)';
+  }
+  throw new Error('Zeit\u00fcberschreitung beim Export');
+}
+async function gammaAktualisieren(){
+  const st=el('gaStatus');
+  const id=gammaErgebnis&&gammaErgebnis.gammaId;
+  if(!id){st.textContent='Keine Gamma-ID bekannt \u2014 erst ein Deck erzeugen oder unten die ID einf\u00fcgen.';return}
+  try{
+    const e=await gammaExportHolen(id);
+    gammaErgebnis.exportUrl=e.exportUrl||e.url;
+    el('btnGammaAblage').style.display='inline-block';
+    st.textContent='\u2713 Neue Fassung bereit \u2014 jetzt \u201eIn Kursordner ablegen\u201c dr\u00fccken (wird als n\u00e4chste Version gespeichert).';
+  }catch(err){ st.textContent='Fehlgeschlagen: '+err.message; }
+}
+/* Bestehendes Deck aus seiner Gamma-Bibliothek holen. Er fügt ID oder Link ein;
+   aus einem Link nehmen wir das letzte Pfadsegment als ID-Kandidat. */
+async function gammaFremdHolen(){
+  const st=el('gaStatus');
+  const roh=(el('gaFremdId').value||'').trim();
+  if(!roh){st.textContent='Bitte Gamma-ID oder Link einf\u00fcgen.';return}
+  const id=/^https?:/i.test(roh)?roh.split('?')[0].split('/').filter(Boolean).pop():roh;
+  try{
+    const e=await gammaExportHolen(id);
+    gammaErgebnis={gammaId:id,exportUrl:(e.exportUrl||e.url),gammaUrl:(/^https?:/i.test(roh)?roh:'')};
+    el('btnGammaAblage').style.display='inline-block';
+    el('btnGammaUpdate').style.display='inline-block';
+    st.textContent='\u2713 Fassung bereit \u2014 jetzt \u201eIn Kursordner ablegen\u201c dr\u00fccken.';
+  }catch(err){ st.textContent='Fehlgeschlagen: '+err.message+' \u2014 bei einem Link klappt es nicht immer, dann die Gamma-ID (g_\u2026) verwenden.'; }
+}
+/* Lokalen Windows-Pfad in die Zwischenablage legen. Ein Browser darf den Explorer
+   nicht selbst öffnen (file:// ist aus https-Seiten gesperrt) — mit dem Pfad in der
+   Zwischenablage reicht Windows+R, einfügen, Enter. */
+function lokalerPfad(onedrivePfad){
+  const basis=(state.settings&&state.settings.lokalPfad||'').replace(/[\\/]+$/,'');
+  if(!basis)return null;
+  return basis+'\\'+onedrivePfad.replace(/\//g,'\\');
+}
+async function pfadKopieren(onedrivePfad){
+  const p=lokalerPfad(onedrivePfad);
+  if(!p){toast('Bitte erst den lokalen OneDrive-Pfad in den Einstellungen eintragen');return}
+  try{ await navigator.clipboard.writeText(p); toast('Pfad kopiert \u2014 Windows+R, einf\u00fcgen, Enter'); }
+  catch(e){ toast('Kopieren nicht m\u00f6glich'); }
 }
 
 /* ---------- Welle 4b: Seminartagebuch als Auswertungsebene ----------
@@ -4714,11 +4811,39 @@ function werkzeugeInStack(){
   if(neu>0){save();renderTools();toast(neu+' Werkzeug(e) in den Tool-Stack übernommen');}
   else toast('Alle Werkzeuge sind bereits im Tool-Stack');
 }
+/* Was gehört beim Öffnen eines Werkzeugs in die Zwischenablage?
+   Reihenfolge nach Nützlichkeit: ein frisch erzeugter Prompt schlägt alles, sonst
+   der Kursordner-Pfad — damit er im Tool sofort weiß, wo die Quelldateien liegen.
+   Gibt null zurück, wenn es nichts Sinnvolles mitzugeben gibt. */
+function werkzeugKontext(){
+  const ws=el('wsPromptText'), vp=el('vpText');
+  if(ws&&ws.value.trim())return {text:ws.value.trim(), was:'Prompt'};
+  if(vp&&vp.value.trim())return {text:vp.value.trim(), was:'Prompt'};
+  if(typeof ordnerPfad==='string'&&ordnerPfad&&ordnerPfad!=='Dozenten-Cockpit'){
+    const lok=(typeof lokalerPfad==='function')?lokalerPfad(ordnerPfad):null;
+    return {text:(lok||ordnerPfad), was:'Ordnerpfad'};
+  }
+  return null;
+}
 function renderWerkzeuge(){
   const box=el('werkzeugGrid');if(!box)return;
-  box.innerHTML=WERKZEUGE.map(w=>
-    '<a href="'+w.url+'" target="_blank" rel="noopener" class="minibtn" style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-decoration:none;text-transform:none;letter-spacing:0;font-size:14px;padding:10px 12px">'+
+  box.innerHTML=WERKZEUGE.map((w,i)=>
+    '<a href="'+w.url+'" target="_blank" rel="noopener" data-wz="'+i+'" class="minibtn" style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-decoration:none;text-transform:none;letter-spacing:0;font-size:14px;padding:10px 12px">'+
     '<span style="font-size:17px">'+w.ic+'</span>'+esc(w.name)+'</a>').join('');
+  /* Beim Klick den Kontext mitkopieren — das Tool öffnet sich wie gehabt im neuen Tab,
+     nur liegt jetzt schon das Richtige in der Zwischenablage. */
+  box.querySelectorAll('[data-wz]').forEach(a=>a.addEventListener('click',()=>{
+    const k=werkzeugKontext();
+    if(!k)return;
+    try{ navigator.clipboard.writeText(k.text); toast(k.was+' kopiert \u2014 im Tool einf\u00fcgen'); }
+    catch(e){/* ohne Zwischenablage öffnet der Link trotzdem */}
+  }));
+  const hin=el('wzHinweis');
+  if(hin){
+    const k=werkzeugKontext();
+    hin.textContent=k?('Beim \u00d6ffnen wird automatisch mitkopiert: '+k.was.toLowerCase()+'.')
+      :'Tipp: Erst einen Prompt erzeugen oder einen Kursordner \u00f6ffnen \u2014 dann wird er beim Klick gleich mitkopiert.';
+  }
 }
 function vorlagenPrompt(typ,thema){
   const t=thema||'[Thema hier einsetzen]';
@@ -5440,6 +5565,10 @@ el('kOrt').addEventListener('blur',()=>setTimeout(()=>{el('kOrtSugg').style.disp
 el('kZielKalender').addEventListener('change',kZielAnwenden);
 
 /* Heimatadresse */
+el('setLokalPfad').addEventListener('change',async()=>{
+  state.settings.lokalPfad=el('setLokalPfad').value.trim(); await save();
+  toast(state.settings.lokalPfad?'Lokaler Pfad gespeichert':'Lokaler Pfad geleert');
+});
 el('setHome').addEventListener('change',async()=>{
   const a=el('setHome').value.trim(); if(!a)return;
   state.settings.home={adresse:a,lat:null,lon:null};
@@ -5623,6 +5752,9 @@ el('btnReiseTermine').addEventListener('click',reiseTermineAnlegen);
 /* Welle 4 */
 el('btnGammaGen').addEventListener('click',gammaErzeugen);
 el('btnGammaAblage').addEventListener('click',gammaAblegen);
+el('btnGammaUpdate').addEventListener('click',gammaAktualisieren);
+el('btnPfadKopieren').addEventListener('click',()=>pfadKopieren(ordnerPfad));
+el('btnGammaFremd').addEventListener('click',gammaFremdHolen);
 document.querySelectorAll('#bewSeg [data-bew]').forEach(b=>b.addEventListener('click',()=>{
   bewertungWert=(bewertungWert===+b.dataset.bew)?0:+b.dataset.bew; renderBewertung();
 }));
@@ -5670,6 +5802,7 @@ load().then(async()=>{
   populateOptionSets();
   renderOfflineBanner();
   el('setHome').value=state.settings.home.adresse;
+  if(el('setLokalPfad'))el('setLokalPfad').value=state.settings.lokalPfad||'';
   el('setIhkTutorUrl').value=state.settings.ihkTutorUrl||'';
   renderOdStatus();render();
   gdWaitForGis(20);
