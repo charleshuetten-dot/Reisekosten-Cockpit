@@ -74,8 +74,13 @@ header .wrap{padding:0 2px}
 .card h2{font-size:19px;font-weight:700;text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .card h2 .cnt{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--grau);font-weight:400;text-transform:none}
 .card h2 .tools{display:flex;gap:8px}
-.minibtn{font-family:'Barlow Condensed',sans-serif;font-size:14.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:4px 12px;cursor:pointer}
+.minibtn{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:8px 16px;min-height:36px;cursor:pointer;transition:border-color .15s,background .15s}
+.minibtn:hover{border-color:var(--ink)}
 .minibtn.rot{border-color:var(--rot);color:var(--rot)}
+/* Hauptaktion einer Karte — gefüllt, damit sie ohne Suchen ins Auge fällt.
+   Er arbeitet viel am Handy; wichtige Knöpfe dürfen nicht wie Beiwerk aussehen. */
+.minibtn.haupt{background:var(--ink);border-color:var(--ink);color:#fff}
+.minibtn.haupt:hover{background:var(--rot);border-color:var(--rot)}
 
 .trip{border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;background:var(--paper);cursor:pointer;transition:border-color .15s}
 .trip:hover{border-color:var(--ink)}
@@ -109,7 +114,9 @@ header .wrap{padding:0 2px}
 .tpill{font-size:10.5px;padding:2px 7px;border-radius:20px;background:var(--rot-dim);color:var(--rot);font-weight:600}
 .tpill.due{background:#eef2f6;color:var(--grau)}
 .tpill.prio-high{background:var(--rot);color:#fff}
-.trow select{font-size:12px;padding:2px 6px;border-radius:6px;border:1px solid var(--line)}
+.trow select,.trow input[type="date"]{font-size:13.5px;padding:6px 9px;min-height:34px;border-radius:8px;border:1.5px solid var(--line);background:#fff;color:var(--ink)}
+.trow .tmeta{gap:8px}
+.tpill{font-size:11.5px;padding:4px 10px}
 .kachelgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:9px}
 .kachel{border:1.5px solid var(--line);border-radius:12px;padding:16px 8px;text-align:center;font-size:12.5px;line-height:1.3;cursor:pointer;background:#fff;transition:border-color .15s,color .15s}
 .kachel:hover{border-color:var(--rot);color:var(--rot)}
@@ -214,7 +221,8 @@ details.card[open]>summary::after{content:'–'}
    .minibtn lag bei ~30px, Selects bei ~34px. Beim Erfassen direkt nach einem
    Seminar zählt jeder Fehlgriff. */
 @media (pointer:coarse){
-  .minibtn{padding:9px 14px;font-size:15px;min-height:40px}
+  .minibtn{padding:11px 18px;font-size:16px;min-height:44px}
+  .trow select,.trow input[type="date"]{min-height:44px;font-size:16px}
   button{min-height:44px}
   select,input[type="date"],input[type="time"],input[type="number"],input[type="text"]{min-height:44px;font-size:16px}
   select{padding:8px 12px}
@@ -330,7 +338,7 @@ body{padding-bottom:64px}
       <input type="file" id="ibDropFile" accept=".eml,.msg,.png,.jpg,.jpeg,.pdf" style="display:none">
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-      <button type="button" class="minibtn" id="btnInboxSortieren">Sortieren</button>
+      <button type="button" class="minibtn haupt" id="btnInboxSortieren">Sortieren</button>
       <button type="button" class="minibtn" id="btnInboxLeeren">Leeren</button>
     </div>
     <div id="inboxVorschau" style="display:none;margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px">
@@ -374,7 +382,7 @@ body{padding-bottom:64px}
 
 <div class="card" id="taskCard">
     <h2>Aufgaben
-      <span class="tools"><button class="minibtn" id="btnTaskReload">Aktualisieren</button><button class="minibtn" id="btnTaskNeu">+ Aufgabe</button></span>
+      <span class="tools"><button class="minibtn" id="btnTaskReload">Aktualisieren</button><button class="minibtn haupt" id="btnTaskNeu">+ Aufgabe</button></span>
     </h2>
     <div class="hint">Zeigt deine Aufgaben aus Microsoft To Do — ein Filter je Liste. „Alle" zeigt alles, jeder Bereich (Optima, SCC, FRMD PASN, Privat, deine Auftraggeber …) hat einen eigenen Chip. Geflaggte Outlook-Mails erscheinen unter „Gekennzeichnete E-Mail". Nach dem Anlegen neuer Listen: „Aktualisieren".</div>
     <div id="taskForm" style="display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
@@ -566,7 +574,7 @@ body{padding-bottom:64px}
 
 <div class="card vollbreite" id="jobCard">
     <h2>Liefer-Aufträge
-      <span class="tools"><button class="minibtn" id="btnJobNeu">+ Auftrag</button></span>
+      <span class="tools"><button class="minibtn haupt" id="btnJobNeu">+ Auftrag</button></span>
     </h2>
     <div class="hint">Aufträge ohne Seminartermin — WBT erstellen, WBT lektorieren, Klausuren korrigieren. Deadline statt Datum, Status von offen bis abgerechnet.</div>
     <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 2px 4px;-webkit-overflow-scrolling:touch" id="jobFilter"></div>
@@ -634,7 +642,7 @@ body{padding-bottom:64px}
       <div class="lbl-klein">Meine Claude-Projekte</div>
       <div class="hint" style="margin:4px 0 8px">Direkt ins Projekt springen, wo Kontext und Unterlagen schon hinterlegt sind — z. B. IHK-Klausurerstellung. Der Kontext von oben wird beim Klick mitkopiert.</div>
       <div id="projektGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
-      <div class="btnreihe"><button type="button" class="minibtn" id="btnProjektNeu">+ Projekt</button></div>
+      <div class="btnreihe"><button type="button" class="minibtn haupt" id="btnProjektNeu">+ Projekt</button></div>
       <div id="projektForm" style="display:none;border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px">
         <div class="grid2">
           <div class="f"><label>Name</label><input type="text" id="pjName" placeholder="z. B. IHK-Klausurerstellung"></div>
@@ -731,7 +739,7 @@ body{padding-bottom:64px}
         </div>
         <div class="hint" id="gaZielHinweis" style="margin-top:2px"></div>
         <div class="btnreihe">
-          <button type="button" class="minibtn" id="btnGammaGen">✨ Deck erzeugen</button>
+          <button type="button" class="minibtn haupt" id="btnGammaGen">✨ Deck erzeugen</button>
           <button type="button" class="minibtn" id="btnGammaAblage" style="display:none">In Kursordner ablegen</button>
           <button type="button" class="minibtn" id="btnGammaUpdate" style="display:none">Aktualisierte Fassung holen</button>
           <a href="#" target="_blank" rel="noopener" class="minibtn" id="gaLink" style="display:none;text-decoration:none">In Gamma öffnen ↗</a>
@@ -885,7 +893,7 @@ body{padding-bottom:64px}
 
 <div class="card vollbreite">
     <h2>Mein Tool-Stack
-      <span class="tools"><button class="minibtn" id="btnAboImport">Abos importieren</button><button class="minibtn" id="btnToolAufraeumen">Aufräumen</button><button class="minibtn" id="btnWerkzeugeStack">Werkzeuge übernehmen</button><button class="minibtn" id="btnToolNeu">+ Tool</button></span>
+      <span class="tools"><button class="minibtn" id="btnAboImport">Abos importieren</button><button class="minibtn" id="btnToolAufraeumen">Aufräumen</button><button class="minibtn" id="btnWerkzeugeStack">Werkzeuge übernehmen</button><button class="minibtn haupt" id="btnToolNeu">+ Tool</button></span>
     </h2>
     <div class="hint">Alles, was du beruflich nutzt — Abos, Kosten, Laufzeiten, Use Cases. Klick auf ein Tool öffnet die Details.</div>
     <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 2px 4px;-webkit-overflow-scrolling:touch" id="toolFilter"></div>
