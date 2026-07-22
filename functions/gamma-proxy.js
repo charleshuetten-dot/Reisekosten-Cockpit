@@ -72,6 +72,31 @@ export async function onRequestPost(context) {
       });
     }
 
+    /* ---- Bestehendes Gamma erneut exportieren ----
+       Für den Rundlauf: Er bearbeitet das Deck in Gamma, die App holt die neue
+       Fassung. Die API kann bestehende Gammas NICHT ändern, aber exportieren. */
+    if (body.action === 'export') {
+      if (!body.gammaId) return json({ error: 'gammaId fehlt.' }, 400);
+      const r = await fetch(
+        GAMMA + '/gammas/' + encodeURIComponent(body.gammaId) + '/export',
+        { method: 'POST', headers: kopf,
+          body: JSON.stringify({ format: body.format || 'pptx' }) }
+      );
+      const text = await r.text();
+      return new Response(text, { status: r.status, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    /* ---- Export-Auftrag abfragen ---- */
+    if (body.action === 'exportstatus') {
+      if (!body.exportId) return json({ error: 'exportId fehlt.' }, 400);
+      const r = await fetch(
+        GAMMA + '/exports/' + encodeURIComponent(body.exportId),
+        { headers: { 'X-API-KEY': env.GAMMA_API_KEY } }
+      );
+      const text = await r.text();
+      return new Response(text, { status: r.status, headers: { 'Content-Type': 'application/json' } });
+    }
+
     /* ---- Fertige Datei holen und base64 zurückgeben ----
        Die exportUrl ist signiert und läuft nach etwa einer Woche ab. Wir laden sie
        serverseitig, damit die App sie ohne CORS-Ärger in OneDrive ablegen kann.
