@@ -627,6 +627,25 @@ body{padding-bottom:64px}
     <div class="hint">Absprung zu den Tools zum Erstellen. Bei Präsentation, Klausur und Unterlagen liefert Claude dir einen fertigen Start-Prompt.</div>
     <div id="werkzeugGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"></div>
     <div class="hint" id="wzHinweis" style="margin-top:6px"></div>
+
+    <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px">
+      <div class="lbl-klein">Meine Claude-Projekte</div>
+      <div class="hint" style="margin:4px 0 8px">Direkt ins Projekt springen, wo Kontext und Unterlagen schon hinterlegt sind — z. B. IHK-Klausurerstellung. Der Kontext von oben wird beim Klick mitkopiert.</div>
+      <div id="projektGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+      <div class="btnreihe"><button type="button" class="minibtn" id="btnProjektNeu">+ Projekt</button></div>
+      <div id="projektForm" style="display:none;border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px">
+        <div class="grid2">
+          <div class="f"><label>Name</label><input type="text" id="pjName" placeholder="z. B. IHK-Klausurerstellung"></div>
+          <div class="f"><label>Projekt-Link</label><input type="text" id="pjUrl" placeholder="https://claude.ai/project/…"></div>
+        </div>
+        <div class="btnreihe">
+          <button type="button" class="minibtn" id="btnProjektSpeichern">Speichern</button>
+          <button type="button" class="minibtn" id="btnProjektAbbrechen">Abbrechen</button>
+          <button type="button" class="minibtn" id="btnProjektLoeschen" style="display:none;color:var(--rot)">Löschen</button>
+        </div>
+        <div class="hint">Den Link bekommst du in Claude, indem du das Projekt öffnest und die Adresse aus der Adresszeile kopierst.</div>
+      </div>
+    </div>
     <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
       <div class="lbl-klein" style="margin-bottom:8px">Vorlagen-Prompt erzeugen</div>
       <div class="grid2">
@@ -3999,7 +4018,7 @@ function bereichWechseln(b){
   if(b==='start'){renderGtasks(true);renderNachbereitung();renderBriefing();taskBoardLaden();autoKalenderCheck()}
   if(b==='kalender'){kalenderLaden();konfliktKalRender()}
   if(b==='seminare'){renderMsStatus();renderMeetings();renderReiseplanung()}
-  if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderWerkstattAufgaben()}
+  if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderProjekte();renderWerkstattAufgaben()}
   if(b==='abrechnung'){render()}
   if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true)}
   if(b==='werkstatt')renderJobs();
@@ -4853,6 +4872,65 @@ function werkzeugKontext(){
   }
   return null;
 }
+/* ---------- Eigene Claude-Projekte ----------
+   Er arbeitet in Projekten, in denen Kontext und Unterlagen schon hinterlegt sind
+   (z. B. IHK-Klausurerstellung). Ein fester Werkzeug-Knopf hilft da nicht — die
+   Links gehören ihm, also pflegt er die Liste selbst. Klick kopiert denselben
+   Kontext wie bei den Werkzeugen und öffnet das Projekt. */
+let projektEditId=null;
+function projekteListe(){ if(!Array.isArray(state.projekte))state.projekte=[]; return state.projekte; }
+function renderProjekte(){
+  const box=el('projektGrid'); if(!box)return;
+  const liste=projekteListe();
+  if(!liste.length){
+    box.innerHTML='<div class="hint" style="grid-column:1/-1;margin:0">Noch kein Projekt hinterlegt — über „+ Projekt" das erste anlegen.</div>';
+    return;
+  }
+  box.innerHTML=liste.map(pr=>
+    '<div style="display:flex;gap:4px;align-items:stretch">'+
+      '<a href="'+esc(pr.url)+'" target="_blank" rel="noopener" data-pj="'+pr.id+'" class="minibtn" style="flex:1;display:flex;align-items:center;gap:8px;justify-content:flex-start;text-decoration:none;text-transform:none;letter-spacing:0;font-size:14px;padding:10px 12px">'+
+        '<span style="font-size:17px">📁</span>'+esc(pr.name)+'</a>'+
+      '<button type="button" class="minibtn" data-pjedit="'+pr.id+'" title="Bearbeiten" style="padding:0 9px">✎</button>'+
+    '</div>').join('');
+  box.querySelectorAll('[data-pj]').forEach(a=>a.addEventListener('click',()=>{
+    const k=werkzeugKontext();
+    if(!k)return;
+    try{ navigator.clipboard.writeText(k.text); toast(k.was+' kopiert \u2014 im Projekt einf\u00fcgen'); }catch(e){}
+  }));
+  box.querySelectorAll('[data-pjedit]').forEach(b=>b.addEventListener('click',()=>projektFormOeffnen(b.dataset.pjedit)));
+}
+function projektFormOeffnen(id){
+  projektEditId=id||null;
+  const pr=id?projekteListe().find(x=>x.id===id):null;
+  el('pjName').value=pr?pr.name||'':'';
+  el('pjUrl').value=pr?pr.url||'':'';
+  el('btnProjektLoeschen').style.display=pr?'inline-block':'none';
+  el('projektForm').style.display='block';
+}
+async function projektSpeichern(){
+  const name=el('pjName').value.trim(), url=el('pjUrl').value.trim();
+  if(!name||!url){toast('Name und Link angeben');return}
+  if(!/^https?:\/\//i.test(url)){toast('Der Link muss mit https:// beginnen');return}
+  const liste=projekteListe();
+  if(projektEditId){
+    const i=liste.findIndex(x=>x.id===projektEditId);
+    if(i>=0)liste[i]=Object.assign({},liste[i],{name:name,url:url});
+  }else{
+    liste.push({id:uid(),name:name,url:url});
+  }
+  el('projektForm').style.display='none'; projektEditId=null;
+  await save(); renderProjekte(); toast('Projekt gespeichert');
+}
+async function projektLoeschen(){
+  if(!projektEditId)return;
+  if(!confirm('Diesen Projekt-Link entfernen? Das Projekt selbst bleibt in Claude bestehen.'))return;
+  const liste=projekteListe();
+  const i=liste.findIndex(x=>x.id===projektEditId);
+  if(i>=0)liste.splice(i,1);
+  el('projektForm').style.display='none'; projektEditId=null;
+  await save(); renderProjekte(); toast('Entfernt');
+}
+
 function renderWerkzeuge(){
   const box=el('werkzeugGrid');if(!box)return;
   box.innerHTML=WERKZEUGE.map((w,i)=>
@@ -5783,6 +5861,10 @@ el('btnGammaAblage').addEventListener('click',gammaAblegen);
 el('btnGammaUpdate').addEventListener('click',gammaAktualisieren);
 el('btnPfadKopieren').addEventListener('click',()=>pfadKopieren(ordnerPfad));
 el('btnGammaFremd').addEventListener('click',gammaFremdHolen);
+el('btnProjektNeu').addEventListener('click',()=>projektFormOeffnen(null));
+el('btnProjektSpeichern').addEventListener('click',projektSpeichern);
+el('btnProjektAbbrechen').addEventListener('click',()=>{el('projektForm').style.display='none';projektEditId=null});
+el('btnProjektLoeschen').addEventListener('click',projektLoeschen);
 ['gaArt','gaThema','wsAg','wsKategorie','wsGesellschaft','wsDihkThema'].forEach(id=>{
   const e=el(id); if(e)e.addEventListener(e.tagName==='SELECT'?'change':'input',gammaZielHinweis);
 });
