@@ -17,6 +17,7 @@
 :root{
   --bg:#F2F4F6; --paper:#FFFFFF; --ink:#14233C; --grau:#5B6B7E;
   --line:#D9DFE7; --rot:#E2001A; --rot-dim:#FBE9EB; --ok:#1E7A46; --ok-dim:#E6F2EB;
+  --warn:#B8860B; --warn-dim:#FBF3DF;
   --radius:10px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -51,6 +52,13 @@ header .wrap{padding:0 2px}
 .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
 @media(min-width:640px){.kpis{grid-template-columns:repeat(4,1fr)}}
 .kpi{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.lbl-klein{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau)}
+.balkenreihe{display:grid;gap:7px}
+.balkenspur{background:var(--bg);border-radius:5px;height:14px;overflow:hidden}
+.balkenspur>i{display:block;height:100%;border-radius:5px}
+.btnreihe{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.dropzone{border:1.5px dashed var(--line);border-radius:10px;padding:10px;text-align:center;font-size:12.5px;color:var(--grau);cursor:pointer}
+.dropzone.over{border-color:var(--ink);background:var(--bg)}
 .kpi .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--grau);font-weight:600}
 .kpi .val{font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
 .kpi.total{background:var(--ink);border-color:var(--ink);color:#fff}
@@ -310,6 +318,10 @@ body{padding-bottom:64px}
     </h2>
     <div class="hint">Gedanke, Aufgabe, Idee — sprechen oder tippen. Claude ordnet zu und legt sie in deinen Optima-Aufgaben ab.</div>
     <textarea id="inboxText" rows="2" placeholder="z. B. Folien für die Allianz-Schulung im August aktualisieren" style="width:100%;margin-top:8px"></textarea>
+    <div id="ibDrop" class="dropzone" style="margin-top:8px">
+      Mail, Screenshot oder PDF hierher ziehen — Claude macht eine Aufgabe daraus
+      <input type="file" id="ibDropFile" accept=".eml,.msg,.png,.jpg,.jpeg,.pdf" style="display:none">
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
       <button type="button" class="minibtn" id="btnInboxSortieren">Sortieren</button>
       <button type="button" class="minibtn" id="btnInboxLeeren">Leeren</button>
@@ -347,6 +359,10 @@ body{padding-bottom:64px}
 <div class="card" id="briefingCard" style="display:none">
     <h2>Seminartagebuch</h2>
     <div id="briefingBox"></div>
+    <details style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau)">Auswertung — Jahr, Auftraggeber, Reise, Bewertung</summary>
+      <div id="tbAuswertung" style="margin-top:10px"></div>
+    </details>
   </div>
 
 <div class="card" id="taskCard">
@@ -541,6 +557,58 @@ body{padding-bottom:64px}
 
 <div class="wrap" id="bereichWerkstatt" style="display:none">
 
+<div class="card vollbreite" id="jobCard">
+    <h2>Liefer-Aufträge
+      <span class="tools"><button class="minibtn" id="btnJobNeu">+ Auftrag</button></span>
+    </h2>
+    <div class="hint">Aufträge ohne Seminartermin — WBT erstellen, WBT lektorieren, Klausuren korrigieren. Deadline statt Datum, Status von offen bis abgerechnet.</div>
+    <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 2px 4px;-webkit-overflow-scrolling:touch" id="jobFilter"></div>
+    <div id="jobListe" style="margin-top:4px"></div>
+  </div>
+
+<div class="card vollbreite" id="jobFormCard" style="display:none">
+    <h2 id="jobFormTitel">Neuer Liefer-Auftrag</h2>
+    <div class="grid2">
+      <div class="f"><label>Auftraggeber</label><select id="jAg" class="ag-select"></select></div>
+      <div class="f"><label>Art</label>
+        <select id="jArt">
+          <option value="wbt-erstellen">WBT erstellen / konzipieren</option>
+          <option value="wbt-lektorat">WBT lektorieren / korrigieren</option>
+          <option value="klausuren">Klausuren korrigieren</option>
+          <option value="unterlagen">Unterlagen erstellen</option>
+          <option value="sonstiges">Sonstiges</option>
+        </select>
+      </div>
+    </div>
+    <div class="f"><label>Titel / Thema</label><input type="text" id="jTitel" placeholder="z. B. WBT Bausparen Modul 3"></div>
+    <div class="grid2">
+      <div class="f"><label>Auftragsnummer <span style="color:var(--grau);font-weight:400;text-transform:none;letter-spacing:0">— vom Auftraggeber</span></label><input type="text" id="jAuftragsnr" placeholder="z. B. AB-2026-0417"></div>
+      <div class="f"><label>Deadline</label><input type="date" id="jDeadline"></div>
+    </div>
+    <div class="f"><label>Umfang</label><input type="text" id="jUmfang" placeholder="z. B. 5 Module · 12 Klausuren · 45 WBT-Minuten"></div>
+
+    <div class="f"><label>Abrechnung</label>
+      <select id="jModus">
+        <option value="stunden">Nach Stunden (Satz × Stunden)</option>
+        <option value="modul">Pauschale je Modul</option>
+        <option value="wbtminute">Pro WBT-Minute</option>
+        <option value="extern">Extern über IHK-Portal (kein Betrag hier)</option>
+      </select>
+    </div>
+    <div class="grid2" id="jRechnenWrap">
+      <div class="f" id="jSatzWrap"><label id="jSatzLabel">Stundensatz (€)</label><input type="number" id="jSatz" min="0" step="0.01" inputmode="decimal" placeholder="z. B. 95,00"></div>
+      <div class="f" id="jMengeWrap"><label id="jMengeLabel">Stunden</label><input type="number" id="jMenge" min="0" step="0.25" inputmode="decimal" placeholder="z. B. 6"></div>
+    </div>
+    <div class="calc" id="jCalc"></div>
+
+    <div class="f"><label>Notiz</label><textarea id="jNotiz" rows="2" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 14px/1.45 'IBM Plex Sans',sans-serif" placeholder="Rückgabeweg, Ansprechpartner, Besonderheiten"></textarea></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button type="button" class="primary" id="btnJobSpeichern">Speichern</button>
+      <button type="button" class="minibtn" id="btnJobAbbrechen">Abbrechen</button>
+      <button type="button" class="minibtn" id="btnJobLoeschen" style="display:none;color:var(--rot)">Löschen</button>
+    </div>
+  </div>
+
 <div class="card">
     <h2>Arbeitsaufgaben
       <span class="tools"><button class="minibtn" id="btnWsAufgabenReload">Aktualisieren</button></span>
@@ -554,7 +622,7 @@ body{padding-bottom:64px}
     <div class="hint">Absprung zu den Tools zum Erstellen. Bei Präsentation, Klausur und Unterlagen liefert Claude dir einen fertigen Start-Prompt.</div>
     <div id="werkzeugGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"></div>
     <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
-      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin-bottom:8px">Vorlagen-Prompt erzeugen</div>
+      <div class="lbl-klein" style="margin-bottom:8px">Vorlagen-Prompt erzeugen</div>
       <div class="grid2">
         <div class="f"><label>Was erstellst du?</label>
           <select id="vpTyp"><option value="praesentation">Präsentation / Folien</option><option value="klausur">IHK-Klausur / Prüfungsfragen</option><option value="unterlagen">Unterlagen überarbeiten</option></select>
@@ -588,7 +656,7 @@ body{padding-bottom:64px}
     </div>
 
     <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
-      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin-bottom:8px">Neuer Auftrag</div>
+      <div class="lbl-klein" style="margin-bottom:8px">Neuer Auftrag</div>
       <div class="grid2">
         <div class="f"><label>Auftraggeber / Bereich</label>
           <select id="wsAg" class="ag-select ag-dihk"></select>
@@ -611,6 +679,25 @@ body{padding-bottom:64px}
         <button type="button" class="minibtn" id="btnWsGenerate">✨ Prompt generieren</button>
       </div>
       <div class="hint" id="wsStatus"></div>
+      <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px">
+        <div class="lbl-klein">Direkt mit Gamma erzeugen</div>
+        <div class="hint" style="margin:4px 0 8px">Statt den Prompt zu kopieren: Gamma baut das Deck sofort und legt es im Kursordner ab.</div>
+        <div class="grid3">
+          <div class="f"><label>Format</label>
+            <select id="gaFormat"><option value="presentation">Präsentation</option><option value="document">Dokument</option></select>
+          </div>
+          <div class="f"><label>Karten</label><input type="number" id="gaKarten" min="1" max="60" value="12" inputmode="numeric"></div>
+          <div class="f"><label>Textmenge</label>
+            <select id="gaMenge"><option value="brief">knapp</option><option value="medium" selected>mittel</option><option value="detailed">ausführlich</option></select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <button type="button" class="minibtn" id="btnGammaGen">✨ Deck erzeugen</button>
+          <button type="button" class="minibtn" id="btnGammaAblage" style="display:none">In Kursordner ablegen</button>
+          <a href="#" target="_blank" rel="noopener" class="minibtn" id="gaLink" style="display:none;text-decoration:none">In Gamma öffnen ↗</a>
+        </div>
+        <div class="hint" id="gaStatus" style="margin-top:6px"></div>
+      </div>
       <div class="f" id="wsPromptWrap" style="display:none;margin-top:8px">
         <label>Generierter Prompt (bei Bedarf anpassen)</label>
         <textarea id="wsPromptText" rows="6" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 13.5px/1.45 'IBM Plex Sans',sans-serif"></textarea>
@@ -647,10 +734,11 @@ body{padding-bottom:64px}
   </div>
 
 <div class="qbar">
-    <button class="qbtn" data-q="1">Q1</button>
-    <button class="qbtn" data-q="2">Q2</button>
-    <button class="qbtn" data-q="3">Q3</button>
-    <button class="qbtn" data-q="4">Q4</button>
+    <span id="perBtns" style="display:flex;gap:6px"></span>
+    <select id="perModus" title="Abrechnungsrhythmus">
+      <option value="halb">Halbjahr</option>
+      <option value="quartal">Quartal</option>
+    </select>
     <select id="jahr"></select>
   </div>
 
@@ -702,7 +790,8 @@ body{padding-bottom:64px}
     <h2>Reisen <span class="cnt" id="tripCnt"></span>
       <span class="tools">
         <button class="minibtn" id="btnPrint">Abrechnung drucken</button>
-        <button class="minibtn rot" id="btnClose">Quartal abschließen</button>
+        <button class="minibtn" id="btnPerErinnerung">Erinnerung anlegen</button>
+        <button class="minibtn rot" id="btnClose">Zeitraum abschließen</button>
       </span>
     </h2>
     <div class="hint" id="jahrSumme" style="margin:0 0 8px"></div>
@@ -842,7 +931,22 @@ body{padding-bottom:64px}
 
 <div class="fab">
   <button class="ghost" id="btnCsv">CSV</button>
+  <button class="ghost" id="btnQuick" title="Schnell erfassen">⚡ Schnell</button>
   <button class="primary" id="btnNew">+ Reise erfassen</button>
+</div>
+
+<div class="modal" id="quickModal">
+  <div class="sheet" style="padding:16px 16px calc(16px + env(safe-area-inset-bottom))">
+    <h2 style="margin:0 0 4px">Schnell erfassen</h2>
+    <div class="hint" style="margin-bottom:10px">Egal wo du gerade bist — hier startest du in zwei Taps.</div>
+    <div style="display:grid;gap:8px">
+      <button type="button" class="minibtn" data-quick="aufgabe" style="text-align:left;padding:12px 14px">✅ &nbsp;Aufgabe notieren</button>
+      <button type="button" class="minibtn" data-quick="memo" style="text-align:left;padding:12px 14px">🎤 &nbsp;Memo zum Seminar</button>
+      <button type="button" class="minibtn" data-quick="reise" style="text-align:left;padding:12px 14px">🚗 &nbsp;Neue Reise erfassen</button>
+      <button type="button" class="minibtn" data-quick="job" style="text-align:left;padding:12px 14px">📦 &nbsp;Liefer-Auftrag anlegen</button>
+    </div>
+    <button type="button" class="minibtn" id="btnQuickZu" style="margin-top:12px;width:100%">Abbrechen</button>
+  </div>
 </div>
 
 <!-- Formular -->
@@ -892,12 +996,25 @@ body{padding-bottom:64px}
     <div class="check" id="fMitternachtWrap" style="display:none"><input type="checkbox" id="fMitternacht"><label for="fMitternacht">Ohne Übernachtung — Rückkehr erst nach Mitternacht</label></div>
     <div class="check" id="f8hWrap" style="display:none"><input type="checkbox" id="f8h" checked><label for="f8h">Eintägig, mehr als 8 h abwesend</label></div>
 
+    <div class="f" id="bewertungWrap"><label>Eigene Bewertung des Seminars</label>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <div class="segment" id="bewSeg">
+          <button type="button" data-bew="1">1</button><button type="button" data-bew="2">2</button>
+          <button type="button" data-bew="3">3</button><button type="button" data-bew="4">4</button>
+          <button type="button" data-bew="5">5</button>
+        </div>
+        <button type="button" class="minibtn" id="btnBewLeeren" style="padding:3px 10px;font-size:11px">zurücksetzen</button>
+      </div>
+      <input type="text" id="fBewNotiz" placeholder="Kurz: was lief gut, was ändere ich beim nächsten Mal?" style="margin-top:6px">
+    </div>
+
     <details class="f" id="mahlzeitenWrap"><summary style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer;padding:4px 0">Gestellte Mahlzeiten <span id="mahlBadge"></span></summary>
       <div class="grid3" style="margin-top:6px">
         <div><div class="hint" style="margin:0 0 3px">Frühstück</div><div class="stepper"><button type="button" data-m="fr" data-d="-1">−</button><span id="mFr">0</span><button type="button" data-m="fr" data-d="1">+</button></div></div>
         <div><div class="hint" style="margin:0 0 3px">Mittag</div><div class="stepper"><button type="button" data-m="mi" data-d="-1">−</button><span id="mMi">0</span><button type="button" data-m="mi" data-d="1">+</button></div></div>
         <div><div class="hint" style="margin:0 0 3px">Abend</div><div class="stepper"><button type="button" data-m="ab" data-d="-1">−</button><span id="mAb">0</span><button type="button" data-m="ab" data-d="1">+</button></div></div>
       </div>
+      <label class="check" style="display:flex;margin-top:9px"><input type="checkbox" id="fHotelFr"><span style="margin-left:6px">Hotel mit Frühstück — Frühstück automatisch = Anzahl Übernachtungen</span></label>
       <div class="hint" id="frHint" style="margin-top:5px"></div>
     </details>
 
@@ -974,6 +1091,8 @@ body{padding-bottom:64px}
       <button class="ghost" id="btnDup" style="display:none">Duplizieren</button>
       <button class="ghost" id="btnUnlock" style="display:none">Entsperren</button>
       <button class="ghost" id="btnCancel">Abbrechen</button>
+      <button class="minibtn" id="btnReiseTermine" title="Anreise, Seminartage und Abreise in Outlook anlegen">Termine anlegen</button>
+      <button class="minibtn" id="btnBestaetigung" title="Bestaetigungsmail als Outlook-Entwurf">Bestätigung entwerfen</button>
       <button class="primary" id="btnSave">Speichern</button>
     </div>
   </div>
@@ -1004,7 +1123,7 @@ body{padding-bottom:64px}
 const KEY='rk-cockpit-v1';
 const KM_SATZ=0.38, KM_FREI=0.30, VMA_VOLL=28, VMA_TEIL=14, K_FR=5.60, K_MA=11.20;
 let state={trips:[]};
-let ui={q:Math.floor(new Date().getMonth()/3)+1, jahr:new Date().getFullYear()};
+let ui={per:'halb', q:(new Date().getMonth()<6?1:2), jahr:new Date().getFullYear()};
 let editId=null, verkehrsmittel='auto', mahl={fr:0,mi:0,ab:0}, belege=[], unlocked=false, rechnungModus='einzel', reiseTyp='dozent', reiseModus='praesenz';
 function syncTyp(){
   el('segDozent').classList.toggle('on',reiseTyp==='dozent');
@@ -1044,6 +1163,29 @@ const el=id=>document.getElementById(id);
 function toast(msg){const t=el('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2600)}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function quartal(dat){return Math.floor((parseInt(dat.slice(5,7),10)-1)/3)+1}
+/* ---------- Abrechnungszeitraum (Welle 2) ----------
+   Er hat auf Halbjahresrhythmus umgestellt, um den buchhalterischen Aufwand zu senken.
+   Quartal bleibt waehlbar, falls er doch mal feiner schauen will. */
+function perAnzahl(){return ui.per==='halb'?2:4}
+function perLabel(){return (ui.per==='halb'?'H':'Q')+ui.q}
+function perTest(dat){
+  const m=parseInt(dat.slice(5,7),10);
+  return ui.per==='halb' ? (ui.q===1?m<=6:m>=7) : (Math.floor((m-1)/3)+1===ui.q);
+}
+function perVon(dat){ const m=parseInt(dat.slice(5,7),10);
+  return ui.per==='halb' ? (m<=6?1:2) : Math.floor((m-1)/3)+1; }
+function perRange(){
+  const spanne=ui.per==='halb'?6:3, m0=(ui.q-1)*spanne;
+  const von=new Date(ui.jahr,m0,1), bis=new Date(ui.jahr,m0+spanne,0);
+  return [ymd(von),ymd(bis)];
+}
+function renderPerBtns(){
+  const box=el('perBtns'); if(!box)return;
+  const n=perAnzahl(); let h='';
+  for(let i=1;i<=n;i++)h+='<button class="qbtn'+(i===ui.q?' active':'')+'" data-q="'+i+'">'+(ui.per==='halb'?'H':'Q')+i+'</button>';
+  box.innerHTML=h;
+  box.querySelectorAll('.qbtn').forEach(b=>b.onclick=()=>{ui.q=+b.dataset.q;render()});
+}
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function naechte(t){if(!t.von||!t.bis||t.bis<=t.von)return 0;return Math.round((new Date(t.bis)-new Date(t.von))/86400000)}
 
@@ -1129,11 +1271,11 @@ async function save(){
 
 /* ---------- Rendering ---------- */
 function tripsImQuartal(){
-  return state.trips.filter(t=>t.von&&t.von.startsWith(String(ui.jahr))&&quartal(t.von)===ui.q)
+  return state.trips.filter(t=>t.von&&t.von.startsWith(String(ui.jahr))&&perTest(t.von))
     .sort((a,b)=>a.von<b.von?-1:1);
 }
 function render(){
-  document.querySelectorAll('.qbtn').forEach(b=>b.classList.toggle('active',+b.dataset.q===ui.q));
+  renderPerBtns(); if(el('perModus'))el('perModus').value=ui.per;
   el('jahr').value=ui.jahr;
   const alle=tripsImQuartal();
   const trips=alle.filter(t=>t.typ!=='ihk');
@@ -1168,7 +1310,7 @@ function render(){
   const jSum=jTrips.reduce((s,t)=>s+berechne(t).summe,0);
   el('jahrSumme').textContent=jTrips.length?'Jahr '+ui.jahr+' gesamt: '+eur(jSum)+' aus '+jTrips.length+' Reisen':'';
   const list=el('tripList');
-  if(!trips.length){list.innerHTML='<div class="empty">Noch keine Reisen in Q'+ui.q+' '+ui.jahr+'.<br>Erfasse eine Reise oder starte den Kalender-Import.</div>';return}
+  if(!trips.length){list.innerHTML='<div class="empty">Noch keine Reisen in '+perLabel()+' '+ui.jahr+'.<br>Erfasse eine Reise oder starte den Kalender-Import.</div>';return}
   list.innerHTML=trips.map(t=>{
     const c=berechne(t);
     const dat=t.von===t.bis||!t.bis?dfmt(t.von):dfmt(t.von)+' – '+dfmt(t.bis);
@@ -1199,6 +1341,11 @@ function openForm(id){
   el('fMitternacht').checked=t?!!t.mitternacht:false;
   el('f8h').checked=t?!!t.ueber8h:true;
   mahl=t?Object.assign({fr:0,mi:0,ab:0},t.mahl):{fr:0,mi:0,ab:0};
+  /* Neue Reise: Automatik an (Hotel meist mit Frühstück). Bestehende: gespeicherten
+     Stand übernehmen — wer früher von Hand gezählt hat, soll nicht überschrieben werden. */
+  if(el('fHotelFr'))el('fHotelFr').checked = t ? !!t.hotelFr : true;
+  bewertungWert=t&&+t.bewertung?+t.bewertung:0; renderBewertung();
+  el('fBewNotiz').value=t?t.bewNotiz||'':'';
   belege=t?JSON.parse(JSON.stringify(t.belege||[])):[];
   verkehrsmittel=t?t.vm:'auto';
   el('fKm').value=t&&t.km?t.km:''; el('fBahnK').value=t&&t.bahn?t.bahn:'';
@@ -1225,7 +1372,7 @@ function openForm(id){
   el('mahlzeitenWrap').open=false; el('belegWrap').open=false;
   selZiel=null; el('routeHint').textContent=''; el('zielSugg').style.display='none';
   setLock(t?t.abgerechnet:false);
-  syncVm(); syncTage(); renderMahl(); renderBelege(); calcPreview();
+  syncVm(); syncTage(); renderMahl(); renderBelege(); vpAutoAnwenden(); calcPreview();
   ihkModusAnwenden();
   /* Adresse aus Mail/Kalender nutzen: liegt eine Ziel-Adresse vor und sind noch keine
      km gesetzt (und Auto oder IHK), Route automatisch berechnen. Sonst nur anzeigen. */
@@ -1298,8 +1445,8 @@ async function abParseFile(file){
       try{
         const jahr=(p.von||heuteISO()).slice(0,4);
         const name=((p.auftragsnummer||'Auftrag')+'_'+(p.auftraggeber||'').split(' ')[0]).replace(/[\\/:*?"<>|#%]/g,'')+(isPdf?'.pdf':'.jpg');
-        await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(b64,isPdf?'application/pdf':file.type),isPdf?'application/pdf':file.type);
-        status.textContent='Erkannt und in OneDrive abgelegt (Dozentur/Aufträge/'+jahr+'/'+name+') — bitte prüfen und speichern.';
+        await odPutFile('Dozenten-Cockpit/Aufträge/'+jahr+'/'+name,b64ToBlob(b64,isPdf?'application/pdf':file.type),isPdf?'application/pdf':file.type);
+        status.textContent='Erkannt und in OneDrive abgelegt (Dozenten-Cockpit/Aufträge/'+jahr+'/'+name+') — bitte prüfen und speichern.';
       }catch(e){/* Ablage optional */}
     }
   }catch(err){
@@ -1334,7 +1481,38 @@ function syncTage(){
   const eintaegig=span===0||el('fMitternacht').checked;
   el('f8hWrap').style.display=(span===0)?'flex':'none';
   const n=el('fMitternacht').checked?0:span;
-  el('frHint').textContent=n>0?'Tipp: Hotel inkl. Frühstück → Frühstück auf '+n+' setzen.':'';
+  /* Der alte Tipp „Frühstück auf N setzen" ist überflüssig — vpAutoAnwenden macht das
+     jetzt selbst; vpHinweis schreibt stattdessen die vollständige Herleitung ins Feld. */
+  vpHinweis();
+}
+/* ---------- Verpflegungs-Automatik (Welle 2) ----------
+   Sein Schmerzpunkt bei der Abrechnung war, die Verpflegungstage korrekt zu treffen.
+   An-/Abreise- und Zwischentage rechnet berechne() ohnehin aus von/bis — von Hand
+   gezählt wurde nur die Mahlzeiten-Kürzung. Das gestellte Hotel ist bei ihm in der
+   Regel inkl. Frühstück, also lässt sich fr = Anzahl Übernachtungen ableiten.
+   Mittag/Abend bleiben Handarbeit: ob der Auftraggeber sie stellt, weiß nur er.
+   Greift er selbst zum Stepper, schaltet sich die Automatik ab — Hand schlägt Automatik. */
+function vpAutoAnwenden(){
+  const cb=el('fHotelFr'); if(!cb)return;
+  if(cb.checked){
+    const n=naechte({von:el('fVon').value,bis:el('fBis').value});
+    mahl.fr=n;
+  }
+  renderMahl(); vpHinweis(); calcPreview();
+}
+function vpHinweis(){
+  const box=el('frHint'); if(!box)return;
+  const n=naechte({von:el('fVon').value,bis:el('fBis').value});
+  const auto=el('fHotelFr')&&el('fHotelFr').checked;
+  const teile=[];
+  if(n>0){
+    teile.push(n+' Übernachtung(en) → Anreisetag 14 € + '+(n>1?(n-1)+' Zwischentag(e) à 28 € + ':'')+'Abreisetag 14 €');
+    teile.push(auto?('Frühstück automatisch '+n+' × −5,60 €'):'Frühstück manuell: '+mahl.fr+' × −5,60 €');
+  }else{
+    teile.push(el('f8h')&&el('f8h').checked?'Eintägig über 8 h → 14 €':'Eintägig unter 8 h → keine Pauschale');
+  }
+  if(mahl.mi||mahl.ab)teile.push('Mittag/Abend '+(mahl.mi+mahl.ab)+' × −11,20 €');
+  box.innerHTML=teile.join(' · ');
 }
 function renderMahl(){el('mFr').textContent=mahl.fr;el('mMi').textContent=mahl.mi;el('mAb').textContent=mahl.ab;
   const n=mahl.fr+mahl.mi+mahl.ab;
@@ -1358,7 +1536,8 @@ function formData(){
     von:el('fVon').value, bis:el('fBis').value||el('fVon').value,
     zielAdresse:(selZiel&&selZiel.adresse)?selZiel.adresse:(editId?((state.trips.find(x=>x.id===editId)||{}).zielAdresse||''):''),
     mitternacht:el('fMitternacht').checked, ueber8h:el('f8h').checked,
-    mahl:Object.assign({},mahl), belege:JSON.parse(JSON.stringify(belege)),
+    mahl:Object.assign({},mahl), hotelFr:!!(el('fHotelFr')&&el('fHotelFr').checked),
+    bewertung:bewertungWert||0, bewNotiz:el('fBewNotiz').value.trim(), belege:JSON.parse(JSON.stringify(belege)),
     vm:verkehrsmittel, km:reiseModus==='online'?0:(+el('fKm').value||0), bahn:reiseModus==='online'?0:(+el('fBahnK').value||0),
     typ:reiseTyp, modus:reiseModus, ihkNotiz:el('fIhkEntsch').value.trim(),
     kategorie:reiseTyp==='ihk'?'':el('fKategorie').value,
@@ -1552,9 +1731,9 @@ async function autoKmAusAdresse(adresse){
 }
 
 /* ---------- Ordner-Kacheln (OneDrive) ---------- */
-let ordnerPfad='Dozentur';
+let ordnerPfad='Dozenten-Cockpit';
 async function ordnerLaden(pfad){
-  ordnerPfad=pfad||'Dozentur';
+  ordnerPfad=pfad||'Dozenten-Cockpit';
   const box=el('ordnerGrid');
   if(!msAccount){box.innerHTML='<div class="hint">Bitte zuerst Outlook verbinden.</div>';return}
   box.innerHTML='<div class="hint"><span class="spin"></span>Lade …</div>';
@@ -1656,7 +1835,7 @@ function renderTools(){
     if(faellig.length){
       warn.style.display='block';
       warn.innerHTML='<div style="font-weight:600;margin-bottom:6px">⏰ Verträge, die bald auslaufen</div>'+
-        faellig.map(x=>'<div class="agrow"><span>'+esc(x.t.name)+'</span><span class="mono" style="color:'+(x.tage<=30?'var(--rot)':'#b8860b')+'">'+
+        faellig.map(x=>'<div class="agrow"><span>'+esc(x.t.name)+'</span><span class="mono" style="color:'+(x.tage<=30?'var(--rot)':'var(--warn)')+'">'+
           (x.tage<0?'seit '+Math.abs(x.tage)+' Tagen abgelaufen':'in '+x.tage+' Tagen')+' · '+dfmt(x.t.ablauf)+'</span></div>').join('');
     }else warn.style.display='none';
   }
@@ -1758,18 +1937,18 @@ function renderToolAuswertung(){
       '<span class="mono" style="font-size:18px;font-weight:600">'+eur(gesamt)+'/M <span style="font-size:12px;color:var(--grau)">· '+eur(gesamt*12)+'/J</span></span>'+
     '</div>'+
 
-    '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin-bottom:8px">Kosten je Kategorie</div>'+
+    '<div class="lbl-klein" style="margin-bottom:8px">Kosten je Kategorie</div>'+
     (katDaten.length?balken(katDaten,'var(--ink)'):'<div class="hint">Noch keine Beträge erfasst.</div>')+
 
-    '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin:18px 0 8px">Kosten je Konto</div>'+
+    '<div class="lbl-klein" style="margin:18px 0 8px">Kosten je Konto</div>'+
     (kontoDaten.length?balken(kontoDaten,'var(--rot)'):'<div class="hint">Noch keine Beträge erfasst.</div>')+
 
-    '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin:18px 0 8px">Vertrags-Verlängerungen (nächste 12 Monate)</div>'+
+    '<div class="lbl-klein" style="margin:18px 0 8px">Vertrags-Verlängerungen (nächste 12 Monate)</div>'+
     zeitstrahl+
     (auslaufend.length?
       '<div style="margin-top:14px;display:grid;gap:4px">'+auslaufend.map(x=>{
         const tage=Math.round((x.d-new Date())/86400000);
-        const farbe=tage<=30?'var(--rot)':(tage<=60?'#b8860b':'var(--grau)');
+        const farbe=tage<=30?'var(--rot)':(tage<=60?'var(--warn)':'var(--grau)');
         return '<div class="agrow"><span>'+esc(x.t.name)+'</span><span class="mono" style="color:'+farbe+'">'+dfmt(x.t.ablauf)+' · in '+tage+' T</span></div>';
       }).join('')+'</div>'
       :'<div class="hint" style="margin-top:10px">Keine Verträge mit hinterlegtem Ablaufdatum.</div>')+
@@ -1779,7 +1958,7 @@ function renderToolKarten(gefiltert){
   const box=el('toolListe');
   box.innerHTML=gefiltert.map(t=>{
     const tage=toolTageBisAblauf(t);
-    const ampel=tage===null?'':(tage<=30?'<span style="color:var(--rot)">●</span> ':(tage<=60?'<span style="color:#b8860b">●</span> ':''));
+    const ampel=tage===null?'':(tage<=30?'<span style="color:var(--rot)">●</span> ':(tage<=60?'<span style="color:var(--warn)">●</span> ':''));
     const kosten=toolMonatskosten(t);
     return '<details style="border-bottom:1px solid var(--line);padding:8px 0" data-tid="'+t.id+'">'+
       '<summary style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;list-style:none">'+
@@ -1819,7 +1998,7 @@ function renderToolTabelle(gefiltert){
   };
   const rows=gefiltert.map(t=>{
     const tage=toolTageBisAblauf(t);
-    const ablauf=t.ablauf?('<span'+(tage!==null&&tage<=60?' style="color:'+(tage<=30?'var(--rot)':'#b8860b')+'"':'')+'>'+dfmt(t.ablauf)+'</span>'):'—';
+    const ablauf=t.ablauf?('<span'+(tage!==null&&tage<=60?' style="color:'+(tage<=30?'var(--rot)':'var(--warn)')+'"':'')+'>'+dfmt(t.ablauf)+'</span>'):'—';
     return '<tr style="border-bottom:1px solid var(--line)">'+
       '<td style="padding:7px 8px;font-weight:600;white-space:nowrap">'+(t.genutzt?'':'<span style="opacity:.5">○ </span>')+esc(t.name)+
         (t.connector?' 🔌':'')+(t.skill?' ⚡':'')+'</td>'+
@@ -2225,6 +2404,451 @@ async function taskAnlegen(){
   }catch(e){toast('Anlegen fehlgeschlagen')}
 }
 
+/* ---------- Liefer-Aufträge (Welle 1) ----------
+   Zweiter Auftrags-Typ neben den Reisen: Aufträge OHNE Seminartermin — WBT erstellen,
+   WBT lektorieren, Klausuren korrigieren. Bewusst ein eigener Objekttyp (state.jobs)
+   statt in state.trips, damit kein Auftrag 20 leere Reisefelder mitschleppt.
+   Vier Abrechnungsmodi aus der Prozessaufnahme: Stunden×Satz (Going Public),
+   Pauschale je Modul (Zinal), pro WBT-Minute (WBT-Erstellung), extern über das
+   IHK-Portal (dort rechnet die App nichts, sie zeigt nur). */
+let jobEditId=null, jobFilterAktiv='offen';
+const JOB_STATUS=[['offen','Offen'],['arbeit','In Arbeit'],['geliefert','Geliefert'],['abgerechnet','Abgerechnet']];
+const JOB_ARTEN={'wbt-erstellen':'WBT erstellen','wbt-lektorat':'WBT-Lektorat','klausuren':'Klausuren','unterlagen':'Unterlagen','sonstiges':'Sonstiges'};
+const JOB_MODI={stunden:'Stunden',modul:'je Modul',wbtminute:'je WBT-Minute',extern:'IHK-Portal'};
+function jobsListe(){ if(!Array.isArray(state.jobs))state.jobs=[]; return state.jobs; }
+function jobBetrag(j){
+  if(!j||j.modus==='extern')return null;
+  const b=(+j.satz||0)*(+j.menge||0);
+  return b>0?b:null;
+}
+function jobTageBisDeadline(j){
+  if(!j||!j.deadline)return null;
+  const d=new Date(j.deadline+'T00:00:00'), heute=new Date(); heute.setHours(0,0,0,0);
+  return Math.round((d-heute)/86400000);
+}
+/* Satz-/Mengen-Felder heißen je Abrechnungsmodus anders — sonst rät man, was reingehört. */
+function jobModusAnwenden(){
+  const m=el('jModus').value;
+  const extern=m==='extern';
+  el('jRechnenWrap').style.display=extern?'none':'grid';
+  el('jCalc').style.display=extern?'none':'block';
+  if(extern){el('jCalc').textContent='';jobBerechnen();return}
+  const texte={
+    stunden:['Stundensatz (€)','Stunden'],
+    modul:['Preis je Modul (€)','Anzahl Module'],
+    wbtminute:['Preis je WBT-Minute (€)','WBT-Minuten']
+  }[m]||['Satz (€)','Menge'];
+  el('jSatzLabel').textContent=texte[0];
+  el('jMengeLabel').textContent=texte[1];
+  jobBerechnen();
+}
+function jobBerechnen(){
+  const j={modus:el('jModus').value,satz:el('jSatz').value,menge:el('jMenge').value};
+  const b=jobBetrag(j);
+  el('jCalc').innerHTML=b?('<div class="row"><span>Betrag</span><span class="mono">'+eur(b)+'</span></div>')
+    :'<div class="hint" style="margin:0">Satz und Menge eintragen, dann wird der Betrag berechnet.</div>';
+}
+function jobFormOeffnen(id){
+  jobEditId=id||null;
+  const j=id?jobsListe().find(x=>x.id===id):null;
+  el('jobFormTitel').textContent=j?'Liefer-Auftrag bearbeiten':'Neuer Liefer-Auftrag';
+  el('jAg').value=j?j.ag||'':'';
+  el('jArt').value=j?j.art||'wbt-lektorat':'wbt-lektorat';
+  el('jTitel').value=j?j.titel||'':'';
+  el('jAuftragsnr').value=j?j.auftragsnr||'':'';
+  el('jDeadline').value=j?j.deadline||'':'';
+  el('jUmfang').value=j?j.umfang||'':'';
+  el('jModus').value=j?j.modus||'stunden':'stunden';
+  el('jSatz').value=j&&j.satz?j.satz:'';
+  el('jMenge').value=j&&j.menge?j.menge:'';
+  el('jNotiz').value=j?j.notiz||'':'';
+  el('btnJobLoeschen').style.display=j?'inline-block':'none';
+  jobModusAnwenden();
+  el('jobFormCard').style.display='block';
+  el('jobFormCard').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function jobSpeichern(){
+  const titel=el('jTitel').value.trim();
+  if(!titel){toast('Bitte einen Titel eingeben');return}
+  const liste=jobsListe();
+  const daten={
+    ag:el('jAg').value, art:el('jArt').value, titel:titel,
+    auftragsnr:el('jAuftragsnr').value.trim(), deadline:el('jDeadline').value,
+    umfang:el('jUmfang').value.trim(), modus:el('jModus').value,
+    satz:+el('jSatz').value||0, menge:+el('jMenge').value||0,
+    notiz:el('jNotiz').value.trim()
+  };
+  if(jobEditId){
+    const i=liste.findIndex(x=>x.id===jobEditId);
+    /* Object.assign statt Ersetzen: Status und Anlagedatum hängen nicht am Formular
+       und dürfen beim Bearbeiten nicht verlorengehen. */
+    if(i>=0)liste[i]=Object.assign({},liste[i],daten);
+  }else{
+    liste.push(Object.assign({id:uid(),status:'offen',angelegt:ymd(new Date())},daten));
+  }
+  el('jobFormCard').style.display='none'; jobEditId=null;
+  await save(); renderJobs();
+  toast('Liefer-Auftrag gespeichert');
+}
+async function jobLoeschen(){
+  if(!jobEditId)return;
+  if(!confirm('Diesen Liefer-Auftrag wirklich löschen?'))return;
+  const liste=jobsListe();
+  const i=liste.findIndex(x=>x.id===jobEditId);
+  if(i>=0)liste.splice(i,1);
+  el('jobFormCard').style.display='none'; jobEditId=null;
+  await save(); renderJobs(); toast('Gelöscht');
+}
+async function jobStatusWeiter(id){
+  const j=jobsListe().find(x=>x.id===id); if(!j)return;
+  const reihe=JOB_STATUS.map(s=>s[0]);
+  const i=reihe.indexOf(j.status||'offen');
+  j.status=reihe[Math.min(i+1,reihe.length-1)];
+  if(j.status==='geliefert'&&!j.geliefertAm)j.geliefertAm=ymd(new Date());
+  await save(); renderJobs();
+  toast('Status: '+(JOB_STATUS.find(s=>s[0]===j.status)||[])[1]);
+}
+/* Aus einem gelieferten Auftrag eine Rechnungs-Aufgabe in Microsoft To Do erzeugen —
+   sein Wunsch aus der Prozessaufnahme: "eine Aufgabe soll mich erinnern, die
+   Abrechnungswerte sollen dabei stehen". Auftragsnummer kommt immer mit. */
+async function jobRechnungsAufgabe(id){
+  const j=jobsListe().find(x=>x.id===id); if(!j)return;
+  if(!msAccount){toast('Bitte zuerst Outlook verbinden');return}
+  try{
+    await taskListenHolen();
+    const ziel=taskListeFuer(j.ag);
+    const listId=(ziel&&ziel.id)||await taskListIdHolen();
+    const b=jobBetrag(j);
+    const zeilen=[
+      'Auftraggeber: '+(j.ag||'–'),
+      'Auftragsnummer: '+(j.auftragsnr||'–'),
+      'Leistung: '+(JOB_ARTEN[j.art]||'')+' — '+j.titel,
+      j.umfang?'Umfang: '+j.umfang:null,
+      j.modus==='extern'?'Abrechnung: über das IHK-Portal':
+        ('Abrechnung: '+(+j.menge||0)+' × '+eur(+j.satz||0)+' ('+(JOB_MODI[j.modus]||'')+')'),
+      b?'Betrag netto: '+eur(b):null
+    ].filter(Boolean).join('\n');
+    const body={title:'Rechnung: '+j.titel+(j.ag?' ('+j.ag+')':''),importance:'normal',
+      body:{content:zeilen,contentType:'text'}};
+    if(!ziel&&j.ag)body.categories=[j.ag];
+    await graph('/me/todo/lists/'+encodeURIComponent(listId)+'/tasks',{method:'POST',body:JSON.stringify(body)});
+    j.rechnungsAufgabe=true; await save(); renderJobs();
+    toast('Rechnungs-Aufgabe angelegt');
+  }catch(e){toast('Anlegen fehlgeschlagen')}
+}
+function renderJobs(){
+  const box=el('jobListe'); if(!box)return;
+  const liste=jobsListe();
+  /* Filter-Chips: Anzahl je Status direkt mit anzeigen */
+  const fbox=el('jobFilter');
+  if(fbox){
+    const zaehl=s=>liste.filter(j=>(j.status||'offen')===s).length;
+    fbox.innerHTML=('<button type="button" class="minibtn'+(jobFilterAktiv==='alle'?' rot':'')+'" data-jf="alle">Alle '+liste.length+'</button>')
+      +JOB_STATUS.map(s=>'<button type="button" class="minibtn'+(jobFilterAktiv===s[0]?' rot':'')+'" data-jf="'+s[0]+'">'+s[1]+' '+zaehl(s[0])+'</button>').join('');
+    fbox.querySelectorAll('[data-jf]').forEach(b=>b.onclick=()=>{jobFilterAktiv=b.dataset.jf;renderJobs()});
+  }
+  const gefiltert=liste.filter(j=>jobFilterAktiv==='alle'||(j.status||'offen')===jobFilterAktiv)
+    .sort((a,b)=>(a.deadline||'9999').localeCompare(b.deadline||'9999'));
+  if(!gefiltert.length){
+    box.innerHTML='<div class="hint">'+(liste.length?'Keine Aufträge in diesem Status.':'Noch keine Liefer-Aufträge erfasst — leg den ersten über „+ Auftrag" an.')+'</div>';
+    return;
+  }
+  box.innerHTML=gefiltert.map(j=>{
+    const tage=jobTageBisDeadline(j);
+    const offen=(j.status||'offen')!=='abgerechnet';
+    const farbe=(tage!==null&&offen)?(tage<0?'var(--rot)':(tage<=3?'var(--rot)':(tage<=10?'var(--warn)':'var(--grau)'))):'var(--grau)';
+    const dl=j.deadline?('<span style="color:'+farbe+'">'+dfmt(j.deadline)+(offen?(tage<0?' · überfällig':' · in '+tage+' T'):'')+'</span>'):'<span style="color:var(--grau)">ohne Deadline</span>';
+    const b=jobBetrag(j);
+    const st=(JOB_STATUS.find(s=>s[0]===(j.status||'offen'))||['','Offen'])[1];
+    const naechster=(j.status||'offen')!=='abgerechnet';
+    return '<div style="border-bottom:1px solid var(--line);padding:9px 0">'+
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap">'+
+        '<span style="font-weight:600">'+esc(j.titel)+'</span>'+
+        '<span class="mono" style="font-size:12px;color:var(--grau)">'+(b?eur(b):(j.modus==='extern'?'IHK-Portal':'—'))+'</span>'+
+      '</div>'+
+      '<div class="meta" style="margin-top:3px"><span class="badge">'+st+'</span>'+
+        '<span>'+esc(JOB_ARTEN[j.art]||'')+'</span>'+
+        (j.ag?'<span>· '+esc(j.ag)+'</span>':'')+
+        (j.auftragsnr?'<span>· '+esc(j.auftragsnr)+'</span>':'')+
+        '<span>· '+dl+'</span>'+
+        (j.umfang?'<span>· '+esc(j.umfang)+'</span>':'')+
+      '</div>'+
+      '<div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">'+
+        (naechster?'<button type="button" class="minibtn" data-jnext="'+j.id+'" style="padding:3px 10px;font-size:11px">→ '+((JOB_STATUS[JOB_STATUS.findIndex(s=>s[0]===(j.status||'offen'))+1]||[])[1]||'')+'</button>':'')+
+        ((j.status==='geliefert'&&j.modus!=='extern'&&!j.rechnungsAufgabe)?'<button type="button" class="minibtn" data-jinv="'+j.id+'" style="padding:3px 10px;font-size:11px">Rechnungs-Aufgabe</button>':'')+
+        (j.rechnungsAufgabe?'<span class="hint" style="margin:0;align-self:center">✓ Rechnungs-Aufgabe angelegt</span>':'')+
+        '<button type="button" class="minibtn" data-jedit="'+j.id+'" style="padding:3px 10px;font-size:11px">Bearbeiten</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  box.querySelectorAll('[data-jedit]').forEach(b=>b.onclick=()=>jobFormOeffnen(b.dataset.jedit));
+  box.querySelectorAll('[data-jnext]').forEach(b=>b.onclick=()=>jobStatusWeiter(b.dataset.jnext));
+  box.querySelectorAll('[data-jinv]').forEach(b=>b.onclick=()=>jobRechnungsAufgabe(b.dataset.jinv));
+}
+
+/* ---------- Welle 3: Schnellerfassen, Termine, Bestaetigung, Aufgaben-Drop ----------
+   Aus der Prozessaufnahme: Erfassen passiert "jederzeit, ueberall, auf jedem Weg" —
+   deshalb ein Knopf, der in JEDEM Bereich erreichbar ist. */
+function quickOeffnen(){ el('quickModal').style.display='flex'; }
+function quickSchliessen(){ el('quickModal').style.display='none'; }
+function quickWahl(was){
+  quickSchliessen();
+  if(was==='aufgabe'){ bereichWechseln('start'); const f=el('inboxText'); if(f){f.scrollIntoView({behavior:'smooth',block:'center'}); f.focus();} return; }
+  if(was==='memo'){ bereichWechseln('start'); const b=el('btnTbDikt')||el('btnInboxDikt'); if(b){b.scrollIntoView({behavior:'smooth',block:'center'}); b.click();} return; }
+  if(was==='reise'){ bereichWechseln('seminare'); openForm(null); return; }
+  if(was==='job'){ bereichWechseln('werkstatt'); jobFormOeffnen(null); return; }
+}
+
+/* Aufgabe aus einer gezogenen Datei — gleiche Mechanik wie die Termin-Zone im
+   Kalender, nur mit Aufgaben-Schema. Fuellt die bestehende Vorschau-Maske. */
+async function ibDropParse(file){
+  const st=el('inboxStatus');
+  const istMail=/\.(eml|msg)$/i.test(file.name)||/message\/rfc822/i.test(file.type);
+  const istBildPdf=/png|jpe?g|pdf/i.test(file.type)||/\.(png|jpe?g|pdf)$/i.test(file.name);
+  if(!istMail&&!istBildPdf){st.textContent='Bitte ein Bild (PNG/JPG), PDF oder eine E-Mail-Datei (.eml/.msg) waehlen.';return}
+  st.innerHTML='<span class="spin"></span>Claude liest die Aufgabe \u2026';
+  try{
+    let quelle;
+    if(istMail){
+      let text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsText(file)});
+      text=(text||'').replace(/=\r?\n/g,'').slice(0,12000);
+      quelle={type:'text',text:'E-Mail-Datei (Rohtext):\n\n'+text};
+    }else{
+      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
+      const isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name);
+      quelle=isPdf?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
+                  :{type:'image',source:{type:'base64',media_type:(/png/i.test(file.type)?'image/png':'image/jpeg'),data:b64}};
+    }
+    /* Listennamen mitgeben, damit Claude direkt in die richtige Liste einsortiert —
+       genau sein Wunsch "am liebsten direkt in der richtigen Liste". */
+    try{ if(msAccount)await taskListenHolen(); }catch(e){/* ohne Listen geht es auch */}
+    const listen=(taskListen||[]).map(l=>l.name).filter(Boolean);
+    const resp=await fetch(claudeEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:500,
+        messages:[{role:'user',content:[quelle,{type:'text',text:
+          'Daraus soll EINE Aufgabe fuer einen selbststaendigen Seminardozenten werden. Heute ist '+heuteISO()+'.\n'+
+          (listen.length?('Waehle als bereich genau einen aus dieser Liste: '+listen.join(' | ')+'.\n'):'')+
+          'Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\n'+
+          '{"titel":"kurz und handlungsorientiert","bereich":"","faellig":"YYYY-MM-DD oder leer","prio":"low|normal|high","notiz":"Kontext, Ansprechpartner, Link"}\n'+
+          'Regeln: titel beginnt mit einem Verb. faellig nur wenn eine Frist erkennbar ist. Erfinde nichts.'}]}]})});
+    if(!resp.ok)throw new Error('Claude '+resp.status);
+    const d=await resp.json();
+    const roh=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('').replace(/```json|```/g,'').trim();
+    const p=JSON.parse(roh.slice(roh.indexOf('{'),roh.lastIndexOf('}')+1));
+    inboxVorschlag={prio:p.prio||'normal'};
+    el('ibTitel').value=p.titel||'';
+    el('ibNotiz').value=p.notiz||'';
+    el('ibFaellig').value=p.faellig||'';
+    if(p.bereich&&el('ibKat'))el('ibKat').value=p.bereich;
+    el('inboxVorschau').style.display='block';
+    st.textContent='Vorschlag aus \u201e'+file.name+'\u201c \u2014 pruefen und anlegen.';
+  }catch(e){ st.textContent='Konnte die Datei nicht auswerten: '+e.message; }
+}
+
+/* Anreise + Seminartage + Abreise aus einer GESPEICHERTEN Reise in Outlook anlegen.
+   Nutzt denselben Bauplan wie der Mail-Import (planTermineBauen) — er legte diese
+   Termine bisher meist gar nicht an, weil es ein zweiter Handgriff war. */
+async function reiseTermineAnlegen(){
+  if(!msAccount){toast('Bitte zuerst Outlook verbinden');return}
+  const von=el('fVon').value, bis=el('fBis').value||el('fVon').value;
+  if(!von){toast('Bitte zuerst ein Anreisedatum eintragen');return}
+  const ag=(el('fAg').value==='__frei'&&el('fAgFrei'))?el('fAgFrei').value:el('fAg').value;
+  const p={auftraggeber:ag,zweck:el('fZweck').value||'Seminar',von:von,bis:bis,
+    ziel:el('fZiel').value,zielAdresse:el('fZiel').value,beginn:'09:00',ende:'17:00'};
+  const termine=planTermineBauen(p);
+  const liste=termine.map(t=>'· '+dfmt(t.datum)+' '+t.von+'–'+t.bis+'  '+t.subject).join('\n');
+  if(!confirm('Diese '+termine.length+' Termine in Outlook anlegen?\n\n'+liste))return;
+  let ok=0;
+  for(const t of termine){
+    try{
+      await graph('/me/events',{method:'POST',body:JSON.stringify({
+        subject:t.subject,
+        start:{dateTime:t.datum+'T'+t.von+':00',timeZone:'Europe/Berlin'},
+        end:{dateTime:t.datum+'T'+t.bis+':00',timeZone:'Europe/Berlin'},
+        location:{displayName:t.ort||''},
+        categories:terminKategorien(ag),
+        body:{contentType:'text',content:'Angelegt vom Dozenten-Cockpit'+(el('fAuftragsnr').value?' \u00b7 Auftrag '+el('fAuftragsnr').value:'')}
+      })});
+      ok++;
+    }catch(e){/* einzelner Fehler stoppt nicht alles */}
+  }
+  toast(ok+' von '+termine.length+' Terminen angelegt');
+}
+
+/* Bestaetigungsmail als Outlook-ENTWURF anlegen — bewusst nur Entwurf, nie senden.
+   Bei Going Public gehoert das Wort "bestaetigt" hinein (dort Pflicht), bei den
+   uebrigen Auftraggebern schickt er trotzdem immer eine kurze Bestaetigung. */
+async function bestaetigungEntwerfen(){
+  if(!msAccount){toast('Bitte zuerst Outlook verbinden');return}
+  const ag=(el('fAg').value==='__frei'&&el('fAgFrei'))?el('fAgFrei').value:el('fAg').value;
+  const zweck=el('fZweck').value||'Seminar', von=el('fVon').value, bis=el('fBis').value||von;
+  if(!von){toast('Bitte zuerst ein Datum eintragen');return}
+  const nr=el('fAuftragsnr').value.trim();
+  const istGP=/going public/i.test(ag||'');
+  const zeitraum=(bis&&bis!==von)?(dfmt(von)+' bis '+dfmt(bis)):dfmt(von);
+  const text=[
+    'Guten Tag,',
+    '',
+    istGP
+      ? ('vielen Dank f\u00fcr den Auftrag \u2014 hiermit best\u00e4tigt: Ich \u00fcbernehme das Seminar \u201e'+zweck+'\u201c am '+zeitraum+'.')
+      : ('vielen Dank f\u00fcr den Auftrag. Ich best\u00e4tige gerne das Seminar \u201e'+zweck+'\u201c am '+zeitraum+'.'),
+    nr?('Auftragsnummer: '+nr):'',
+    el('fZiel').value?('Ort: '+el('fZiel').value):'',
+    '',
+    'Die Termine sind bei mir eingeplant. Melden Sie sich gern, falls noch Unterlagen oder Abstimmungen n\u00f6tig sind.',
+    '',
+    'Viele Gr\u00fc\u00dfe',
+    'Charles H\u00fctten'
+  ].filter(x=>x!=='' || true).join('\n');
+  try{
+    await graph('/me/messages',{method:'POST',body:JSON.stringify({
+      subject:(istGP?'Best\u00e4tigt: ':'Auftragsbest\u00e4tigung: ')+zweck+' \u00b7 '+zeitraum+(nr?' \u00b7 '+nr:''),
+      body:{contentType:'text',content:text},
+      importance:'normal'
+    })});
+    toast('Entwurf in Outlook angelegt \u2014 pr\u00fcfen und selbst senden');
+  }catch(e){toast('Entwurf fehlgeschlagen')}
+}
+
+/* ---------- Welle 4a: Gamma-API ----------
+   Bisher hat die Werkstatt nur einen Prompt zum Kopieren erzeugt. Mit der Generate-API
+   (im Pro-Plan enthalten) baut Gamma das Deck direkt. Der Key liegt als Cloudflare-Secret
+   hinter /gamma-proxy — im Browser steht er nie. Ablauf laut Doku: POST liefert eine
+   generationId, danach alle 5 s pollen bis status=completed (typisch 1–3 Minuten). */
+let gammaErgebnis=null;
+async function gammaProxy(daten){
+  const r=await fetch('/gamma-proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(daten)});
+  const t=await r.text();
+  let j; try{ j=JSON.parse(t); }catch(e){ throw new Error('Unerwartete Antwort vom Proxy'); }
+  if(!r.ok)throw new Error(j.error||('Gamma '+r.status));
+  return j;
+}
+async function gammaErzeugen(){
+  const st=el('gaStatus');
+  const auftrag=(el('wsAuftrag').value||'').trim();
+  if(!auftrag){st.textContent='Bitte oben beschreiben, was entstehen soll.';return}
+  const ag=(el('wsAg').value==='__frei'&&el('wsAgFrei'))?el('wsAgFrei').value:el('wsAg').value;
+  const thema=el('wsDihkThema')&&el('wsDihkThema').value?el('wsDihkThema').value:'';
+  gammaErgebnis=null;
+  el('gaLink').style.display='none'; el('btnGammaAblage').style.display='none';
+  st.innerHTML='<span class="spin"></span>Gamma legt los \u2026';
+  try{
+    const kontext=[
+      'Seminarunterlage f\u00fcr einen Dozenten in der Finanz- und Versicherungsbranche.',
+      ag?('Auftraggeber: '+ag):'',
+      el('wsKategorie')?('Fachgebiet: '+el('wsKategorie').value):'',
+      el('wsGesellschaft')?('Gesellschaft: '+el('wsGesellschaft').value):'',
+      thema?('Thema: '+thema):'',
+      '',
+      'Auftrag: '+auftrag
+    ].filter(Boolean).join('\n');
+    const payload={
+      inputText:kontext, textMode:'generate',
+      format:el('gaFormat').value,
+      numCards:Math.max(1,+el('gaKarten').value||12),
+      exportAs:'pptx',
+      additionalInstructions:'Sachlich, praxisnah, mit konkreten Beispielen aus der Beratungspraxis. Keine Werbefloskeln.',
+      textOptions:{language:'de',amount:el('gaMenge').value,audience:'Vermittler und Berater in der Finanz- und Versicherungsbranche'},
+      cardOptions:{dimensions:'16x9'}
+    };
+    const start=await gammaProxy({action:'create',payload:payload});
+    if(!start.generationId)throw new Error('Keine generationId erhalten');
+    st.innerHTML='<span class="spin"></span>Gamma erzeugt das Deck \u2014 das dauert meist 1\u20133 Minuten \u2026';
+    /* Poll-Schleife: alle 5 s, hoechstens 4 Minuten. */
+    let ergebnis=null;
+    for(let i=0;i<48;i++){
+      await new Promise(r=>setTimeout(r,5000));
+      const stat=await gammaProxy({action:'status',generationId:start.generationId});
+      if(stat.status==='completed'){ergebnis=stat;break}
+      if(stat.status==='failed')throw new Error('Gamma meldet: Generierung fehlgeschlagen');
+      st.innerHTML='<span class="spin"></span>Noch in Arbeit \u2026 ('+((i+1)*5)+' s)';
+    }
+    if(!ergebnis)throw new Error('Zeit\u00fcberschreitung \u2014 in Gamma nachsehen, ob das Deck fertig wurde');
+    gammaErgebnis=ergebnis;
+    if(ergebnis.gammaUrl){el('gaLink').href=ergebnis.gammaUrl;el('gaLink').style.display='inline-block'}
+    if(ergebnis.exportUrl)el('btnGammaAblage').style.display='inline-block';
+    const cr=ergebnis.credits&&typeof ergebnis.credits.remaining!=='undefined'?(' \u00b7 Credits \u00fcbrig: '+ergebnis.credits.remaining):'';
+    st.textContent='\u2713 Deck fertig'+cr+'. Jetzt \u00f6ffnen oder im Kursordner ablegen.';
+  }catch(e){ st.textContent='Fehlgeschlagen: '+e.message; }
+}
+/* Fertiges Deck in den passenden Kursordner legen — Namenskonvention Folien_<Thema>_v1.pptx */
+async function gammaAblegen(){
+  const st=el('gaStatus');
+  if(!gammaErgebnis||!gammaErgebnis.exportUrl){st.textContent='Kein fertiges Deck vorhanden.';return}
+  if(!msAccount){st.textContent='Bitte zuerst Outlook/OneDrive verbinden.';return}
+  st.innerHTML='<span class="spin"></span>Lade herunter und lege ab \u2026';
+  try{
+    const d=await gammaProxy({action:'download',url:gammaErgebnis.exportUrl});
+    const kurz=((el('wsAuftrag').value||'Unterlage').trim().split(/\s+/).slice(0,4).join('-')).replace(/[\\/:*?"<>|#%]/g,'');
+    const name='Folien_'+kurz+'_v1.pptx';
+    const ag=(el('wsAg').value==='__frei'&&el('wsAgFrei'))?el('wsAgFrei').value:el('wsAg').value;
+    const ges=(el('wsGesellschaft')&&el('wsGesellschaft').value==='__frei'&&el('wsGesellschaftFrei'))
+      ?el('wsGesellschaftFrei').value:(el('wsGesellschaft')?el('wsGesellschaft').value:'');
+    const ordner=kursOrdner(ag, el('wsKategorie')?el('wsKategorie').value:'', ges);
+    await odPutFile(ordner+'/Folien/'+name, b64ToBlob(d.base64,d.mime), d.mime);
+    st.textContent='\u2713 Abgelegt: '+ordner+'/Folien/'+name;
+    toast('Deck in OneDrive abgelegt');
+  }catch(e){ st.textContent='Ablage fehlgeschlagen: '+e.message; }
+}
+
+/* ---------- Welle 4b: Seminartagebuch als Auswertungsebene ----------
+   Sein Wunsch: nicht nur Notizen, sondern Kennzahlen — wie viele Seminare im Jahr,
+   nach Auftraggeber, Reisetage und km, plus eine eigene Bewertung je Seminar. */
+let bewertungWert=0;
+function renderBewertung(){
+  const seg=el('bewSeg'); if(!seg)return;
+  seg.querySelectorAll('[data-bew]').forEach(b=>b.classList.toggle('on',+b.dataset.bew===bewertungWert));
+}
+function tbAuswertungRechnen(jahr){
+  const trips=(state.trips||[]).filter(t=>t.von&&t.von.startsWith(String(jahr))&&t.typ!=='ihk');
+  const proAg={}, proMonat=new Array(12).fill(0);
+  let tage=0, km=0, bewSumme=0, bewAnzahl=0;
+  trips.forEach(t=>{
+    const ag=t.ag||'ohne Auftraggeber';
+    proAg[ag]=(proAg[ag]||0)+1;
+    proMonat[parseInt(t.von.slice(5,7),10)-1]++;
+    const n=naechte(t);
+    tage+=Math.max(1,n+1);
+    if(t.vm==='auto')km+=(+t.km||0)*2;
+    if(+t.bewertung){bewSumme+=+t.bewertung;bewAnzahl++}
+  });
+  return {trips,proAg,proMonat,tage,km,schnitt:bewAnzahl?bewSumme/bewAnzahl:0,bewAnzahl};
+}
+function renderTbAuswertung(){
+  const box=el('tbAuswertung'); if(!box)return;
+  const jahr=new Date().getFullYear();
+  const a=tbAuswertungRechnen(jahr);
+  if(!a.trips.length){box.innerHTML='<div class="hint">Noch keine Seminare in '+jahr+' erfasst.</div>';return}
+  const agListe=Object.keys(a.proAg).sort((x,y)=>a.proAg[y]-a.proAg[x]);
+  const maxM=Math.max(1,...a.proMonat);
+  const mn=['J','F','M','A','M','J','J','A','S','O','N','D'];
+  const balken='<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px;align-items:end;height:52px;margin-top:4px">'+
+    a.proMonat.map((n,i)=>'<div title="'+mn[i]+': '+n+'" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">'+
+      (n?'<span class="mono" style="font-size:9px;color:var(--grau)">'+n+'</span>':'')+
+      '<div style="width:100%;height:'+(n?Math.round(n/maxM*40)+6:3)+'px;background:'+(n?'var(--ink)':'var(--line)')+';border-radius:3px"></div></div>').join('')+
+    '</div><div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px;font-size:9px;color:var(--grau);text-align:center">'+
+    mn.map(m=>'<div>'+m+'</div>').join('')+'</div>';
+  const sterne=n=>'★★★★★'.slice(0,Math.round(n))+'☆☆☆☆☆'.slice(0,5-Math.round(n));
+  /* Die drei zuletzt bewerteten Seminare als Gedaechtnisstuetze */
+  const bewertet=a.trips.filter(t=>+t.bewertung).sort((x,y)=>y.von.localeCompare(x.von)).slice(0,3);
+  box.innerHTML=
+    '<div class="kpis" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px">'+
+      '<div class="kpi"><div class="lbl">Seminare '+jahr+'</div><div class="val">'+a.trips.length+'</div></div>'+
+      '<div class="kpi"><div class="lbl">Reisetage</div><div class="val">'+a.tage+'</div></div>'+
+      '<div class="kpi"><div class="lbl">km gefahren</div><div class="val">'+a.km.toLocaleString('de-DE')+'</div></div>'+
+      '<div class="kpi"><div class="lbl">Ø Bewertung</div><div class="val">'+(a.bewAnzahl?a.schnitt.toFixed(1):'—')+'</div></div>'+
+    '</div>'+
+    '<div class="lbl-klein">Seminare je Monat</div>'+balken+
+    '<div class="lbl-klein" style="margin-top:12px">Nach Auftraggeber</div>'+
+    '<div style="display:grid;gap:3px;margin-top:4px">'+agListe.map(ag=>
+      '<div class="agrow"><span>'+esc(ag)+'</span><span class="mono">'+a.proAg[ag]+'</span></div>').join('')+'</div>'+
+    (bewertet.length?('<div class="lbl-klein" style="margin-top:12px">Zuletzt bewertet</div>'+
+      '<div style="display:grid;gap:3px;margin-top:4px">'+bewertet.map(t=>
+        '<div class="agrow"><span>'+dfmt(t.von)+' · '+esc(t.zweck||t.ziel||'')+(t.bewNotiz?'<br><span style="color:var(--grau);font-size:12px">'+esc(t.bewNotiz)+'</span>':'')+'</span>'+
+        '<span style="color:var(--rot)">'+sterne(+t.bewertung)+'</span></div>').join('')+'</div>')
+      :'<div class="hint" style="margin-top:10px">Noch keine Seminare bewertet — im Reise-Formular unter „Eigene Bewertung".</div>');
+}
+
 /* ---------- Konzeptionsmeetings ---------- */
 let meetEditId=null;
 function meetingsListe(){ if(!Array.isArray(state.meetings))state.meetings=[]; return state.meetings; }
@@ -2612,7 +3236,7 @@ async function mailAuslesen(mid,btn){
     const resp=await fetch(claudeEndpoint(),{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,
-        messages:[{role:"user",content:"Das ist eine E-Mail an einen selbstständigen Seminardozenten. Betreff: "+(m.subject||'')+"\nText: "+bodyText+"\n\nWICHTIG — sein Geschäftsmodell: Eine Bildungsakademie (sein AUFTRAGGEBER) wird von einer Versicherung/Bank (der GESELLSCHAFT) mit einem Seminar beauftragt und bucht ihn als Dozenten. Er rechnet immer mit der Akademie ab, nie mit der Gesellschaft — auch wenn die Einladung direkt von der Gesellschaft kommt oder die Gesellschaft im Betreff steht.\nAUFTRAGGEBER ist immer genau einer aus dieser Liste: "+AUFTRAGGEBER.join(' | ')+". Ist keiner davon erkennbar, lass das Feld leer — rate NICHT den Absender.\nGESELLSCHAFT ist das Unternehmen, für dessen Mitarbeiter/Vermittler das Seminar stattfindet (z.B. "+GESELLSCHAFTEN.filter(g=>g!=='Allgemein').join(', ')+" oder eine andere). Steht keine fest, gib 'Allgemein' an.\nKATEGORIE ist das Fachthema, genau eines aus: "+KATEGORIEN.join(' | ')+".\n\nBestimme zuerst die Art: 'reise' = Seminarauftrag/Termin (Präsenz oder Online), 'unterlagen' = Auftrag zur Erstellung/Aktualisierung von Unterlagen (Folien, Skripte, Klausuren) ohne konkreten Seminartermin, 'bahn' = Buchungsbestätigung der Deutschen Bahn für eine Zugfahrt. Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\nBei 'reise': {\"art\":\"reise\",\"auftragsnummer\":\"\",\"auftraggeber\":\"\",\"gesellschaft\":\"\",\"kategorie\":\"\",\"ziel\":\"Stadt\",\"zielAdresse\":\"Name/Adresse der Räumlichkeit wörtlich\",\"zweck\":\"kurze Seminarbezeichnung\",\"von\":\"YYYY-MM-DD\",\"bis\":\"YYYY-MM-DD\",\"beginn\":\"HH:MM oder leer\",\"ende\":\"HH:MM oder leer\",\"honorarProTermin\":0,\"anzahlTermine\":1,\"honorarGesamt\":0,\"ustBefreit\":false,\"online\":false}\nBei 'unterlagen': {\"art\":\"unterlagen\",\"auftraggeber\":\"\",\"gesellschaft\":\"\",\"kategorie\":\"\",\"thema\":\"Kurs/Klausur-Bezeichnung\",\"auftrag\":\"kurze Beschreibung was zu tun ist\"}\nBei 'bahn': {\"art\":\"bahn\",\"buchungsnummer\":\"Auftragsnummer der Bahn\",\"preisGesamt\":0,\"fahrten\":[{\"datum\":\"YYYY-MM-DD\",\"abfahrt\":\"HH:MM\",\"ankunft\":\"HH:MM\",\"von\":\"Startbahnhof\",\"nach\":\"Zielbahnhof\",\"zug\":\"z.B. ICE 599\"}]}\nBei 'bahn' WICHTIG: preisGesamt ist der Gesamtpreis der Buchung in Euro (alle Fahrten zusammen, wie in der Mail ausgewiesen). Gib pro Richtung GENAU EINE Fahrt an — fasse Umstiege zusammen zur Gesamtfahrt (erste Abfahrt, letzte Ankunft, bei mehreren Zügen alle Zugnummern durch Komma getrennt). Eine Hin- und Rückfahrt ergibt also zwei Einträge, eine einfache Fahrt einen.\nBei 'von'/'bis' NUR die reinen Seminartage, ohne An-/Abreise. Unbekannte Felder leer/0. Nichts erfinden."}]
+        messages:[{role:"user",content:"Das ist eine E-Mail an einen selbstständigen Seminardozenten. Betreff: "+(m.subject||'')+"\nText: "+bodyText+"\n\nWICHTIG — sein Geschäftsmodell: Eine Bildungsakademie (sein AUFTRAGGEBER) wird von einer Versicherung/Bank (der GESELLSCHAFT) mit einem Seminar beauftragt und bucht ihn als Dozenten. Er rechnet immer mit der Akademie ab, nie mit der Gesellschaft — auch wenn die Einladung direkt von der Gesellschaft kommt oder die Gesellschaft im Betreff steht.\nAUFTRAGGEBER ist immer genau einer aus dieser Liste: "+AUFTRAGGEBER.join(' | ')+". Ist keiner davon erkennbar, lass das Feld leer — rate NICHT den Absender.\nGESELLSCHAFT ist das Unternehmen, für dessen Mitarbeiter/Vermittler das Seminar stattfindet (z.B. "+GESELLSCHAFTEN.filter(g=>g!=='Allgemein').join(', ')+" oder eine andere). Steht keine fest, gib 'Allgemein' an.\nKATEGORIE ist das Fachthema, genau eines aus: "+KATEGORIEN.join(' | ')+".\n\nBestimme zuerst die Art: 'reise' = Seminarauftrag/Termin (Präsenz oder Online), 'lieferauftrag' = Arbeitsauftrag MIT Abgabefrist und ohne Seminartermin (WBT erstellen/konzipieren, WBT lektorieren/korrigieren, Klausuren korrigieren), 'unterlagen' = Auftrag zur Erstellung/Aktualisierung eigener Seminarunterlagen ohne Frist und ohne Seminartermin, 'bahn' = Buchungsbestätigung der Deutschen Bahn für eine Zugfahrt. Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\nBei 'reise': {\"art\":\"reise\",\"auftragsnummer\":\"\",\"auftraggeber\":\"\",\"gesellschaft\":\"\",\"kategorie\":\"\",\"ziel\":\"Stadt\",\"zielAdresse\":\"Name/Adresse der Räumlichkeit wörtlich\",\"zweck\":\"kurze Seminarbezeichnung\",\"von\":\"YYYY-MM-DD\",\"bis\":\"YYYY-MM-DD\",\"beginn\":\"HH:MM oder leer\",\"ende\":\"HH:MM oder leer\",\"honorarProTermin\":0,\"anzahlTermine\":1,\"honorarGesamt\":0,\"ustBefreit\":false,\"online\":false}\nBei 'lieferauftrag': {\"art\":\"lieferauftrag\",\"auftraggeber\":\"\",\"auftragsnummer\":\"\",\"jobArt\":\"wbt-erstellen|wbt-lektorat|klausuren|unterlagen|sonstiges\",\"titel\":\"kurze Bezeichnung der Leistung\",\"deadline\":\"YYYY-MM-DD oder leer\",\"umfang\":\"z.B. 5 Module, 12 Klausuren, 45 WBT-Minuten\",\"notiz\":\"Rückgabeweg/Ansprechpartner falls genannt\"}\nBei 'unterlagen': {\"art\":\"unterlagen\",\"auftraggeber\":\"\",\"gesellschaft\":\"\",\"kategorie\":\"\",\"thema\":\"Kurs/Klausur-Bezeichnung\",\"auftrag\":\"kurze Beschreibung was zu tun ist\"}\nBei 'bahn': {\"art\":\"bahn\",\"buchungsnummer\":\"Auftragsnummer der Bahn\",\"preisGesamt\":0,\"fahrten\":[{\"datum\":\"YYYY-MM-DD\",\"abfahrt\":\"HH:MM\",\"ankunft\":\"HH:MM\",\"von\":\"Startbahnhof\",\"nach\":\"Zielbahnhof\",\"zug\":\"z.B. ICE 599\"}]}\nBei 'bahn' WICHTIG: preisGesamt ist der Gesamtpreis der Buchung in Euro (alle Fahrten zusammen, wie in der Mail ausgewiesen). Gib pro Richtung GENAU EINE Fahrt an — fasse Umstiege zusammen zur Gesamtfahrt (erste Abfahrt, letzte Ankunft, bei mehreren Zügen alle Zugnummern durch Komma getrennt). Eine Hin- und Rückfahrt ergibt also zwei Einträge, eine einfache Fahrt einen.\nBei 'von'/'bis' NUR die reinen Seminartage, ohne An-/Abreise. Unbekannte Felder leer/0. Nichts erfinden."}]
       })
     });
     const data=await resp.json();
@@ -2636,6 +3260,22 @@ async function mailAuslesen(mid,btn){
       if(btn){btn.disabled=false;btn.textContent='Auslesen'}
       return;
     }
+    /* Liefer-Auftrag: direkt ins Werkstatt-Formular vorbefüllen, damit er nur noch
+       Abrechnungsmodus und Satz ergänzen muss. */
+    if(p.art==='lieferauftrag'){
+      bereichWechseln('werkstatt');
+      jobFormOeffnen(null);
+      if(p.auftraggeber&&AUFTRAGGEBER.includes(p.auftraggeber))el('jAg').value=p.auftraggeber;
+      if(p.jobArt&&JOB_ARTEN[p.jobArt])el('jArt').value=p.jobArt;
+      el('jTitel').value=p.titel||'';
+      el('jAuftragsnr').value=p.auftragsnummer||'';
+      el('jDeadline').value=p.deadline||'';
+      el('jUmfang').value=p.umfang||'';
+      el('jNotiz').value=p.notiz||'';
+      toast('Liefer-Auftrag erkannt — Abrechnung ergänzen und speichern');
+      if(btn){btn.disabled=false;btn.textContent='Auslesen'}
+      return;
+    }
     if(p.art==='bahn'){
       bahnZeigen(p);
       /* Ticket-PDF gleich mit ablegen */
@@ -2645,7 +3285,7 @@ async function mailAuslesen(mid,btn){
         for(const a of (at.value||[])){
           if(a.contentBytes&&/pdf/i.test(a.contentType||a.name)){
             const name=('Bahn_'+(p.buchungsnummer||jahr)+'_'+(a.name||'ticket.pdf')).replace(/[\\/:*?"<>|#%]/g,'');
-            await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(a.contentBytes,'application/pdf'),'application/pdf');
+            await odPutFile('Dozenten-Cockpit/Aufträge/'+jahr+'/'+name,b64ToBlob(a.contentBytes,'application/pdf'),'application/pdf');
             el('bahnStatus').textContent='Ticket abgelegt: Aufträge/'+jahr+'/'+name;
           }
         }
@@ -2661,7 +3301,7 @@ async function mailAuslesen(mid,btn){
       for(const a of (at.value||[])){
         if(a.contentBytes&&/pdf/i.test(a.contentType||a.name)){
           const name=((p.auftragsnummer||'Auftrag')+'_'+(a.name||'anhang.pdf')).replace(/[\\/:*?"<>|#%]/g,'');
-          await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(a.contentBytes,'application/pdf'),'application/pdf');
+          await odPutFile('Dozenten-Cockpit/Aufträge/'+jahr+'/'+name,b64ToBlob(a.contentBytes,'application/pdf'),'application/pdf');
           el('planStatus').textContent='Anhang in OneDrive abgelegt: Aufträge/'+jahr+'/'+name;
         }
       }
@@ -3237,7 +3877,13 @@ function bereichWechseln(b){
   if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderWerkstattAufgaben()}
   if(b==='abrechnung'){render()}
   if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true)}
-  document.querySelector('.fab').style.display=(b==='abrechnung'||b==='seminare')?'flex':'none';
+  if(b==='werkstatt')renderJobs();
+  if(b==='start')renderTbAuswertung();
+  /* FAB ist jetzt ueberall sichtbar — der Schnellerfassen-Knopf soll in jedem Bereich
+     erreichbar sein. "+ Reise erfassen" und CSV blenden sich bereichsabhaengig aus. */
+  document.querySelector('.fab').style.display='flex';
+  el('btnNew').style.display=(b==='abrechnung'||b==='seminare')?'':'none';
+  el('btnCsv').style.display=(b==='abrechnung')?'':'none';
   el('btnCsv').style.display=(b==='abrechnung')?'inline-block':'none';
   window.scrollTo({top:0,behavior:'instant'});
 }
@@ -3355,7 +4001,7 @@ async function rechnungPdfHochladen(file){
     const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
     const jahr=(t.von||heuteISO()).slice(0,4);
     const name=((t.auftragsnr||'Rechnung')+'_'+(t.ag||'').split(' ')[0]+'_'+t.von).replace(/[\\/:*?"<>|#%]/g,'')+'.pdf';
-    const pfad='Dozentur/Abrechnungen/'+jahr+'/'+name;
+    const pfad='Dozenten-Cockpit/Abrechnungen/'+jahr+'/'+name;
     const res=await odPutFile(pfad,b64ToBlob(b64,'application/pdf'),'application/pdf');
     t.rechnungPdfUrl=res.webUrl||'';
     await save();
@@ -3434,7 +4080,12 @@ function renderJahr(){
   }).join('');
 }
 
-/* ---------- OneDrive-Ablage (Ordnerstruktur Dozentur/) ---------- */
+/* ---------- OneDrive-Ablage ----------
+   EIN Dach-Ordner ueber allem: Dozenten-Cockpit/ mit Kurse/, DIHK/, Auftraege/,
+   Abrechnungen/ und Alte Unterlagen/. Vorher lagen Dozentur/ und DIHK/ getrennt
+   nebeneinander, wodurch die Werkstatt die DIHK-Klausuren gar nicht zeigen konnte.
+   ACHTUNG: "Dozentur" bleibt als Outlook-KATEGORIE und To-Do-Listenname bestehen —
+   das sind keine Pfade und wurden bewusst nicht umbenannt. */
 async function odEnsureFolder(pfad){
   const teile=pfad.split('/').filter(Boolean);
   let basis='';
@@ -3521,11 +4172,11 @@ function populateOptionSets(){
 }
 function kursOrdner(ag,kategorie,gesellschaft){
   const clean=s=>String(s||'').replace(/[\\/:*?"<>|#%]/g,'').trim().slice(0,60);
-  return 'Dozentur/Kurse/'+clean(ag)+'/'+clean(kategorie||'Sonstiges')+'/'+clean(gesellschaft||'Allgemein');
+  return 'Dozenten-Cockpit/Kurse/'+clean(ag)+'/'+clean(kategorie||'Sonstiges')+'/'+clean(gesellschaft||'Allgemein');
 }
 function dihkOrdner(thema){
   const clean=s=>String(s||'').replace(/[\\/:*?"<>|#%]/g,'').trim().slice(0,60);
-  return 'DIHK/'+clean(thema||'Allgemein')+'/Klausuren';
+  return 'Dozenten-Cockpit/DIHK/'+clean(thema||'Allgemein')+'/Klausuren';
 }
 const KURS_UNTERORDNER=['Folien','Übungen-Fälle','Teilnehmerunterlagen'];
 function kgMemoUpdate(ag,kategorie,gesellschaft){
@@ -4434,9 +5085,9 @@ function renderOdStatus(){
 async function quartalAbschliessen(){
   const trips=tripsImQuartal().filter(t=>!t.abgerechnet);
   if(!trips.length){toast('Keine offenen Reisen im Quartal');return}
-  if(!confirm('Q'+ui.q+' '+ui.jahr+' abschließen? '+trips.length+' Reise(n) werden als abgerechnet gesperrt.'))return;
+  if(!confirm(perLabel()+' '+ui.jahr+' abschließen? '+trips.length+' Reise(n) werden als abgerechnet gesperrt.'))return;
   trips.forEach(t=>t.abgerechnet=true);
-  await save(); render(); toast('Q'+ui.q+' '+ui.jahr+' abgeschlossen');
+  await save(); render(); toast(perLabel()+' '+ui.jahr+' abgeschlossen');
 }
 
 /* ---------- Druckansicht ---------- */
@@ -4444,7 +5095,7 @@ function druck(){
   const trips=tripsImQuartal().filter(t=>t.typ!=='ihk');
   if(!trips.length){toast('Keine Reisen im gewählten Quartal');return}
   let sK=0,sB=0,sV=0,sN=0,sG=0,sKfrei=0,html='';
-  html+='<div class="pkopf"><div><h1>Reisekostenabrechnung</h1><div>Q'+ui.q+' / '+ui.jahr+' · erstellt am '+new Date().toLocaleDateString('de-DE')+'</div></div>'
+  html+='<div class="pkopf"><div><h1>Reisekostenabrechnung</h1><div>'+perLabel()+' / '+ui.jahr+' · erstellt am '+new Date().toLocaleDateString('de-DE')+'</div></div>'
     +'<div class="firma"><strong>SCC Service Center GmbH</strong><br>Reisender: Charles Hütten<br>Gierather Str. 121, 51069 Köln</div></div>';
   trips.forEach(t=>{
     const c=berechne(t); sK+=c.kmGeld;sB+=c.bahnK;sV+=c.vma;sN+=c.neben;sG+=c.summe;sKfrei+=c.kmFrei;
@@ -4465,7 +5116,7 @@ function druck(){
     +'<tr><td>Bahnkosten</td><td class="z">'+eur(sB)+'</td></tr>'
     +'<tr><td>Verpflegungsmehraufwand</td><td class="z">'+eur(sV)+'</td></tr>'
     +'<tr><td>Nebenkosten</td><td class="z">'+eur(sN)+'</td></tr></table>'
-    +'<div class="gsum"><span>Erstattungsbetrag Q'+ui.q+' '+ui.jahr+'</span><span>'+eur(sG)+'</span></div>'
+    +'<div class="gsum"><span>Erstattungsbetrag '+perLabel()+' '+ui.jahr+'</span><span>'+eur(sG)+'</span></div>'
     +'<div class="sig"><div>Datum, Unterschrift Reisender</div><div>Datum, Unterschrift Geschäftsführung</div></div>'
     +'<div class="fuss">Belege in DATEV Unternehmen online abgelegt. Pauschalen nach §9 Abs. 4a EStG (14/28 €; Kürzung 5,60 € Frühstück, 11,20 € Mittag-/Abendessen).</div>';
   el('printArea').innerHTML=html;
@@ -4487,16 +5138,43 @@ function csvExport(){
   out+=';;;;;Gesamt;'+z(s.km)+';'+z(s.kf)+';'+z(s.b)+';'+z(s.v)+';'+z(s.n)+';'+z(s.g)+';\n';
   const blob=new Blob(["\ufeff"+out],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='Reisekosten_Q'+ui.q+'_'+ui.jahr+'_SCC.csv';a.click();
-  toast('CSV für Q'+ui.q+' '+ui.jahr+' erstellt');
+  a.download='Reisekosten_'+perLabel()+'_'+ui.jahr+'_SCC.csv';a.click();
+  toast('CSV für '+perLabel()+' '+ui.jahr+' erstellt');
 }
 
 /* ---------- Kalender-Import ---------- */
-function quartalsRange(){
-  const m0=(ui.q-1)*3;
-  const von=new Date(ui.jahr,m0,1), bis=new Date(ui.jahr,m0+3,0);
-  const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  return [iso(von),iso(bis)];
+function quartalsRange(){ return perRange(); }
+/* Fälligkeit der Sammelabrechnung. Bewusst noch im laufenden Jahr: die steuerfreie
+   Erstattung gehört ins jeweilige Lohnjahr, deshalb H2 im Dezember statt im Januar. */
+function perFaellig(){
+  if(ui.per==='halb') return ui.q===1 ? ui.jahr+'-07-15' : ui.jahr+'-12-20';
+  const d=new Date(ui.jahr,(ui.q-1)*3+3,15);
+  return d.getFullYear()>ui.jahr ? ui.jahr+'-12-20' : ymd(d);
+}
+async function perErinnerungAnlegen(){
+  if(!msAccount){toast('Bitte zuerst Outlook verbinden');return}
+  const trips=tripsImQuartal().filter(t=>t.typ!=='ihk');
+  const offen=trips.filter(t=>!t.abgerechnet);
+  const summe=offen.reduce((s,t)=>s+berechne(t).summe,0);
+  const [von,bis]=perRange();
+  try{
+    await taskListenHolen();
+    const ziel=taskListeFuer('Büro')||taskListeFuer('Dozentur');
+    const listId=(ziel&&ziel.id)||await taskListIdHolen();
+    const zeilen=[
+      'Zeitraum: '+dfmt(von)+' – '+dfmt(bis),
+      'Reisen im Zeitraum: '+trips.length+' (davon '+offen.length+' noch nicht abgerechnet)',
+      'Erstattungsbetrag (offen): '+eur(summe),
+      'Empfänger: SCC Service Center GmbH (Stufe 1, über den Lohn)',
+      'Im Cockpit: Abrechnung → '+perLabel()+' '+ui.jahr+' → Drucken/CSV, danach „Zeitraum abschließen".'
+    ].join('\n');
+    const body={title:'Reisekostenabrechnung '+perLabel()+' '+ui.jahr+' an die SCC',
+      importance:'high', body:{content:zeilen,contentType:'text'},
+      dueDateTime:{dateTime:perFaellig()+'T00:00:00',timeZone:'Europe/Berlin'}};
+    if(!ziel)body.categories=['Büro'];
+    await graph('/me/todo/lists/'+encodeURIComponent(listId)+'/tasks',{method:'POST',body:JSON.stringify(body)});
+    toast('Erinnerung angelegt — fällig '+dfmt(perFaellig()));
+  }catch(e){toast('Anlegen fehlgeschlagen')}
 }
 async function autoKalenderCheck(){
   const box=el('kalenderHinweis');if(!box||!msAccount)return;
@@ -4579,7 +5257,8 @@ async function importKalender(){
 }
 
 /* ---------- Events ---------- */
-document.querySelectorAll('.qbtn').forEach(b=>b.addEventListener('click',()=>{ui.q=+b.dataset.q;render()}));
+el('perModus').addEventListener('change',()=>{ui.per=el('perModus').value; ui.q=1; render()});
+el('btnPerErinnerung').addEventListener('click',perErinnerungAnlegen);
 (function(){const s=el('jahr');const y=new Date().getFullYear();for(let j=y-1;j<=y+1;j++){const o=document.createElement('option');o.value=j;o.textContent=j;s.appendChild(o)}s.value=ui.jahr;
 s.addEventListener('change',()=>{ui.jahr=+s.value;render()})})();
 el('btnNew').addEventListener('click',()=>openForm(null));
@@ -4609,7 +5288,7 @@ el('btnSave').addEventListener('click',async()=>{
   else state.trips.push(t);
   if(t.typ!=='ihk')kgMemoUpdate(t.ag,t.kategorie,t.gesellschaft);
   await save();closeForm();
-  ui.q=quartal(t.von);ui.jahr=+t.von.slice(0,4);render();
+  ui.q=perVon(t.von);ui.jahr=+t.von.slice(0,4);render();
   toast('Reise gespeichert');
 });
 el('btnDelete').addEventListener('click',async()=>{
@@ -4706,8 +5385,14 @@ el('btnCopyRechnung').addEventListener('click',async()=>{
 });
 document.querySelectorAll('.stepper button').forEach(b=>b.addEventListener('click',()=>{
   const k=b.dataset.m==='fr'?'fr':b.dataset.m==='mi'?'mi':'ab';
-  mahl[k]=Math.max(0,mahl[k]+ +b.dataset.d); renderMahl(); calcPreview();
+  /* Hand schlägt Automatik: greift er beim Frühstück selbst ein, hört die
+     Ableitung aus den Übernachtungen auf, sonst würde sie ihn überschreiben. */
+  if(k==='fr'&&el('fHotelFr'))el('fHotelFr').checked=false;
+  mahl[k]=Math.max(0,mahl[k]+ +b.dataset.d); renderMahl(); vpHinweis(); calcPreview();
 }));
+el('fHotelFr').addEventListener('change',vpAutoAnwenden);
+el('fVon').addEventListener('change',vpAutoAnwenden);
+el('fBis').addEventListener('change',vpAutoAnwenden);
 el('bAdd').addEventListener('click',()=>{
   const art=el('bArt').value.trim(), betrag=+el('bBetrag').value;
   if(!art||!betrag){toast('Belegart und Betrag angeben');return}
@@ -4925,6 +5610,39 @@ el('tabWerkstatt').addEventListener('click',()=>bereichWechseln('werkstatt'));
 el('tabAbrechnung').addEventListener('click',()=>bereichWechseln('abrechnung'));
 el('tabTools').addEventListener('click',()=>bereichWechseln('tools'));
 el('btnToolNeu').addEventListener('click',()=>toolFormOeffnen(null));
+
+/* Liefer-Aufträge */
+el('btnJobNeu').addEventListener('click',()=>jobFormOeffnen(null));
+
+/* Welle 3: Schnellerfassen, Drop-Zone, Termine, Bestaetigung */
+el('btnQuick').addEventListener('click',quickOeffnen);
+el('btnQuickZu').addEventListener('click',quickSchliessen);
+el('quickModal').addEventListener('click',e=>{ if(e.target===el('quickModal'))quickSchliessen(); });
+document.querySelectorAll('[data-quick]').forEach(b=>b.addEventListener('click',()=>quickWahl(b.dataset.quick)));
+el('btnReiseTermine').addEventListener('click',reiseTermineAnlegen);
+/* Welle 4 */
+el('btnGammaGen').addEventListener('click',gammaErzeugen);
+el('btnGammaAblage').addEventListener('click',gammaAblegen);
+document.querySelectorAll('#bewSeg [data-bew]').forEach(b=>b.addEventListener('click',()=>{
+  bewertungWert=(bewertungWert===+b.dataset.bew)?0:+b.dataset.bew; renderBewertung();
+}));
+el('btnBewLeeren').addEventListener('click',()=>{bewertungWert=0;el('fBewNotiz').value='';renderBewertung()});
+el('btnBestaetigung').addEventListener('click',bestaetigungEntwerfen);
+(function(){
+  const z=el('ibDrop'); if(!z)return;
+  const f=el('ibDropFile');
+  z.addEventListener('click',()=>f.click());
+  f.addEventListener('change',()=>{ if(f.files&&f.files[0])ibDropParse(f.files[0]); f.value=''; });
+  ['dragenter','dragover'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.add('over')}));
+  ['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove('over')}));
+  z.addEventListener('drop',e=>{ const d=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(d)ibDropParse(d); });
+})();
+el('btnJobSpeichern').addEventListener('click',jobSpeichern);
+el('btnJobAbbrechen').addEventListener('click',()=>{el('jobFormCard').style.display='none';jobEditId=null});
+el('btnJobLoeschen').addEventListener('click',jobLoeschen);
+el('jModus').addEventListener('change',jobModusAnwenden);
+el('jSatz').addEventListener('input',jobBerechnen);
+el('jMenge').addEventListener('input',jobBerechnen);
 el('btnToolCheck').addEventListener('click',toolCheckStarten);
 el('btnToolSpeichern').addEventListener('click',toolSpeichern);
 el('btnToolAbbrechen').addEventListener('click',()=>{el('toolFormCard').style.display='none';toolEditId=null});
