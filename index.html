@@ -33,13 +33,15 @@ header h1 em{font-style:normal;color:var(--rot)}
 .wrap{max-width:820px;margin:0 auto;padding:0 14px}
 @media (min-width:900px){
   .wrap{max-width:1400px;padding:0 32px}
-  /* Zweispaltiges Karten-Layout: die Karten eines Bereichs fließen in zwei Spalten.
-     column-count bricht nach Höhe um (Masonry-Effekt), break-inside verhindert,
-     dass eine Karte zwischen zwei Spalten zerrissen wird. */
-  .wrap.spalten{column-count:2;column-gap:20px}
-  .wrap.spalten>.card,.wrap.spalten>details.card{break-inside:avoid;margin-bottom:20px;display:inline-block;width:100%}
-  /* Kacheln und der Zurück-Knopf sollen volle Breite behalten, nicht in eine Spalte */
-  .wrap.spalten>.kacheln,.wrap.spalten>.zurueckStart,.wrap.spalten>.kpis,.wrap.spalten>.vollbreite{column-span:all}
+  /* Zweispaltiges Karten-Layout als GRID statt column-count. Der frühere Spaltenfluss
+     verteilte die Karten nach Höhe (Masonry) — die Lesereihenfolge lief dadurch erst
+     die linke Spalte hinunter und sprang dann nach rechts, und bei jeder Inhalts-
+     änderung sortierte sich alles um. Das wirkte versetzt. Im Grid stehen die Karten
+     in Leserichtung (links, rechts, nächste Zeile) und beginnen alle oben bündig. */
+  .wrap.spalten{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+  .wrap.spalten>.card,.wrap.spalten>details.card{margin-bottom:0;width:auto}
+  /* Kacheln, Zurück-Knopf, KPIs und breite Karten laufen über beide Spalten */
+  .wrap.spalten>.kacheln,.wrap.spalten>.zurueckStart,.wrap.spalten>.kpis,.wrap.spalten>.vollbreite{grid-column:1 / -1}
 }
 header .wrap{padding:0 2px}
 
@@ -4042,7 +4044,10 @@ function bereichWechseln(b){
 function zurueckKnoepfeSetzen(){
   /* Am Desktop ist die obere Reiter-Leiste ausgeblendet — jeder Bereich außer Start
      bekommt oben einen "‹ Start"-Knopf, damit man ohne obere Leiste zurückfindet. */
-  ['Kalender','Seminare','Reiseplanung','Werkstatt','Abrechnung','Tools'].forEach(name=>{
+  /* "Reiseplanung" absichtlich NICHT in der Liste: der Block wird im Seminare-Bereich
+     mit eingeblendet und stand nie allein — ein eigener Knopf ergäbe einen zweiten
+     "Zurück zur Übersicht" mitten auf der Seite. */
+  ['Kalender','Seminare','Werkstatt','Abrechnung','Tools'].forEach(name=>{
     const bereich=el('bereich'+name);
     if(!bereich||bereich.querySelector('.zurueckStart'))return;
     const b=document.createElement('button');
