@@ -4893,7 +4893,16 @@ let projektEditId=null;
 function claudeDesktop(){ return (state.settings&&state.settings.claudeZiel||'desktop')==='desktop'; }
 function claudeLink(url){
   if(!claudeDesktop())return url;
-  return String(url||'').replace(/^https:\/\/(claude\.ai)/i,'claude://$1');
+  const u=String(url||'');
+  if(!/^https:\/\/claude\.ai/i.test(u))return u;   /* fremde Adressen unangetastet */
+  /* Projekt-Links: NUR das Schema zu tauschen reicht nicht. Seine Adressen haben die
+     Form .../cowork/project/<uuid>, die Doku kennt aber ausschließlich
+     claude://claude.ai/project/<uuid>. Also die UUID herausziehen und das
+     dokumentierte Format bauen — sonst kennt die Desktop-App den Pfad nicht. */
+  const m=u.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  if(m&&/\/project\//i.test(u))return 'claude://claude.ai/project/'+m[1];
+  if(m&&/\/chat\//i.test(u))return 'claude://claude.ai/chat/'+m[1];
+  return u.replace(/^https:\/\/(claude\.ai)/i,'claude://$1');
 }
 /* Für den Claude-Werkzeugknopf: liegt ein Prompt vor, wird er gleich mitgegeben
    statt nur in die Zwischenablage. Die Doku nennt rund 14.000 Zeichen als Grenze. */
