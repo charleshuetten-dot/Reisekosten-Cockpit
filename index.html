@@ -845,6 +845,13 @@ body{padding-bottom:64px}
 <details class="card">
     <summary>Daten &amp; App</summary>
     <div class="f" style="margin-top:10px"><label>Heimatadresse (Startpunkt für km-Berechnung)</label><input type="text" id="setHome"></div>
+    <div class="f" style="margin-top:10px"><label>Claude öffnen in</label>
+      <select id="setClaudeZiel">
+        <option value="desktop">Desktop-App (claude://)</option>
+        <option value="web">Browser (claude.ai)</option>
+      </select>
+      <div class="hint">Bei „Desktop-App" öffnen Projekt- und Claude-Links direkt die installierte App. Funktioniert nicht, ist die App nicht installiert — dann auf Browser stellen.</div>
+    </div>
     <div class="f" style="margin-top:10px"><label>Lokaler OneDrive-Pfad <span style="color:var(--grau);font-weight:400;text-transform:none;letter-spacing:0">— für „Pfad kopieren"; im Explorer in die Adresszeile klicken, dann steht er dort</span></label>
       <input type="text" id="setLokalPfad" placeholder="C:\Users\DeinName\OneDrive - Optima Gruppe AG"></div>
     <div class="f"><label>Link zum IHK-Tutor-Projekt (optional)</label><input type="text" id="setIhkTutorUrl" placeholder="https://…"></div>
@@ -4878,6 +4885,23 @@ function werkzeugKontext(){
    Links gehören ihm, also pflegt er die Liste selbst. Klick kopiert denselben
    Kontext wie bei den Werkzeugen und öffnet das Projekt. */
 let projektEditId=null;
+/* Claude Desktop reagiert auf das claude://-Schema (Doku: Support-Artikel
+   "Open Claude Desktop with a link"). Aus einer https://claude.ai/…-Adresse wird
+   durch bloßes Austauschen des Schemas der Desktop-Link — Projekte inklusive:
+   claude://claude.ai/project/<id>. Steht die Einstellung auf Browser, bleibt alles
+   wie es war. */
+function claudeDesktop(){ return (state.settings&&state.settings.claudeZiel||'desktop')==='desktop'; }
+function claudeLink(url){
+  if(!claudeDesktop())return url;
+  return String(url||'').replace(/^https:\/\/(claude\.ai)/i,'claude://$1');
+}
+/* Für den Claude-Werkzeugknopf: liegt ein Prompt vor, wird er gleich mitgegeben
+   statt nur in die Zwischenablage. Die Doku nennt rund 14.000 Zeichen als Grenze. */
+function claudeNeuLink(prompt){
+  const basis=claudeDesktop()?'claude://claude.ai/new':'https://claude.ai/new';
+  if(!prompt)return basis;
+  return basis+'?q='+encodeURIComponent(String(prompt).slice(0,13500));
+}
 function projekteListe(){ if(!Array.isArray(state.projekte))state.projekte=[]; return state.projekte; }
 function renderProjekte(){
   const box=el('projektGrid'); if(!box)return;
@@ -4888,7 +4912,7 @@ function renderProjekte(){
   }
   box.innerHTML=liste.map(pr=>
     '<div style="display:flex;gap:4px;align-items:stretch">'+
-      '<a href="'+esc(pr.url)+'" target="_blank" rel="noopener" data-pj="'+pr.id+'" class="minibtn" style="flex:1;display:flex;align-items:center;gap:8px;justify-content:flex-start;text-decoration:none;text-transform:none;letter-spacing:0;font-size:14px;padding:10px 12px">'+
+      '<a href="'+esc(claudeLink(pr.url))+'" target="_blank" rel="noopener" data-pj="'+pr.id+'" class="minibtn" style="flex:1;display:flex;align-items:center;gap:8px;justify-content:flex-start;text-decoration:none;text-transform:none;letter-spacing:0;font-size:14px;padding:10px 12px">'+
         '<span style="font-size:17px">📁</span>'+esc(pr.name)+'</a>'+
       '<button type="button" class="minibtn" data-pjedit="'+pr.id+'" title="Bearbeiten" style="padding:0 9px">✎</button>'+
     '</div>').join('');
@@ -4933,9 +4957,14 @@ async function projektLoeschen(){
 
 function renderWerkzeuge(){
   const box=el('werkzeugGrid');if(!box)return;
-  box.innerHTML=WERKZEUGE.map((w,i)=>
-    '<a href="'+w.url+'" target="_blank" rel="noopener" data-wz="'+i+'" class="minibtn" style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-decoration:none;text-transform:none;letter-spacing:0;font-size:14px;padding:10px 12px">'+
-    '<span style="font-size:17px">'+w.ic+'</span>'+esc(w.name)+'</a>').join('');
+  const k0=werkzeugKontext();
+  box.innerHTML=WERKZEUGE.map((w,i)=>{
+    /* Bei Claude den Prompt direkt in den Link legen — spart das Einfügen. */
+    const ziel=(w.name==='Claude'&&k0&&k0.was==='Prompt')?claudeNeuLink(k0.text)
+             :(w.name==='Claude'?claudeNeuLink(''):w.url);
+    return '<a href="'+esc(ziel)+'" target="_blank" rel="noopener" data-wz="'+i+'" class="minibtn" style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-decoration:none;text-transform:none;letter-spacing:0;font-size:14px;padding:10px 12px">'+
+    '<span style="font-size:17px">'+w.ic+'</span>'+esc(w.name)+'</a>';
+  }).join('');
   /* Beim Klick den Kontext mitkopieren — das Tool öffnet sich wie gehabt im neuen Tab,
      nur liegt jetzt schon das Richtige in der Zwischenablage. */
   box.querySelectorAll('[data-wz]').forEach(a=>a.addEventListener('click',()=>{
@@ -5671,6 +5700,11 @@ el('kOrt').addEventListener('blur',()=>setTimeout(()=>{el('kOrtSugg').style.disp
 el('kZielKalender').addEventListener('change',kZielAnwenden);
 
 /* Heimatadresse */
+el('setClaudeZiel').addEventListener('change',async()=>{
+  state.settings.claudeZiel=el('setClaudeZiel').value; await save();
+  renderWerkzeuge(); renderProjekte();
+  toast(claudeDesktop()?'Claude öffnet in der Desktop-App':'Claude öffnet im Browser');
+});
 el('setLokalPfad').addEventListener('change',async()=>{
   state.settings.lokalPfad=el('setLokalPfad').value.trim(); await save();
   toast(state.settings.lokalPfad?'Lokaler Pfad gespeichert':'Lokaler Pfad geleert');
@@ -5916,6 +5950,7 @@ load().then(async()=>{
   renderOfflineBanner();
   el('setHome').value=state.settings.home.adresse;
   if(el('setLokalPfad'))el('setLokalPfad').value=state.settings.lokalPfad||'';
+  if(el('setClaudeZiel'))el('setClaudeZiel').value=state.settings.claudeZiel||'desktop';
   el('setIhkTutorUrl').value=state.settings.ihkTutorUrl||'';
   renderOdStatus();render();
   gdWaitForGis(20);
