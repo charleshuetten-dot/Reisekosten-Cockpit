@@ -338,7 +338,7 @@ body{padding-bottom:64px}
       <button id="tabReiseplanung" style="display:none">Reiseplanung</button>
       <button id="tabWerkstatt">Werkstatt</button>
       <button id="tabAbrechnung">Abrechnung</button>
-      <button id="tabTools">Tools</button>
+      <button id="tabTools">Einstellungen</button>
     </div>
   </div>
 </header>
@@ -347,21 +347,26 @@ body{padding-bottom:64px}
 
 <div class="wrap spalten" id="bereichStart">
 
+<div class="card vollbreite" id="heuteCard" style="border-left:4px solid var(--rot)">
+    <div class="lbl-klein">Was ist heute dran?</div>
+    <div id="heuteZeile" style="margin-top:6px;font-size:15.5px;line-height:1.6"></div>
+  </div>
+
 <div class="kacheln" id="startKacheln">
   <button class="kachel" data-nav="seminare"><span class="ic">🎓</span><span class="kt">Seminare & Reise</span><span class="ks">Aufträge, Planung, Bahn</span></button>
   <button class="kachel" data-nav="werkstatt"><span class="ic">🔧</span><span class="kt">Werkstatt</span><span class="ks">Erstellen, Werkzeuge, Zeit</span></button>
   <button class="kachel" data-nav="abrechnung"><span class="ic">📊</span><span class="kt">Abrechnung</span><span class="ks">Rechnungen, Jahr, IHK</span></button>
   <button class="kachel" data-nav="kalender"><span class="ic">📅</span><span class="kt">Kalender</span><span class="ks">Termine, Konflikte</span></button>
-  <button class="kachel" data-nav="tools"><span class="ic">⚙️</span><span class="kt">Tools</span><span class="ks">Verbindungen, Abos</span></button>
+  <button class="kachel" data-nav="tools"><span class="ic">⚙️</span><span class="kt">Einstellungen</span><span class="ks">Verbindungen, Abos, Tools</span></button>
   <button class="kachel" data-navmehr="__neuereise"><span class="ic">➕</span><span class="kt">Neue Reise</span><span class="ks">Seminar/Reise sofort erfassen</span></button>
 </div>
 
 <div class="card" id="kalenderHinweis" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
 
-<div class="card" id="inboxCard">
-    <h2>Kurz notieren
+<details class="card" id="inboxCard">
+    <summary><h2 style="display:inline">Kurz notieren</h2>
       <span class="tools"><button class="minibtn" id="btnInboxDikt">🎤 Diktieren</button></span>
-    </h2>
+    </summary>
     <div class="hint">Gedanke, Aufgabe, Idee — sprechen oder tippen. Claude ordnet zu und legt sie in deinen Optima-Aufgaben ab.</div>
     <textarea id="inboxText" rows="2" placeholder="z. B. Folien für die Allianz-Schulung im August aktualisieren" style="width:100%;margin-top:8px"></textarea>
     <div id="ibDrop" class="dropzone" style="margin-top:8px">
@@ -385,7 +390,7 @@ body{padding-bottom:64px}
       </div>
     </div>
     <div class="hint" id="inboxStatus"></div>
-  </div>
+  </details>
 
 <div class="card" id="gtaskCard" style="display:none;border-color:#4285f4">
     <h2>Vom Handy diktiert
@@ -411,10 +416,10 @@ body{padding-bottom:64px}
     </details>
   </div>
 
-<div class="card" id="taskCard">
-    <h2>Aufgaben
+<details class="card" id="taskCard" open>
+    <summary><h2 style="display:inline">Aufgaben</h2>
       <span class="tools"><button class="minibtn" id="btnTaskReload">Aktualisieren</button><button class="minibtn haupt" id="btnTaskNeu">+ Aufgabe</button></span>
-    </h2>
+    </summary>
     <div class="hint">Aufgaben aus Microsoft To Do<button type="button" class="hilfe" data-tip="Ein Filter je Liste. „Alle&quot; zeigt alles, jeder Bereich (Optima, SCC, FRMD PASN, Privat, Auftraggeber) hat einen eigenen Chip. Geflaggte Outlook-Mails erscheinen unter „Gekennzeichnete E-Mail&quot;. Nach dem Anlegen neuer Listen auf „Aktualisieren&quot;." aria-label="Erklärung">?</button></div>
     <div id="taskForm" style="display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
       <div class="f"><label>Titel</label><input type="text" id="tkTitel" placeholder="z. B. Unterlagen Kapitel 3 überarbeiten"></div>
@@ -434,7 +439,7 @@ body{padding-bottom:64px}
     </div>
     <div id="taskFilter" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
     <div id="taskBoard" style="margin-top:8px"></div>
-  </div>
+  </details>
 
 </div>
 
@@ -1033,6 +1038,14 @@ body{padding-bottom:64px}
   <div class="sheet" style="padding:16px 16px calc(16px + env(safe-area-inset-bottom))">
     <h2 style="margin:0 0 4px">Schnell erfassen</h2>
     <div class="hint" style="margin-bottom:10px">Egal wo du gerade bist — hier startest du in zwei Taps.</div>
+    <div class="f" style="margin-bottom:10px">
+      <textarea id="quickText" rows="3" placeholder="Einfach lostippen — Claude ordnet ein: Aufgabe, Reise oder Auftrag" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 15px/1.45 'IBM Plex Sans',sans-serif"></textarea>
+      <div class="btnreihe" style="margin-top:6px">
+        <button type="button" class="minibtn haupt" id="btnQuickEinordnen">Einordnen</button>
+        <span class="hint" id="quickStatus" style="margin:0;align-self:center"></span>
+      </div>
+    </div>
+    <div class="lbl-klein" style="margin-bottom:6px">Oder gezielt</div>
     <div style="display:grid;gap:8px">
       <button type="button" class="minibtn" data-quick="aufgabe" style="text-align:left;padding:12px 14px">✅ &nbsp;Aufgabe notieren</button>
       <button type="button" class="minibtn" data-quick="memo" style="text-align:left;padding:12px 14px">🎤 &nbsp;Memo zum Seminar</button>
@@ -2682,6 +2695,96 @@ function renderJobs(){
   box.querySelectorAll('[data-jinv]').forEach(b=>b.onclick=()=>jobRechnungsAufgabe(b.dataset.jinv));
 }
 
+/* ---------- Redesign-Punkt 1: Entscheidungszeile "Was ist heute dran?" ----------
+   Die Frage, mit der er die App öffnet. Beantwortet aus den vorhandenen Daten:
+   was heute läuft, was nachzubereiten ist, was abzurechnen ist. */
+function renderHeuteZeile(){
+  const box=el('heuteZeile'); if(!box)return;
+  const heute=heuteISO();
+  const trips=(state.trips||[]).filter(t=>t.von);
+  const teile=[];
+
+  /* 1) Läuft heute etwas? Sonst: was kommt als Nächstes? */
+  const laueft=trips.find(t=>t.von<=heute && (t.bis||t.von)>=heute);
+  const naechstes=trips.filter(t=>t.von>heute).sort((a,b)=>a.von.localeCompare(b.von))[0];
+  if(laueft){
+    teile.push('<b>Heute:</b> '+esc(laueft.zweck||laueft.ag||'Seminar')+(laueft.ziel?' · '+esc(laueft.ziel):''));
+  }else if(naechstes){
+    const tage=Math.round((new Date(naechstes.von)-new Date(heute))/86400000);
+    teile.push('<b>Als Nächstes:</b> '+dfmt(naechstes.von)+' · '+esc(naechstes.zweck||naechstes.ag||'Seminar')+
+      ' <span style="color:var(--grau)">(in '+tage+' T)</span>');
+  }else{
+    teile.push('<span style="color:var(--grau)">Kein Seminar in Sicht.</span>');
+  }
+
+  /* 2) Offene Nachbereitung — gelaufen, aber weder nachbereitet noch abgerechnet */
+  const grenze=new Date(); grenze.setDate(grenze.getDate()-21);
+  const nach=trips.filter(t=>t.typ!=='ihk' && (t.bis||t.von)<heute &&
+    (t.bis||t.von)>=ymd(grenze) && !t.nachbereitet && !t.abgerechnet);
+  if(nach.length)teile.push('<span style="color:var(--rot)">'+nach.length+' Reise(n) nachzubereiten</span>');
+
+  /* 3) Offene Liefer-Aufträge mit naher Deadline */
+  const jobs=(state.jobs||[]).filter(j=>(j.status||'offen')!=='abgerechnet' && j.deadline);
+  const eilig=jobs.filter(j=>jobTageBisDeadline(j)!==null && jobTageBisDeadline(j)<=7);
+  if(eilig.length)teile.push('<span style="color:var(--rot)">'+eilig.length+' Liefer-Auftrag/Aufträge fällig</span>');
+
+  /* 4) Abrechnung des laufenden Zeitraums */
+  try{
+    const offen=tripsImQuartal().filter(t=>t.typ!=='ihk' && !t.abgerechnet);
+    if(offen.length){
+      const summe=offen.reduce((x,t)=>x+berechne(t).summe,0);
+      if(summe>0)teile.push('Abrechnung '+perLabel()+': '+eur(summe)+' offen');
+    }
+  }catch(e){}
+
+  box.innerHTML=teile.join(' &nbsp;·&nbsp; ');
+}
+
+/* ---------- Redesign-Punkt 2: universeller Eingang ----------
+   Ergänzt die bestehenden Wege, ersetzt sie NICHT — die spezialisierten Auslesungen
+   (Bahnbuchung, Auftragsbestätigung) sind treffsicherer als ein Allzweck-Erkenner. */
+async function quickEinordnen(){
+  const txt=(el('quickText').value||'').trim();
+  const st=el('quickStatus');
+  if(!txt){st.textContent='Bitte etwas eintippen.';return}
+  st.innerHTML='<span class="spin"></span>Claude ordnet ein \u2026';
+  try{
+    const resp=await fetch(claudeEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:400,
+        messages:[{role:'user',content:
+          'Ordne die folgende Notiz eines selbstständigen Seminardozenten ein. Heute ist '+heuteISO()+'.\n'+
+          'Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\n'+
+          '{"art":"aufgabe|reise|auftrag","titel":"kurz","auftraggeber":"","datum":"YYYY-MM-DD oder leer","ort":"","notiz":""}\n'+
+          'art=reise nur bei einem Seminar/Termin mit Datum. art=auftrag bei einer Arbeit mit Abgabefrist ohne Termin '+
+          '(WBT erstellen/lektorieren, Klausuren korrigieren). Sonst art=aufgabe.\n\nNotiz:\n'+txt}]})});
+    if(!resp.ok)throw new Error('Claude '+resp.status);
+    const d=await resp.json();
+    const roh=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('').replace(/```json|```/g,'').trim();
+    const p=JSON.parse(roh.slice(roh.indexOf('{'),roh.lastIndexOf('}')+1));
+    quickSchliessen(); el('quickText').value=''; st.textContent='';
+    if(p.art==='reise'){
+      bereichWechseln('seminare'); openForm(null);
+      if(p.datum)el('fVon').value=p.datum;
+      if(p.ort)el('fZiel').value=p.ort;
+      if(p.titel)el('fZweck').value=p.titel;
+      toast('Als Reise erkannt \u2014 bitte prüfen');
+    }else if(p.art==='auftrag'){
+      bereichWechseln('werkstatt'); jobFormOeffnen(null);
+      el('jTitel').value=p.titel||''; if(p.datum)el('jDeadline').value=p.datum;
+      el('jNotiz').value=p.notiz||'';
+      toast('Als Liefer-Auftrag erkannt \u2014 Abrechnung ergänzen');
+    }else{
+      bereichWechseln('start');
+      const c=el('inboxCard'); if(c)c.open=true;
+      el('ibTitel').value=p.titel||txt.slice(0,80);
+      el('ibNotiz').value=p.notiz||'';
+      if(p.datum)el('ibFaellig').value=p.datum;
+      el('inboxVorschau').style.display='block';
+      toast('Als Aufgabe erkannt \u2014 prüfen und anlegen');
+    }
+  }catch(e){ st.textContent='Einordnen fehlgeschlagen: '+e.message; }
+}
+
 /* ---------- Welle 3: Schnellerfassen, Termine, Bestaetigung, Aufgaben-Drop ----------
    Aus der Prozessaufnahme: Erfassen passiert "jederzeit, ueberall, auf jedem Weg" —
    deshalb ein Knopf, der in JEDEM Bereich erreichbar ist. */
@@ -4070,7 +4173,7 @@ function bereichWechseln(b){
   if(b==='abrechnung'){render()}
   if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true)}
   if(b==='werkstatt')renderJobs();
-  if(b==='start')renderTbAuswertung();
+  if(b==='start'){renderTbAuswertung();renderHeuteZeile()}
   /* FAB ist jetzt ueberall sichtbar — der Schnellerfassen-Knopf soll in jedem Bereich
      erreichbar sein. "+ Reise erfassen" und CSV blenden sich bereichsabhaengig aus. */
   document.querySelector('.fab').style.display='flex';
@@ -5939,6 +6042,7 @@ el('btnJobNeu').addEventListener('click',()=>jobFormOeffnen(null));
 
 /* Welle 3: Schnellerfassen, Drop-Zone, Termine, Bestaetigung */
 el('btnQuick').addEventListener('click',quickOeffnen);
+el('btnQuickEinordnen').addEventListener('click',quickEinordnen);
 el('btnQuickZu').addEventListener('click',quickSchliessen);
 el('quickModal').addEventListener('click',e=>{ if(e.target===el('quickModal'))quickSchliessen(); });
 document.querySelectorAll('[data-quick]').forEach(b=>b.addEventListener('click',()=>quickWahl(b.dataset.quick)));
@@ -6049,7 +6153,7 @@ load().then(async()=>{
   <div class="mehrSheet">
     <h3>Weitere Bereiche</h3>
     <button data-navmehr="kalender"><span class="ic">📅</span>Kalender</button>
-    <button data-navmehr="tools"><span class="ic">⚙️</span>Tools & Verbindungen</button>
+    <button data-navmehr="tools"><span class="ic">⚙️</span>Einstellungen</button>
   </div>
 </div>
 
