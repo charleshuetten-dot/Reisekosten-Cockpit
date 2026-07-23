@@ -854,6 +854,17 @@ body{padding-bottom:64px}
     <h2>IHK-Prüfungstermine <span style="font-weight:400;font-size:13px;color:var(--grau);text-transform:none;letter-spacing:0">(Übersicht — Abrechnung läuft über das IHK-Portal)</span></h2>
     <div id="ihkList"></div>
     <a href="https://tibros.ihk-koeln.de/tibrosPP/aweRechnungen.jsp" target="_blank" class="minibtn" style="display:inline-block;text-decoration:none;margin-top:8px">Zum IHK-Abrechnungsportal →</a>
+
+    <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:10px">
+      <div class="lbl-klein">Prüferentschädigung</div>
+      <div class="hint" style="margin:4px 0 8px">Screenshot aus dem Portal hierher ziehen — Vorgangsnummer, Betrag und Status werden übernommen. Zahlung geht aufs private DKB-Konto.</div>
+      <div id="ihkDrop" class="dropzone">
+        Portal-Screenshot hierher ziehen oder tippen
+        <input type="file" id="ihkDropFile" accept=".png,.jpg,.jpeg,.pdf" style="display:none">
+      </div>
+      <div class="hint" id="ihkAbrStatus" style="margin-top:6px"></div>
+      <div id="ihkAbrListe" style="margin-top:10px"></div>
+    </div>
   </div>
 
 <div class="card vollbreite" id="jahrCard" style="display:none">
@@ -1393,6 +1404,7 @@ function render(){
   el('kSum').textContent=eur(sKm+sBahn+sVma+sNeben);
   el('kKm').textContent=eur(sKm); el('kBahn').textContent=eur(sBahn); el('kVma').textContent=eur(sVma);
   el('ihkCard').style.display='block';
+  renderIhkAbr();
   el('ihkList').innerHTML=(ihkTrips.length?ihkTrips.map(t=>
     '<div class="agrow"><span>'+dfmt(t.von)+' · '+esc(t.zweck||t.ziel||'IHK-Termin')+(t.ihkNotiz?' · '+esc(t.ihkNotiz):'')+'</span><span style="color:var(--grau)">'+esc(t.ziel||'')+'</span></div>').join(''):'<div class="hint">Keine IHK-Termine in diesem Quartal erfasst.</div>')
     +(state.settings.ihkTutorUrl?'<div style="margin-top:8px"><a href="'+esc(state.settings.ihkTutorUrl)+'" target="_blank" class="minibtn" style="display:inline-block;text-decoration:none">Zum IHK-Tutor →</a></div>':'');
@@ -2933,6 +2945,122 @@ async function bestaetigungEntwerfen(){
     })});
     toast('Entwurf in Outlook angelegt \u2014 pr\u00fcfen und selbst senden');
   }catch(e){toast('Entwurf fehlgeschlagen')}
+}
+
+/* ---------- IHK-Prüferentschädigung ----------
+   Die Abrechnung selbst läuft im tibros-Portal — die App rechnet nichts nach.
+   Ihr Zweck ist der STATUS: Im Portal muss nach dem Erfassen noch ausdrücklich
+   versendet werden, und genau da bleibt sonst Geld liegen. Zweiter Zweck: die
+   Jahressumme, die aufs private DKB-Konto geht und die der Steuerberater braucht. */
+const IHK_STATUS=[['erfasst','Noch nicht gesendet'],['gesendet','Gesendet'],['gezahlt','Gezahlt']];
+function ihkAbrListe(){ if(!Array.isArray(state.ihkAbr))state.ihkAbr=[]; return state.ihkAbr; }
+function ihkStatusText(k){ const t=IHK_STATUS.find(x=>x[0]===k); return t?t[1]:k; }
+function ihkChipKlasse(k){ return k==='gezahlt'?'abgerechnet':(k==='gesendet'?'geliefert':'offen'); }
+
+async function ihkDropParse(file){
+  const st=el('ihkAbrStatus');
+  const istBildPdf=/png|jpe?g|pdf/i.test(file.type)||/\.(png|jpe?g|pdf)$/i.test(file.name);
+  if(!istBildPdf){st.textContent='Bitte einen Screenshot (PNG/JPG) oder ein PDF aus dem Portal.';return}
+  st.innerHTML='<span class="spin"></span>Claude liest die Abrechnung \u2026';
+  try{
+    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
+    const isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name);
+    const quelle=isPdf?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
+                      :{type:'image',source:{type:'base64',media_type:(/png/i.test(file.type)?'image/png':'image/jpeg'),data:b64}};
+    const resp=await fetch(claudeEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,
+        messages:[{role:'user',content:[quelle,{type:'text',text:
+          'Das ist ein Screenshot aus dem IHK-Portal (tibros), Bereich Prüferentschädigung. Lies die Abrechnungszeilen aus.\n'+
+          'Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\n'+
+          '{"eintraege":[{"vorgang":"Vorgangsnr.","beleg":"Belegnummer","datum":"YYYY-MM-DD","betrag":0.00,'+
+          '"ausschuss":"","art":"Prüfungsart und Abschluss kurz","status":"erfasst|gesendet|gezahlt"}]}\n'+
+          'status: "erfasst" bei "noch nicht gesendet", sonst "gesendet". Betrag als Zahl mit Punkt als Dezimaltrennzeichen. '+
+          'Erfinde nichts — was nicht lesbar ist, bleibt leer.'}]}]})});
+    if(!resp.ok)throw new Error('Claude '+resp.status);
+    const d=await resp.json();
+    const roh=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('').replace(/```json|```/g,'').trim();
+    const p=JSON.parse(roh.slice(roh.indexOf('{'),roh.lastIndexOf('}')+1));
+    const liste=ihkAbrListe();
+    let neu=0, akt=0;
+    (p.eintraege||[]).forEach(e=>{
+      if(!e.vorgang&&!e.beleg)return;
+      /* Über die Vorgangsnummer abgleichen — derselbe Vorgang taucht bei jedem
+         Screenshot wieder auf, nur mit fortgeschrittenem Status. */
+      const vorhanden=liste.find(x=>x.vorgang&&e.vorgang&&String(x.vorgang)===String(e.vorgang));
+      if(vorhanden){ Object.assign(vorhanden,{beleg:e.beleg||vorhanden.beleg,datum:e.datum||vorhanden.datum,
+        betrag:+e.betrag||vorhanden.betrag,ausschuss:e.ausschuss||vorhanden.ausschuss,
+        art:e.art||vorhanden.art,status:e.status||vorhanden.status}); akt++; }
+      else { liste.push({id:uid(),vorgang:e.vorgang||'',beleg:e.beleg||'',datum:e.datum||'',
+        betrag:+e.betrag||0,ausschuss:e.ausschuss||'',art:e.art||'',status:e.status||'erfasst'}); neu++; }
+    });
+    await save(); renderIhkAbr();
+    const offen=liste.filter(x=>x.status==='erfasst').length;
+    st.textContent='\u2713 '+neu+' neu, '+akt+' aktualisiert.'+(offen?' '+offen+' Abrechnung(en) noch nicht gesendet.':'');
+  }catch(e){ st.textContent='Konnte den Screenshot nicht auswerten: '+e.message; }
+}
+
+/* Erinnerung fürs Versenden — der Schritt, den das Portal selbst anmahnt. */
+async function ihkVersendenAufgabe(id){
+  const e=ihkAbrListe().find(x=>x.id===id); if(!e)return;
+  if(!msAccount){toast('Bitte zuerst Outlook verbinden');return}
+  try{
+    await taskListenHolen();
+    const ziel=taskListeFuer('IHK Köln')||taskListeFuer('Büro');
+    const listId=(ziel&&ziel.id)||await taskListIdHolen();
+    const body={title:'IHK-Abrechnung '+(e.vorgang||e.beleg)+' im Portal versenden',importance:'high',
+      body:{content:['Vorgangsnr.: '+(e.vorgang||'–'),'Belegnummer: '+(e.beleg||'–'),
+        'Datum: '+(e.datum?dfmt(e.datum):'–'),'Betrag: '+eur(+e.betrag||0),
+        e.art?'Prüfung: '+e.art:'', 'Portal: https://tibros.ihk-koeln.de/tibrosPP/aweRechnungen.jsp'
+      ].filter(Boolean).join('\n'),contentType:'text'}};
+    if(!ziel)body.categories=['IHK Köln'];
+    await graph('/me/todo/lists/'+encodeURIComponent(listId)+'/tasks',{method:'POST',body:JSON.stringify(body)});
+    toast('Erinnerung angelegt');
+  }catch(err){toast('Anlegen fehlgeschlagen')}
+}
+async function ihkStatusWeiter(id){
+  const e=ihkAbrListe().find(x=>x.id===id); if(!e)return;
+  const reihe=IHK_STATUS.map(x=>x[0]);
+  e.status=reihe[Math.min(reihe.indexOf(e.status||'erfasst')+1,reihe.length-1)];
+  await save(); renderIhkAbr(); toast('Status: '+ihkStatusText(e.status));
+}
+async function ihkAbrLoeschen(id){
+  if(!confirm('Diesen Abrechnungseintrag entfernen? Im IHK-Portal ändert sich dadurch nichts.'))return;
+  const liste=ihkAbrListe(); const i=liste.findIndex(x=>x.id===id);
+  if(i>=0)liste.splice(i,1);
+  await save(); renderIhkAbr();
+}
+function renderIhkAbr(){
+  const box=el('ihkAbrListe'); if(!box)return;
+  const liste=ihkAbrListe().slice().sort((a,b)=>(b.datum||'').localeCompare(a.datum||''));
+  if(!liste.length){box.innerHTML='<div class="hint">Noch keine Abrechnung erfasst.</div>';return}
+  const jahr=String(new Date().getFullYear());
+  const summe=liste.filter(e=>(e.datum||'').startsWith(jahr)).reduce((s,e)=>s+(+e.betrag||0),0);
+  const offen=liste.filter(e=>e.status==='erfasst');
+  box.innerHTML=
+    '<div class="agrow" style="border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:6px">'+
+      '<span><b>Summe '+jahr+'</b> <span style="color:var(--grau)">· aufs private Konto</span></span>'+
+      '<span class="mono" style="font-weight:600">'+eur(summe)+'</span></div>'+
+    (offen.length?'<div class="hint" style="color:var(--rot);margin:0 0 8px">'+offen.length+' Abrechnung(en) im Portal noch nicht versendet — dort bleibt sonst Geld liegen.</div>':'')+
+    liste.map(e=>
+      '<div style="border-bottom:1px solid var(--line);padding:8px 0">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap">'+
+          '<span style="font-weight:600">'+(e.datum?dfmt(e.datum):'ohne Datum')+(e.vorgang?' · '+esc(e.vorgang):'')+'</span>'+
+          '<span class="mono">'+eur(+e.betrag||0)+'</span></div>'+
+        '<div class="meta" style="margin-top:3px">'+
+          '<span class="chip '+ihkChipKlasse(e.status)+'">'+ihkStatusText(e.status)+'</span>'+
+          (e.art?'<span>'+esc(e.art)+'</span>':'')+
+          (e.ausschuss?'<span>· Ausschuss '+esc(e.ausschuss)+'</span>':'')+
+          (e.beleg?'<span>· Beleg '+esc(e.beleg)+'</span>':'')+
+        '</div>'+
+        '<div class="btnreihe" style="margin-top:6px">'+
+          (e.status==='erfasst'?'<button type="button" class="minibtn klein" data-ihkerin="'+e.id+'">Erinnerung anlegen</button>':'')+
+          (e.status!=='gezahlt'?'<button type="button" class="minibtn klein" data-ihknext="'+e.id+'">→ '+ihkStatusText(IHK_STATUS[IHK_STATUS.findIndex(x=>x[0]===(e.status||'erfasst'))+1][0])+'</button>':'')+
+          '<button type="button" class="minibtn klein" data-ihkdel="'+e.id+'" style="color:var(--rot)">Entfernen</button>'+
+        '</div>'+
+      '</div>').join('');
+  box.querySelectorAll('[data-ihkerin]').forEach(b=>b.onclick=()=>ihkVersendenAufgabe(b.dataset.ihkerin));
+  box.querySelectorAll('[data-ihknext]').forEach(b=>b.onclick=()=>ihkStatusWeiter(b.dataset.ihknext));
+  box.querySelectorAll('[data-ihkdel]').forEach(b=>b.onclick=()=>ihkAbrLoeschen(b.dataset.ihkdel));
 }
 
 /* ---------- Welle 4a: Gamma-API ----------
@@ -6091,6 +6219,15 @@ el('btnGammaUpdate').addEventListener('click',gammaAktualisieren);
 el('btnPfadKopieren').addEventListener('click',()=>pfadKopieren(ordnerPfad));
 el('btnGammaFremd').addEventListener('click',gammaFremdHolen);
 el('btnProjektNeu').addEventListener('click',()=>projektFormOeffnen(null));
+(function(){
+  const z=el('ihkDrop'); if(!z)return;
+  const f=el('ihkDropFile');
+  z.addEventListener('click',()=>f.click());
+  f.addEventListener('change',()=>{ if(f.files&&f.files[0])ihkDropParse(f.files[0]); f.value=''; });
+  ['dragenter','dragover'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.add('over')}));
+  ['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove('over')}));
+  z.addEventListener('drop',e=>{ const d=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(d)ihkDropParse(d); });
+})();
 el('btnProjektSpeichern').addEventListener('click',projektSpeichern);
 el('btnProjektAbbrechen').addEventListener('click',()=>{el('projektForm').style.display='none';projektEditId=null});
 el('btnProjektLoeschen').addEventListener('click',projektLoeschen);
