@@ -2460,11 +2460,34 @@ function renderTaskBoard(){
   }).join('')+'</div>';
   box.querySelectorAll('[data-tdone]').forEach(b=>b.addEventListener('click',()=>taskAendern(b.dataset.tdone,{status:'completed'})));
   box.querySelectorAll('[data-tstart]').forEach(b=>b.addEventListener('click',()=>taskAendern(b.dataset.tstart,{status:'inProgress'})));
+  box.querySelectorAll('[data-flagfix]').forEach(b=>b.addEventListener('click',()=>flaggeEinsortieren(b.dataset.flagfix)));
   box.querySelectorAll('select[data-tprio]').forEach(s=>s.addEventListener('change',()=>taskAendern(s.dataset.tprio,{importance:s.value})));
   box.querySelectorAll('input[data-tdue]').forEach(i=>i.addEventListener('change',()=>{
     const v=i.value;
     taskAendern(i.dataset.tdue, v?{dueDateTime:{dateTime:v+'T00:00:00',timeZone:'Europe/Berlin'}}:{dueDateTime:null});
   }));
+}
+/* Aufgabe, die aus einer geflaggten Mail stammt und nach dem Einsortieren
+   abgehakt werden soll — dann verschwindet auch das Fähnchen in Outlook. */
+let inboxAusFlagge=null;
+function istFlaggenListe(name){ return /gekennzeichnet|flagged/i.test(name||''); }
+/* Übernimmt eine geflaggte Mail in die Kurz-notieren-Maske: Titel vorbelegt,
+   Listenauswahl gefüllt. Er passt an und legt an — der Rest passiert von selbst. */
+async function flaggeEinsortieren(id){
+  const t=taskCache.find(x=>x.id===id); if(!t)return;
+  inboxAusFlagge={id:t.id, listId:t._listId};
+  bereichWechseln('start');
+  const c=el('inboxCard'); if(c)c.open=true;
+  try{ await taskListenHolen(); }catch(e){}
+  const listen=(taskListen||[]).map(l=>l.name).filter(n=>n&&!istFlaggenListe(n));
+  el('ibKat').innerHTML=inboxListenOptionen(listen,'');
+  el('ibTitel').value=t.title||'';
+  el('ibNotiz').value=(t.body&&t.body.content?String(t.body.content).slice(0,400):'');
+  el('ibFaellig').value='';
+  inboxVorschlag={prio:t.importance||'normal'};
+  el('inboxVorschau').style.display='block';
+  el('inboxStatus').textContent='Aus einer gekennzeichneten Mail — Titel anpassen, Liste wählen, anlegen. Die Kennzeichnung wird danach entfernt.';
+  el('inboxCard').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function taskRowHtml(t){
   const due=t.dueDateTime&&t.dueDateTime.dateTime?t.dueDateTime.dateTime.slice(0,10):'';
@@ -2478,6 +2501,7 @@ function taskRowHtml(t){
     (t.importance==='high'?'<span class="tpill prio-high">Hoch</span>':'')+
     '<input type="date" data-tdue="'+t.id+'" value="'+due+'" style="font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 4px">'+
     '<select data-tprio="'+t.id+'" style="width:auto"><option value="normal"'+(t.importance==='normal'?' selected':'')+'>Normal</option><option value="high"'+(t.importance==='high'?' selected':'')+'>Hoch</option><option value="low"'+(t.importance==='low'?' selected':'')+'>Niedrig</option></select>'+
+    (istFlaggenListe(t._listName)?'<button type="button" class="minibtn klein" data-flagfix="'+t.id+'" title="In die richtige Liste übernehmen">→ Einsortieren</button>':'')+
     (t.status!=='inProgress'?'<button type="button" class="minibtn klein" data-tstart="'+t.id+'" >Start</button>':'')+
     '<button type="button" class="minibtn klein" data-tdone="'+t.id+'" >✓ Fertig</button>'+
     '</div></div>';
@@ -2776,6 +2800,8 @@ async function quickEinordnen(){
     }else{
       bereichWechseln('start');
       const c=el('inboxCard'); if(c)c.open=true;
+      try{ if(msAccount)await taskListenHolen(); }catch(e){}
+      el('ibKat').innerHTML=inboxListenOptionen((taskListen||[]).map(l=>l.name).filter(Boolean), p.liste||'');
       el('ibTitel').value=p.titel||txt.slice(0,80);
       el('ibNotiz').value=p.notiz||'';
       if(p.datum)el('ibFaellig').value=p.datum;
@@ -2838,7 +2864,7 @@ async function ibDropParse(file){
     el('ibTitel').value=p.titel||'';
     el('ibNotiz').value=p.notiz||'';
     el('ibFaellig').value=p.faellig||'';
-    if(p.bereich&&el('ibKat'))el('ibKat').value=p.bereich;
+    el('ibKat').innerHTML=inboxListenOptionen(listen,p.bereich||'');
     el('inboxVorschau').style.display='block';
     st.textContent='Vorschlag aus \u201e'+file.name+'\u201c \u2014 pruefen und anlegen.';
   }catch(e){ st.textContent='Konnte die Datei nicht auswerten: '+e.message; }
@@ -4871,8 +4897,19 @@ async function inboxAnlegen(){
     if(notiz)body.body={content:notiz,contentType:'text'};
     if(el('ibFaellig').value)body.dueDateTime={dateTime:el('ibFaellig').value+'T00:00:00',timeZone:'Europe/Berlin'};
     await graph('/me/todo/lists/'+encodeURIComponent(listId)+'/tasks',{method:'POST',body:JSON.stringify(body)});
+    /* Kam die Aufgabe aus einer gekennzeichneten Mail, wird die Flaggen-Aufgabe
+       jetzt abgehakt — Outlook entfernt damit auch das Fähnchen. */
+    let flaggeWeg=false;
+    if(inboxAusFlagge){
+      try{
+        await graph('/me/todo/lists/'+encodeURIComponent(inboxAusFlagge.listId)+'/tasks/'+encodeURIComponent(inboxAusFlagge.id),
+          {method:'PATCH',body:JSON.stringify({status:'completed'})});
+        flaggeWeg=true;
+      }catch(e){/* Aufgabe steht trotzdem — nur das Fähnchen bleibt */}
+      inboxAusFlagge=null;
+    }
     el('inboxText').value='';el('inboxVorschau').style.display='none';inboxVorschlag=null;
-    st.textContent='\u2713 Angelegt in \u201e'+((ziel&&ziel.name)||'Aufgaben')+'\u201c'+(el('ibFaellig').value?' \u00b7 f\u00e4llig '+dfmt(el('ibFaellig').value):'');
+    st.textContent='\u2713 Angelegt in \u201e'+((ziel&&ziel.name)||'Aufgaben')+'\u201c'+(el('ibFaellig').value?' \u00b7 f\u00e4llig '+dfmt(el('ibFaellig').value):'')+(flaggeWeg?' \u00b7 Kennzeichnung entfernt':'');
     toast('Aufgabe angelegt');
     taskBoardLaden();
   }catch(e){st.textContent='Anlegen fehlgeschlagen: '+e.message}
