@@ -1552,8 +1552,8 @@ async function abParseFile(file){
       try{
         const jahr=(p.von||heuteISO()).slice(0,4);
         const name=((p.auftragsnummer||'Auftrag')+'_'+(p.auftraggeber||'').split(' ')[0]).replace(/[\\/:*?"<>|#%]/g,'')+(isPdf?'.pdf':'.jpg');
-        await odPutFile('Dozenten-Cockpit/Aufträge/'+jahr+'/'+name,b64ToBlob(b64,isPdf?'application/pdf':file.type),isPdf?'application/pdf':file.type);
-        status.textContent='Erkannt und in OneDrive abgelegt (Dozenten-Cockpit/Aufträge/'+jahr+'/'+name+') — bitte prüfen und speichern.';
+        await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(b64,isPdf?'application/pdf':file.type),isPdf?'application/pdf':file.type);
+        status.textContent='Erkannt und in OneDrive abgelegt (Dozentur/Aufträge/'+jahr+'/'+name+') — bitte prüfen und speichern.';
       }catch(e){/* Ablage optional */}
     }
   }catch(err){
@@ -3580,7 +3580,7 @@ async function mailAuslesen(mid,btn){
         for(const a of (at.value||[])){
           if(a.contentBytes&&/pdf/i.test(a.contentType||a.name)){
             const name=('Bahn_'+(p.buchungsnummer||jahr)+'_'+(a.name||'ticket.pdf')).replace(/[\\/:*?"<>|#%]/g,'');
-            await odPutFile('Dozenten-Cockpit/Aufträge/'+jahr+'/'+name,b64ToBlob(a.contentBytes,'application/pdf'),'application/pdf');
+            await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(a.contentBytes,'application/pdf'),'application/pdf');
             el('bahnStatus').textContent='Ticket abgelegt: Aufträge/'+jahr+'/'+name;
           }
         }
@@ -3596,7 +3596,7 @@ async function mailAuslesen(mid,btn){
       for(const a of (at.value||[])){
         if(a.contentBytes&&/pdf/i.test(a.contentType||a.name)){
           const name=((p.auftragsnummer||'Auftrag')+'_'+(a.name||'anhang.pdf')).replace(/[\\/:*?"<>|#%]/g,'');
-          await odPutFile('Dozenten-Cockpit/Aufträge/'+jahr+'/'+name,b64ToBlob(a.contentBytes,'application/pdf'),'application/pdf');
+          await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(a.contentBytes,'application/pdf'),'application/pdf');
           el('planStatus').textContent='Anhang in OneDrive abgelegt: Aufträge/'+jahr+'/'+name;
         }
       }
@@ -4299,7 +4299,7 @@ async function rechnungPdfHochladen(file){
     const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
     const jahr=(t.von||heuteISO()).slice(0,4);
     const name=((t.auftragsnr||'Rechnung')+'_'+(t.ag||'').split(' ')[0]+'_'+t.von).replace(/[\\/:*?"<>|#%]/g,'')+'.pdf';
-    const pfad='Dozenten-Cockpit/Abrechnungen/'+jahr+'/'+name;
+    const pfad='Dozentur/Abrechnungen/'+jahr+'/'+name;
     const res=await odPutFile(pfad,b64ToBlob(b64,'application/pdf'),'application/pdf');
     t.rechnungPdfUrl=res.webUrl||'';
     await save();
@@ -4379,7 +4379,7 @@ function renderJahr(){
 }
 
 /* ---------- OneDrive-Ablage ----------
-   EIN Dach-Ordner ueber allem: Dozenten-Cockpit/ mit Kurse/, DIHK/, Auftraege/,
+   EIN Dach-Ordner ueber allem: Dozentur/ mit Kurse/, DIHK/, Auftraege/,
    Abrechnungen/ und Alte Unterlagen/. Vorher lagen Dozentur/ und DIHK/ getrennt
    nebeneinander, wodurch die Werkstatt die DIHK-Klausuren gar nicht zeigen konnte.
    ACHTUNG: "Dozentur" bleibt als Outlook-KATEGORIE und To-Do-Listenname bestehen —
@@ -4411,7 +4411,7 @@ function b64ToBlob(b64,mime){
 }
 const KATEGORIEN=['Versicherung','Finanzanlage','Finanzierung','Immobilienmakler','Kommunikation','Sonstiges'];
 const GESELLSCHAFTEN=['Allgemein','Allianz','Astra','ÖVB'];
-const AUFTRAGGEBER=['Going Public Akademie','BWV Rheinland','IHK Köln','Zinal','Global Finanz'];
+const AUFTRAGGEBER=['Going Public Akademie','BWV Rheinland','IHK Köln','Zinal','Global Finanz','FHDW Mettmann'];
 /* Schreibweisen, mit denen ein Termintitel beginnen darf — die App bleibt tolerant,
    damit eine Abkürzung im Kalender nicht die Erkennung bricht. */
 const AG_ALIAS={
@@ -4470,11 +4470,11 @@ function populateOptionSets(){
 }
 function kursOrdner(ag,kategorie,gesellschaft){
   const clean=s=>String(s||'').replace(/[\\/:*?"<>|#%]/g,'').trim().slice(0,60);
-  return 'Dozenten-Cockpit/Kurse/'+clean(ag)+'/'+clean(kategorie||'Sonstiges')+'/'+clean(gesellschaft||'Allgemein');
+  return 'Dozentur/Kurse/'+clean(ag)+'/'+clean(kategorie||'Sonstiges')+'/'+clean(gesellschaft||'Allgemein');
 }
 function dihkOrdner(thema){
   const clean=s=>String(s||'').replace(/[\\/:*?"<>|#%]/g,'').trim().slice(0,60);
-  return 'Dozenten-Cockpit/DIHK/'+clean(thema||'Allgemein')+'/Klausuren';
+  return 'Dozentur/DIHK/'+clean(thema||'Allgemein')+'/Klausuren';
 }
 const KURS_UNTERORDNER=['Folien','Übungen-Fälle','Teilnehmerunterlagen'];
 function kgMemoUpdate(ag,kategorie,gesellschaft){
