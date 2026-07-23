@@ -370,7 +370,7 @@ body{padding-bottom:64px}
     <div class="hint">Gedanke, Aufgabe, Idee — sprechen oder tippen. Claude ordnet zu und legt sie in deinen Optima-Aufgaben ab.</div>
     <textarea id="inboxText" rows="2" placeholder="z. B. Folien für die Allianz-Schulung im August aktualisieren" style="width:100%;margin-top:8px"></textarea>
     <div id="ibDrop" class="dropzone" style="margin-top:8px">
-      Mail, Screenshot oder PDF hierher ziehen — Claude macht eine Aufgabe daraus
+      Alles hierher: Mail, Screenshot, PDF — ziehen oder mit <b>Strg + V</b> einfügen. Claude erkennt, ob es Aufgabe, Seminarauftrag, Liefer-Auftrag, Termin oder IHK-Abrechnung ist.
       <input type="file" id="ibDropFile" accept=".eml,.msg,.png,.jpg,.jpeg,.pdf" style="display:none">
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
@@ -859,7 +859,7 @@ body{padding-bottom:64px}
       <div class="lbl-klein">Prüferentschädigung</div>
       <div class="hint" style="margin:4px 0 8px">Screenshot aus dem Portal hierher ziehen — Vorgangsnummer, Betrag und Status werden übernommen. Zahlung geht aufs private DKB-Konto.</div>
       <div id="ihkDrop" class="dropzone">
-        Portal-Screenshot hierher ziehen oder tippen
+        Screenshot mit <b>Strg + V</b> einfügen, hierher ziehen oder tippen
         <input type="file" id="ihkDropFile" accept=".png,.jpg,.jpeg,.pdf" style="display:none">
       </div>
       <div class="hint" id="ihkAbrStatus" style="margin-top:6px"></div>
@@ -2945,6 +2945,124 @@ async function bestaetigungEntwerfen(){
     })});
     toast('Entwurf in Outlook angelegt \u2014 pr\u00fcfen und selbst senden');
   }catch(e){toast('Entwurf fehlgeschlagen')}
+}
+
+/* ---------- Universelle Ablage-Weiche ----------
+   Eine Zone für alles: Claude bestimmt in EINEM Durchgang die Art und liefert
+   gleich die passenden Felder, danach wird an die richtige Stelle geleitet.
+   Die spezialisierten Zonen bleiben als Abkürzung — wer schon in der IHK-Karte
+   steht, braucht keine Erkennung. Router plus Spezialisten, nicht ein Allerlei
+   statt der Spezialisten. */
+async function universalDrop(file, statusEl){
+  const st=statusEl||el('inboxStatus');
+  const istMail=/\.(eml|msg)$/i.test(file.name)||/message\/rfc822/i.test(file.type);
+  const istBildPdf=/png|jpe?g|pdf/i.test(file.type)||/\.(png|jpe?g|pdf)$/i.test(file.name);
+  if(!istMail&&!istBildPdf){st.textContent='Bitte ein Bild, ein PDF oder eine E-Mail-Datei.';return}
+  st.innerHTML='<span class="spin"></span>Claude schaut sich das an \u2026';
+  try{
+    let quelle;
+    if(istMail){
+      let text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsText(file)});
+      quelle={type:'text',text:'E-Mail-Datei (Rohtext):\n\n'+(text||'').replace(/=\r?\n/g,'').slice(0,12000)};
+    }else{
+      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
+      const isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name);
+      quelle=isPdf?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
+                  :{type:'image',source:{type:'base64',media_type:(/png/i.test(file.type)?'image/png':'image/jpeg'),data:b64}};
+    }
+    try{ if(msAccount)await taskListenHolen(); }catch(e){}
+    const listen=(taskListen||[]).map(l=>l.name).filter(Boolean);
+    const resp=await fetch(claudeEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:900,
+        messages:[{role:'user',content:[quelle,{type:'text',text:
+          'Das hat ein selbstständiger Seminardozent (Finanz- und Versicherungsbranche, auch IHK-Prüfer) in seine Ablage geworfen. '+
+          'Heute ist '+heuteISO()+'. Bestimme ZUERST die Art, dann liefere genau das passende Schema.\n\n'+
+          'Arten:\n'+
+          '- "ihk": Screenshot aus dem IHK-Portal (tibros) zur Prüferentschädigung\n'+
+          '- "reise": Seminarauftrag oder Auftragsbestätigung mit Datum und Ort\n'+
+          '- "lieferauftrag": Arbeitsauftrag mit Abgabefrist ohne Seminartermin (WBT erstellen/lektorieren, Klausuren korrigieren)\n'+
+          '- "termin": ein Termin ohne Auftragsbezug (Besprechung, privat)\n'+
+          '- "aufgabe": alles andere, woraus sich eine To-do ergibt\n\n'+
+          'Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\n'+
+          '{"art":"…",\n'+
+          ' "ihk":{"vorgang":"","beleg":"","datum":"YYYY-MM-DD","betrag":0,"ausschuss":"","art":"","status":"erfasst|gesendet"},\n'+
+          ' "reise":{"auftraggeber":"","zweck":"","von":"YYYY-MM-DD","bis":"","ort":"","honorar":0,"auftragsnummer":""},\n'+
+          ' "lieferauftrag":{"auftraggeber":"","titel":"","deadline":"","umfang":"","notiz":""},\n'+
+          ' "termin":{"titel":"","datum":"YYYY-MM-DD","von":"09:00","bis":"17:00","ort":"","notiz":""},\n'+
+          ' "aufgabe":{"titel":"handlungsorientiert, beginnt mit einem Verb","bereich":"","faellig":"","prio":"low|normal|high","notiz":""}}\n'+
+          (listen.length?('Für aufgabe.bereich genau einen Wert aus: '+listen.join(' | ')+'.\n'):'')+
+          'Nur den Block zur erkannten Art füllen, die übrigen weglassen. Erfinde nichts.'}]}]})});
+    if(!resp.ok)throw new Error('Claude '+resp.status);
+    const d=await resp.json();
+    const roh=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('').replace(/```json|```/g,'').trim();
+    const p=JSON.parse(roh.slice(roh.indexOf('{'),roh.lastIndexOf('}')+1));
+    await universalWeiterleiten(p, st);
+  }catch(e){ st.textContent='Konnte die Datei nicht auswerten: '+e.message; }
+}
+
+async function universalWeiterleiten(p, st){
+  /* IHK-Abrechnung */
+  if(p.art==='ihk'&&p.ihk){
+    const e=p.ihk, liste=ihkAbrListe();
+    const da=liste.find(x=>x.vorgang&&e.vorgang&&String(x.vorgang)===String(e.vorgang));
+    if(da)Object.assign(da,{beleg:e.beleg||da.beleg,datum:e.datum||da.datum,betrag:+e.betrag||da.betrag,
+      ausschuss:e.ausschuss||da.ausschuss,art:e.art||da.art,status:e.status||da.status});
+    else liste.push({id:uid(),vorgang:e.vorgang||'',beleg:e.beleg||'',datum:e.datum||'',
+      betrag:+e.betrag||0,ausschuss:e.ausschuss||'',art:e.art||'',status:e.status||'erfasst'});
+    await save(); bereichWechseln('abrechnung'); renderIhkAbr();
+    toast('Als IHK-Abrechnung erkannt'); st.textContent='';
+    return;
+  }
+  /* Seminarauftrag */
+  if(p.art==='reise'&&p.reise){
+    const r=p.reise;
+    bereichWechseln('seminare'); openForm(null);
+    if(r.auftraggeber&&AUFTRAGGEBER.includes(r.auftraggeber))el('fAg').value=r.auftraggeber;
+    if(r.zweck)el('fZweck').value=r.zweck;
+    if(r.von)el('fVon').value=r.von;
+    if(r.bis)el('fBis').value=r.bis;
+    if(r.ort)el('fZiel').value=r.ort;
+    if(r.honorar)el('fHonorar').value=r.honorar;
+    if(r.auftragsnummer)el('fAuftragsnr').value=r.auftragsnummer;
+    toast('Als Seminarauftrag erkannt \u2014 bitte pr\u00fcfen'); st.textContent='';
+    return;
+  }
+  /* Liefer-Auftrag */
+  if(p.art==='lieferauftrag'&&p.lieferauftrag){
+    const j=p.lieferauftrag;
+    bereichWechseln('werkstatt'); jobFormOeffnen(null);
+    if(j.auftraggeber&&AUFTRAGGEBER.includes(j.auftraggeber))el('jAg').value=j.auftraggeber;
+    el('jTitel').value=j.titel||''; el('jDeadline').value=j.deadline||'';
+    el('jUmfang').value=j.umfang||''; el('jNotiz').value=j.notiz||'';
+    toast('Als Liefer-Auftrag erkannt \u2014 Abrechnung erg\u00e4nzen'); st.textContent='';
+    return;
+  }
+  /* Termin */
+  if(p.art==='termin'&&p.termin){
+    const t=p.termin;
+    bereichWechseln('kalender');
+    el('kalFormCard').style.display='block';
+    kalZieleLaden();   /* ohne Kalenderziele wüsste der Termin nicht, wohin */
+    if(el('kTitel'))el('kTitel').value=t.titel||'';
+    if(el('kDatum'))el('kDatum').value=t.datum||'';
+    if(el('kVon'))el('kVon').value=t.von||'09:00';
+    if(el('kBis'))el('kBis').value=t.bis||'17:00';
+    if(el('kOrt'))el('kOrt').value=t.ort||'';
+    if(el('kNotiz'))el('kNotiz').value=t.notiz||'';
+    toast('Als Termin erkannt \u2014 bitte pr\u00fcfen'); st.textContent='';
+    return;
+  }
+  /* Rückfall: Aufgabe */
+  const a=p.aufgabe||{};
+  bereichWechseln('start');
+  const c=el('inboxCard'); if(c)c.open=true;
+  inboxVorschlag={prio:a.prio||'normal'};
+  el('ibKat').innerHTML=inboxListenOptionen((taskListen||[]).map(l=>l.name).filter(Boolean), a.bereich||'');
+  el('ibTitel').value=a.titel||'';
+  el('ibNotiz').value=a.notiz||'';
+  el('ibFaellig').value=a.faellig||'';
+  el('inboxVorschau').style.display='block';
+  el('inboxStatus').textContent='Als Aufgabe erkannt \u2014 pr\u00fcfen und anlegen.';
 }
 
 /* ---------- IHK-Prüferentschädigung ----------
@@ -6154,7 +6272,26 @@ el('btnKShot').addEventListener('click',()=>el('kShotFile').click());
 el('kShotFile').addEventListener('change',e=>{if(e.target.files&&e.target.files[0])kShotParse(e.target.files[0]);e.target.value=''});
 /* Strg+V: eingefügtes Bild aus der Zwischenablage annehmen — nur wenn die
    Termin-Karte offen ist, sonst würde Einfügen anderswo ungewollt greifen. */
+/* Screenshot aus der Zwischenablage — welche Zone ihn bekommt, entscheidet der
+   gerade sichtbare Bereich. Sonst müsste er jeden Screenshot erst als Datei
+   speichern, bevor er ihn einwerfen kann. */
 document.addEventListener('paste',e=>{
+  const items0=(e.clipboardData||{}).items||[];
+  const bild=[...items0].find(it=>it.type&&it.type.indexOf('image')===0);
+  if(bild){
+    /* IHK-Abrechnung: Abrechnungs-Bereich offen und die IHK-Karte sichtbar */
+    const ihk=el('ihkCard');
+    if(el('bereichAbrechnung')&&el('bereichAbrechnung').style.display!=='none'
+       && ihk && ihk.style.display!=='none'){
+      const b=bild.getAsFile(); if(b){e.preventDefault();ihkDropParse(b);return}
+    }
+    /* Aufgabe: Startseite offen */
+    if(el('bereichStart')&&el('bereichStart').style.display!=='none'){
+      const b=bild.getAsFile(); if(b){e.preventDefault();
+        const c=el('inboxCard'); if(c)c.open=true;
+        universalDrop(b); return}
+    }
+  }
   const karte=el('kalFormCard');
   if(!karte||karte.style.display==='none')return;
   const items=(e.clipboardData||{}).items||[];
@@ -6243,10 +6380,10 @@ el('btnBestaetigung').addEventListener('click',bestaetigungEntwerfen);
   const z=el('ibDrop'); if(!z)return;
   const f=el('ibDropFile');
   z.addEventListener('click',()=>f.click());
-  f.addEventListener('change',()=>{ if(f.files&&f.files[0])ibDropParse(f.files[0]); f.value=''; });
+  f.addEventListener('change',()=>{ if(f.files&&f.files[0])universalDrop(f.files[0]); f.value=''; });
   ['dragenter','dragover'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.add('over')}));
   ['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove('over')}));
-  z.addEventListener('drop',e=>{ const d=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(d)ibDropParse(d); });
+  z.addEventListener('drop',e=>{ const d=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(d)universalDrop(d); });
 })();
 el('btnJobSpeichern').addEventListener('click',jobSpeichern);
 el('btnJobAbbrechen').addEventListener('click',()=>{el('jobFormCard').style.display='none';jobEditId=null});
