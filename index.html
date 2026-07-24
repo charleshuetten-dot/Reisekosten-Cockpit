@@ -2487,18 +2487,21 @@ function istFlaggenListe(name){ return /gekennzeichnet|flagged/i.test(name||'');
    Listenauswahl gefüllt. Er passt an und legt an — der Rest passiert von selbst. */
 async function flaggeEinsortieren(id){
   const t=taskCache.find(x=>x.id===id); if(!t)return;
-  inboxAusFlagge={id:t.id, listId:t._listId};
+  const warFlagge=istFlaggenListe(t._listName);
+  inboxAusFlagge={id:t.id, listId:t._listId, istFlagge:warFlagge};
   bereichWechseln('start');
   const c=el('inboxCard'); if(c)c.open=true;
   try{ await taskListenHolen(); }catch(e){}
   const listen=(taskListen||[]).map(l=>l.name).filter(n=>n&&!istFlaggenListe(n));
-  el('ibKat').innerHTML=inboxListenOptionen(listen,'');
+  /* Aufgaben aus der Standardliste tragen die Kategorie noch — die ist der beste
+     Hinweis darauf, wohin sie eigentlich gehoeren. */
+  el('ibKat').innerHTML=inboxListenOptionen(listen,(t.categories||[])[0]||'');
   el('ibTitel').value=t.title||'';
   el('ibNotiz').value=(t.body&&t.body.content?String(t.body.content).slice(0,400):'');
   el('ibFaellig').value='';
   inboxVorschlag={prio:t.importance||'normal'};
   el('inboxVorschau').style.display='block';
-  el('inboxStatus').textContent='Aus einer gekennzeichneten Mail — Titel anpassen, Liste wählen, anlegen. Die Kennzeichnung wird danach entfernt.';
+  el('inboxStatus').textContent=warFlagge?'Aus einer gekennzeichneten Mail — Titel anpassen, Liste wählen, anlegen. Die Kennzeichnung wird danach entfernt.':'Aus „'+(t._listName||'Aufgaben')+'“ — Liste wählen und anlegen. Die alte Aufgabe wird danach abgehakt.';
   el('inboxCard').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function taskRowHtml(t){
@@ -2513,7 +2516,7 @@ function taskRowHtml(t){
     (t.importance==='high'?'<span class="tpill prio-high">Hoch</span>':'')+
     '<input type="date" data-tdue="'+t.id+'" value="'+due+'" style="font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 4px">'+
     '<select data-tprio="'+t.id+'" style="width:auto"><option value="normal"'+(t.importance==='normal'?' selected':'')+'>Normal</option><option value="high"'+(t.importance==='high'?' selected':'')+'>Hoch</option><option value="low"'+(t.importance==='low'?' selected':'')+'>Niedrig</option></select>'+
-    (istFlaggenListe(t._listName)?'<button type="button" class="minibtn klein" data-flagfix="'+t.id+'" title="In die richtige Liste übernehmen">→ Einsortieren</button>':'')+
+    ((istFlaggenListe(t._listName)||t._istDefault)?'<button type="button" class="minibtn klein" data-flagfix="'+t.id+'" title="In die richtige Liste übernehmen">→ Einsortieren</button>':'')+
     (t.status!=='inProgress'?'<button type="button" class="minibtn klein" data-tstart="'+t.id+'" >Start</button>':'')+
     '<button type="button" class="minibtn klein" data-tdone="'+t.id+'" >✓ Fertig</button>'+
     '</div></div>';
@@ -3585,10 +3588,18 @@ async function claudeStructureAndFile(rohText,ag,kategorie,gesellschaft,art,istT
   let todoInfo='';
   if(p.todos&&p.todos.length){
     try{
-      const lists=await graph('/me/todo/lists');
-      const def=(lists.value||[]).find(l=>l.wellknownListName==='defaultList')||(lists.value||[])[0];
-      if(def){for(const td of p.todos){await graph('/me/todo/lists/'+encodeURIComponent(def.id)+'/tasks',{method:'POST',body:JSON.stringify({title:td,categories:[ag||'Dozentur']})})}
-        todoInfo=' · '+p.todos.length+' Aufgaben in Outlook angelegt';}
+      /* Die Aufgaben gehoeren in die Liste des Auftraggebers — landeten sie in der
+         Standardliste, muesste er sie hinterher von Hand einsortieren. */
+      await taskListenHolen();
+      const ziel=taskListeFuer(ag);
+      const listId=(ziel&&ziel.id)||await taskListIdHolen();
+      const zielName=(ziel&&ziel.name)||((taskListen||[]).find(l=>l.istDefault)||{}).name||'Standardliste';
+      for(const td of p.todos){
+        const body={title:td};
+        if(!ziel)body.categories=[ag||'Dozentur'];
+        await graph('/me/todo/lists/'+encodeURIComponent(listId)+'/tasks',{method:'POST',body:JSON.stringify(body)});
+      }
+      todoInfo=' · '+p.todos.length+' Aufgaben in „'+zielName+'“ angelegt';
     }catch(e){todoInfo=' · Aufgaben konnten nicht angelegt werden'}
   }
   return {pfad,todoInfo,markdown:p.markdown};
@@ -5065,9 +5076,24 @@ async function renderGtasks(silent){
   });
 }
 
+/* Claude nennt die Liste selten wortgleich ("Going Public" statt "Going Public
+   Akademie"). Ein exakter Vergleich liesse die Vorauswahl leer — die Aufgabe
+   landete dann unbemerkt in der Standardliste. Deshalb dieselbe Unschaerfe wie
+   in taskListeFuer, nur auf Namen statt auf Listenobjekten. */
+function listenNameTreffer(listen,gewaehlt){
+  const g=(gewaehlt||'').trim().toLowerCase();
+  if(!g)return '';
+  const arr=(listen||[]).filter(Boolean);
+  return arr.find(n=>n.toLowerCase()===g)
+      || arr.find(n=>n.toLowerCase().startsWith(g))
+      || arr.find(n=>g.startsWith(n.toLowerCase()))
+      || '';
+}
 function inboxListenOptionen(listen,gewaehlt){
-  const opts=['<option value="">\u2014 Standardliste \u2014</option>'];
-  (listen||[]).forEach(n=>opts.push('<option value="'+esc(n)+'"'+(n===gewaehlt?' selected':'')+'>'+esc(n)+'</option>'));
+  const treffer=listenNameTreffer(listen,gewaehlt);
+  const std=((taskListen||[]).find(l=>l.istDefault)||{}).name||'Standardliste';
+  const opts=['<option value="">\u2014 '+esc(std)+' (Standard) \u2014</option>'];
+  (listen||[]).forEach(n=>opts.push('<option value="'+esc(n)+'"'+(n===treffer?' selected':'')+'>'+esc(n)+'</option>'));
   return opts.join('');
 }
 async function inboxSortieren(){
@@ -5145,17 +5171,17 @@ async function inboxAnlegen(){
     await graph('/me/todo/lists/'+encodeURIComponent(listId)+'/tasks',{method:'POST',body:JSON.stringify(body)});
     /* Kam die Aufgabe aus einer gekennzeichneten Mail, wird die Flaggen-Aufgabe
        jetzt abgehakt — Outlook entfernt damit auch das Fähnchen. */
-    let flaggeWeg=false;
+    let quelleWeg=false; const warFlagge=!!(inboxAusFlagge&&inboxAusFlagge.istFlagge);
     if(inboxAusFlagge){
       try{
         await graph('/me/todo/lists/'+encodeURIComponent(inboxAusFlagge.listId)+'/tasks/'+encodeURIComponent(inboxAusFlagge.id),
           {method:'PATCH',body:JSON.stringify({status:'completed'})});
-        flaggeWeg=true;
+        quelleWeg=true;
       }catch(e){/* Aufgabe steht trotzdem — nur das Fähnchen bleibt */}
       inboxAusFlagge=null;
     }
     el('inboxText').value='';el('inboxVorschau').style.display='none';inboxVorschlag=null;
-    st.textContent='\u2713 Angelegt in \u201e'+((ziel&&ziel.name)||'Aufgaben')+'\u201c'+(el('ibFaellig').value?' \u00b7 f\u00e4llig '+dfmt(el('ibFaellig').value):'')+(flaggeWeg?' \u00b7 Kennzeichnung entfernt':'');
+    st.textContent='\u2713 Angelegt in \u201e'+((ziel&&ziel.name)||'Aufgaben')+'\u201c'+(el('ibFaellig').value?' \u00b7 f\u00e4llig '+dfmt(el('ibFaellig').value):'')+(quelleWeg?(warFlagge?' \u00b7 Kennzeichnung entfernt':' \u00b7 alte Aufgabe abgehakt'):'');
     toast('Aufgabe angelegt');
     taskBoardLaden();
   }catch(e){st.textContent='Anlegen fehlgeschlagen: '+e.message}
