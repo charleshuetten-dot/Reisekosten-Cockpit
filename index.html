@@ -22,6 +22,15 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
+/* Seitliches Überlaufen: Grid-/Flex-Kinder haben min-width:auto und schrumpfen nicht
+   unter die Breite ihres längsten Inhalts — ein Select mit langem Auftraggeber-Namen
+   oder eine Mail-Adresse ohne Leerzeichen schob so die ganze Karte über den rechten
+   Rand hinaus. Deshalb: Kinder dürfen schrumpfen, lange Wörter brechen, und die Seite
+   clippt seitlich, statt horizontal zu scrollen. */
+html,body{overflow-x:hidden;overflow-x:clip}
+.grid2>*,.grid3>*,.mailrow>div,.card h2>*{min-width:0}
+.card,.hint,.mailrow{overflow-wrap:anywhere}
+select{max-width:100%}
 body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:15px;line-height:1.45;padding-bottom:90px}
 .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
 h1,h2,h3{font-family:'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.02em}
@@ -166,7 +175,7 @@ header .wrap{padding:0 2px}
 
 .modal{position:fixed;inset:0;background:rgba(20,35,60,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
 .modal.open{display:flex}
-.sheet{background:var(--paper);width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:18px 16px 26px}
+.sheet{background:var(--paper);width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:18px 16px calc(26px + env(safe-area-inset-bottom))}
 @media(min-width:680px){.modal{align-items:center}.sheet{border-radius:14px}}
 .sheet h2{font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:12px}
 .f{margin-bottom:11px}
@@ -284,8 +293,13 @@ body{padding-bottom:64px}
 /* Die Aktionsleiste (.fab) ist seit Welle 3 in JEDEM Bereich sichtbar. Beide Leisten
    kleben am unteren Rand — am Handy muss die Aktionsleiste deshalb ÜBER der
    Navigationsleiste sitzen, und die Seite braucht Platz für beide, sonst verdecken
-   sie den letzten Knopf (genau das ist in der Werkstatt passiert). */
-@media (max-width:899px){ .fab{bottom:64px} body{padding-bottom:132px} }
+   sie den letzten Knopf. Die Gestenleiste (env safe-area) kommt bei Handys ohne
+   Hardware-Tasten OBENDRAUF — ohne sie im Kalkül überdeckte die Tabbar den unteren
+   Rand der Aktionsleiste und beide zusammen den letzten Listeneintrag. */
+@media (max-width:899px){
+  .fab{bottom:calc(53px + env(safe-area-inset-bottom));padding-bottom:10px}
+  body{padding-bottom:calc(140px + env(safe-area-inset-bottom))}
+}
 /* Obere Reiter-Leiste komplett ausgeblendet — Navigation läuft über Kacheln (Desktop)
    und untere Leiste (Handy). "‹ Start" führt aus jedem Bereich zurück. */
 .bereiche{display:none!important}
@@ -313,6 +327,11 @@ body{padding-bottom:64px}
 
 /* ---------- Startseiten-Kacheln ---------- */
 .kacheln{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 16px}
+/* Am Handy sind die Kacheln reine Doppelung: Seminare/Werkstatt/Abrechnung stehen in
+   der unteren Leiste, Kalender und Einstellungen unter „Mehr", „Neue Reise" in der
+   Aktionsleiste. Ausgeblendet gehört die Startseite dem Inhalt — Heute, Eingang,
+   Notiz, Aufgaben — statt einem zweiten Navigationsblock über dem Falz. */
+@media (max-width:899px){ .kacheln{display:none} }
 .kachel{background:var(--paper,#fff);border:1px solid var(--line);border-radius:14px;
   padding:16px 14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;
   transition:border-color .15s;text-align:left}
@@ -4709,8 +4728,10 @@ function bereichWechseln(b){
   const zeigeReise=(b==='seminare');
   BEREICHE.forEach(x=>{
     const div=el('bereich'+x.charAt(0).toUpperCase()+x.slice(1));
-    if(x==='reiseplanung'){ div.style.display=zeigeReise?'block':'none'; }
-    else{ div.style.display=(x===b)?'block':'none'; }
+    /* Sichtbar = Inline-Stil leeren, damit das CSS entscheidet: 'block' überschrieb
+       das display:grid von .wrap.spalten — der Desktop lief deshalb einspaltig. */
+    if(x==='reiseplanung'){ div.style.display=zeigeReise?'':'none'; }
+    else{ div.style.display=(x===b)?'':'none'; }
     const tab=el('tab'+x.charAt(0).toUpperCase()+x.slice(1));
     if(tab)tab.classList.toggle('on',x===b);
   });
