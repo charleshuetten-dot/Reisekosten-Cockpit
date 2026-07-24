@@ -47,8 +47,13 @@ header h1 em{font-style:normal;color:var(--rot)}
      die linke Spalte hinunter und sprang dann nach rechts, und bei jeder Inhalts-
      änderung sortierte sich alles um. Das wirkte versetzt. Im Grid stehen die Karten
      in Leserichtung (links, rechts, nächste Zeile) und beginnen alle oben bündig. */
+  /* Zwei eigenständige Stapel statt eines Kartenrasters. Im Raster lagen die Karten
+     in Zeilen: neben einer kurzen Karte blieb Luft stehen, und die Karte darunter
+     begann erst unterhalb der längeren — daher die Löcher. Als getrennte Spalten
+     fließt jede für sich, und die Zuordnung links/rechts steht im HTML. */
   .wrap.spalten{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
-  .wrap.spalten>.card,.wrap.spalten>details.card{margin-bottom:0;width:auto}
+  .wrap.spalten>.spalte{display:flex;flex-direction:column;gap:20px;min-width:0}
+  .wrap.spalten>.card,.wrap.spalten>details.card,.spalte>.card,.spalte>details.card{margin-bottom:0;width:auto}
   /* Kacheln, Zurück-Knopf, KPIs und breite Karten laufen über beide Spalten */
   .wrap.spalten>.kacheln,.wrap.spalten>.zurueckStart,.wrap.spalten>.kpis,.wrap.spalten>.vollbreite{grid-column:1 / -1}
 }
@@ -340,7 +345,10 @@ body{padding-bottom:64px}
 .kachel .kt{font-family:'Barlow Condensed',sans-serif;font-weight:600;
   text-transform:uppercase;letter-spacing:.03em;font-size:15px}
 .kachel .ks{font-size:12px;color:var(--grau)}
-@media (min-width:900px){ .kacheln{grid-template-columns:1fr 1fr 1fr} }
+@media (min-width:900px){ .kacheln{grid-template-columns:repeat(3,1fr)} }
+/* Ab hier passen alle sechs Kacheln nebeneinander — spart eine ganze Reihe Höhe
+   über der eigentlichen Arbeitsfläche. */
+@media (min-width:1200px){ .kacheln{grid-template-columns:repeat(6,1fr);gap:8px} .kachel{padding:11px 10px} .kachel .ic{font-size:20px} .kachel .ks{display:none} }
 .kShotZone-drag{border-color:var(--rot)!important;background:var(--rot-dim,rgba(226,0,26,.06))!important}
 </style>
 </head>
@@ -380,8 +388,8 @@ body{padding-bottom:64px}
   <button class="kachel" data-navmehr="__neuereise"><span class="ic">➕</span><span class="kt">Neue Reise</span><span class="ks">Seminar/Reise sofort erfassen</span></button>
 </div>
 
-<div class="card" id="kalenderHinweis" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
-
+<div class="card vollbreite" id="kalenderHinweis" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
+<div class="spalte">
 <div class="card" id="cockpitCard">
     <h2>Eingang aus Outlook <span id="cockpitBadge" class="chip offen" style="display:none"></span>
       <span class="tools"><button class="minibtn haupt" id="btnCockpitLesen">Auswerten</button></span>
@@ -390,7 +398,32 @@ body{padding-bottom:64px}
     <div id="cockpitListe" style="margin-top:8px"></div>
     <div class="hint" id="cockpitStatus"></div>
   </div>
-
+<details class="card" id="taskCard" open>
+    <summary><h2 style="display:inline">Aufgaben</h2>
+      <span class="tools"><button class="minibtn" id="btnTaskReload">Aktualisieren</button><button class="minibtn haupt" id="btnTaskNeu">+ Aufgabe</button></span>
+    </summary>
+    <div class="hint">Aufgaben aus Microsoft To Do<button type="button" class="hilfe" data-tip="Ein Filter je Liste. „Alle&quot; zeigt alles, jeder Bereich (Optima, SCC, FRMD PASN, Privat, Auftraggeber) hat einen eigenen Chip. Geflaggte Outlook-Mails erscheinen unter „Gekennzeichnete E-Mail&quot;. Nach dem Anlegen neuer Listen auf „Aktualisieren&quot;." aria-label="Erklärung">?</button></div>
+    <div id="taskForm" style="display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
+      <div class="f"><label>Titel</label><input type="text" id="tkTitel" placeholder="z. B. Unterlagen Kapitel 3 überarbeiten"></div>
+      <div class="grid2">
+        <div class="f"><label>Kategorie</label>
+          <select id="tkKat"><option>Dozentur</option><option>Going Public Akademie</option><option>BWV Rheinland</option><option>IHK Köln</option><option>Zinal</option><option>Global Finanz</option></select>
+        </div>
+        <div class="f"><label>Priorität</label>
+          <select id="tkPrio"><option value="normal">Normal</option><option value="high">Hoch</option><option value="low">Niedrig</option></select>
+        </div>
+      </div>
+      <div class="f"><label>Fällig am (optional)</label><input type="date" id="tkFaellig"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <button type="button" class="minibtn" id="btnTaskSpeichern">Anlegen</button>
+        <button type="button" class="minibtn rot" id="btnTaskAbbrechen">Abbrechen</button>
+      </div>
+    </div>
+    <div id="taskFilter" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
+    <div id="taskBoard" style="margin-top:8px"></div>
+  </details>
+</div>
+<div class="spalte">
 <details class="card" id="inboxCard">
     <summary><h2 style="display:inline">Kurz notieren</h2>
       <span class="tools"><button class="minibtn" id="btnInboxDikt">🎤 Diktieren</button></span>
@@ -419,22 +452,6 @@ body{padding-bottom:64px}
     </div>
     <div class="hint" id="inboxStatus"></div>
   </details>
-
-<div class="card" id="gtaskCard" style="display:none;border-color:#4285f4">
-    <h2>Vom Handy diktiert
-      <span class="tools"><button class="minibtn" id="btnGtaskReload">Prüfen</button></span>
-    </h2>
-    <div class="hint">Per „Hey Google, erinnere mich …" gesprochene Aufgaben. Prüfen, Liste wählen, in Microsoft To Do übernehmen.</div>
-    <div id="gtaskListe" style="margin-top:8px"></div>
-    <div class="hint" id="gtaskStatus"></div>
-  </div>
-
-<div class="card" id="nachCard" style="display:none;border-color:var(--gelb, #d9a441)">
-    <h2>Nachbereitung</h2>
-    <div class="hint">Gelaufene Seminare — Verpflegung prüfen und abhaken. Danach sind sie abrechnungsfertig.</div>
-    <div id="nachListe" style="margin-top:8px"></div>
-  </div>
-
 <div class="card" id="briefingCard" style="display:none">
     <h2>Seminartagebuch</h2>
     <div id="briefingBox"></div>
@@ -443,32 +460,20 @@ body{padding-bottom:64px}
       <div id="tbAuswertung" style="margin-top:10px"></div>
     </details>
   </div>
-
-<details class="card" id="taskCard" open>
-    <summary><h2 style="display:inline">Aufgaben</h2>
-      <span class="tools"><button class="minibtn" id="btnTaskReload">Aktualisieren</button><button class="minibtn haupt" id="btnTaskNeu">+ Aufgabe</button></span>
-    </summary>
-    <div class="hint">Aufgaben aus Microsoft To Do<button type="button" class="hilfe" data-tip="Ein Filter je Liste. „Alle&quot; zeigt alles, jeder Bereich (Optima, SCC, FRMD PASN, Privat, Auftraggeber) hat einen eigenen Chip. Geflaggte Outlook-Mails erscheinen unter „Gekennzeichnete E-Mail&quot;. Nach dem Anlegen neuer Listen auf „Aktualisieren&quot;." aria-label="Erklärung">?</button></div>
-    <div id="taskForm" style="display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
-      <div class="f"><label>Titel</label><input type="text" id="tkTitel" placeholder="z. B. Unterlagen Kapitel 3 überarbeiten"></div>
-      <div class="grid2">
-        <div class="f"><label>Kategorie</label>
-          <select id="tkKat"><option>Dozentur</option><option>Going Public Akademie</option><option>BWV Rheinland</option><option>IHK Köln</option><option>Zinal</option><option>Global Finanz</option></select>
-        </div>
-        <div class="f"><label>Priorität</label>
-          <select id="tkPrio"><option value="normal">Normal</option><option value="high">Hoch</option><option value="low">Niedrig</option></select>
-        </div>
-      </div>
-      <div class="f"><label>Fällig am (optional)</label><input type="date" id="tkFaellig"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-        <button type="button" class="minibtn" id="btnTaskSpeichern">Anlegen</button>
-        <button type="button" class="minibtn rot" id="btnTaskAbbrechen">Abbrechen</button>
-      </div>
-    </div>
-    <div id="taskFilter" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
-    <div id="taskBoard" style="margin-top:8px"></div>
-  </details>
-
+<div class="card" id="nachCard" style="display:none;border-color:var(--gelb, #d9a441)">
+    <h2>Nachbereitung</h2>
+    <div class="hint">Gelaufene Seminare — Verpflegung prüfen und abhaken. Danach sind sie abrechnungsfertig.</div>
+    <div id="nachListe" style="margin-top:8px"></div>
+  </div>
+<div class="card" id="gtaskCard" style="display:none;border-color:#4285f4">
+    <h2>Vom Handy diktiert
+      <span class="tools"><button class="minibtn" id="btnGtaskReload">Prüfen</button></span>
+    </h2>
+    <div class="hint">Per „Hey Google, erinnere mich …" gesprochene Aufgaben. Prüfen, Liste wählen, in Microsoft To Do übernehmen.</div>
+    <div id="gtaskListe" style="margin-top:8px"></div>
+    <div class="hint" id="gtaskStatus"></div>
+  </div>
+</div>
 </div>
 
 <div class="wrap" id="bereichKalender" style="display:none">
@@ -2699,6 +2704,7 @@ async function jobSpeichern(){
   el('jobFormCard').style.display='none'; jobEditId=null;
   await save(); renderJobs();
   toast('Liefer-Auftrag gespeichert');
+  await cockpitAbschliessen('lieferauftrag');
 }
 async function jobLoeschen(){
   if(!jobEditId)return;
@@ -3076,6 +3082,7 @@ async function universalWeiterleiten(p, st){
       betrag:+e.betrag||0,ausschuss:e.ausschuss||'',art:e.art||'',status:e.status||'erfasst'});
     await save(); bereichWechseln('abrechnung'); renderIhkAbr();
     toast('Als IHK-Abrechnung erkannt'); st.textContent='';
+    await cockpitAbschliessen('ihk');
     return;
   }
   /* Seminarauftrag */
@@ -3924,7 +3931,7 @@ async function graph(path,opts){
 const COCKPIT_ORDNER='dozenten cockpit';
 const COCKPIT_ERLEDIGT='erledigt';
 const COCKPIT_ARTEN=[['reise','Seminarauftrag'],['lieferauftrag','Liefer-Auftrag'],['termin','Termin'],['aufgabe','Aufgabe'],['ihk','IHK-Abrechnung']];
-let cockpitOrdner=null, cockpitEintraege=[];
+let cockpitOrdner=null, cockpitEintraege=[], cockpitWartet=null;
 
 /* Bewusst OHNE $filter: Umlaute und Leerzeichen im Ordnernamen brechen die
    Graph-Filtersuche. Ordnerliste holen und in JS vergleichen — gesucht wird auf
@@ -4033,7 +4040,8 @@ function cockpitRendern(){
       '<select class="ckArt" data-i="'+i+'" data-j="'+j+'"'+(v.uebergeben?' disabled':'')+'>'+
       COCKPIT_ARTEN.map(a=>'<option value="'+a[0]+'"'+(a[0]===v.art?' selected':'')+'>'+a[1]+'</option>').join('')+'</select>'+
       '<div class="hint" style="margin-top:4px">'+esc(v.kurz||'')+'</div>'+
-      (v.uebergeben?'<div class="hint" style="margin-top:6px">\u2192 ins Formular übertragen — dort noch speichern.</div>'
+      (v.erledigt?'<div class="hint" style="margin-top:6px">\u2713 gespeichert</div>'
+        :v.uebergeben?'<div class="hint" style="margin-top:6px">\u2192 im Formular offen — nach dem Speichern dort wandert die Mail von selbst nach „Erledigt".</div>'
         :'<div style="display:flex;gap:8px;margin-top:6px">'+
          '<button class="minibtn haupt" data-ck="ok" data-i="'+i+'" data-j="'+j+'">Übernehmen</button>'+
          '<button class="minibtn" data-ck="weg" data-i="'+i+'" data-j="'+j+'">Verwerfen</button></div>')+
@@ -4057,6 +4065,22 @@ function cockpitRendern(){
    schon beim Übernehmen wandern: sonst wäre sie aus dem Ordner verschwunden, während
    das Formular noch ungespeichert ist, und ein Abbruch verlöre den Vorgang lautlos.
    Sie wandert erst, wenn er selbst „Mail nach Erledigt" drückt. */
+/* Wird von jedem Zielformular nach erfolgreichem Speichern gerufen. Erst wenn zu
+   einer Mail kein Vorschlag mehr offen ist, wandert sie nach „Erledigt" — bei einer
+   Mail mit Termin UND Aufgabe also nach dem zweiten Speichern. */
+async function cockpitAbschliessen(art){
+  const w=cockpitWartet; if(!w||w.art!==art)return;
+  cockpitWartet=null;
+  const i=cockpitEintraege.findIndex(x=>x.id===w.mailId);
+  if(i<0)return;
+  const e=cockpitEintraege[i];
+  const v=e.vorschlaege[w.j]; if(v)v.erledigt=true;
+  if(e.vorschlaege.some(x=>!x.erledigt)){cockpitRendern();return}
+  cockpitEintraege.splice(i,1);
+  try{await cockpitVerschieben(e.id);toast('Mail nach „Erledigt" verschoben')}
+  catch(err){toast('Mail konnte nicht verschoben werden')}
+  cockpitRendern(); cockpitZaehlen();
+}
 async function cockpitAktion(was,i,j){
   const e=cockpitEintraege[i]; if(!e)return;
   if(was==='fertig'){
@@ -4068,6 +4092,9 @@ async function cockpitAktion(was,i,j){
   const v=e.vorschlaege[j]; if(!v)return;
   if(was==='weg'){e.vorschlaege.splice(j,1);cockpitRendern();return}
   v.uebergeben=true;
+  /* Merken, worauf wir warten: sobald im Zielformular gespeichert wurde, wandert
+     die Mail von selbst nach Erledigt. Sonst muesste er dafuer erst zurueck zur Startseite. */
+  cockpitWartet={mailId:e.id,art:v.art,j:j};
   cockpitRendern();
   const p={art:v.art}; p[v.art]=v.felder||{};
   await universalWeiterleiten(p, el('cockpitStatus'));
@@ -4725,6 +4752,7 @@ async function kalTerminAnlegen(){
         ort:el('kOrt').value.trim(), notiz:el('kNotiz').value.trim()
       });
       st.textContent='✓ Termin im Google-Kalender angelegt.';
+      await cockpitAbschliessen('termin');
       el('kTitel').value='';el('kOrt').value='';el('kNotiz').value='';
       setTimeout(()=>{el('kalFormCard').style.display='none';kalenderLaden()},800);
       toast('Termin angelegt');
@@ -4748,6 +4776,7 @@ async function kalTerminAnlegen(){
     }
     await graph('/me/events',{method:'POST',body:JSON.stringify(body)});
     st.textContent='✓ Termin in Outlook angelegt.';
+    await cockpitAbschliessen('termin');
     el('kTitel').value='';el('kOrt').value='';el('kNotiz').value='';
     setTimeout(()=>{el('kalFormCard').style.display='none';kalenderLaden()},800);
     toast('Termin angelegt');
@@ -5569,6 +5598,7 @@ async function inboxAnlegen(){
     st.textContent='\u2713 Angelegt in \u201e'+((ziel&&ziel.name)||'Aufgaben')+'\u201c'+(el('ibFaellig').value?' \u00b7 f\u00e4llig '+dfmt(el('ibFaellig').value):'')+(quelleWeg?(warFlagge?' \u00b7 Kennzeichnung entfernt':' \u00b7 alte Aufgabe abgehakt'):'');
     toast('Aufgabe angelegt');
     taskBoardLaden();
+    await cockpitAbschliessen('aufgabe');
   }catch(e){st.textContent='Anlegen fehlgeschlagen: '+e.message}
 }
 
@@ -6407,6 +6437,7 @@ el('btnSave').addEventListener('click',async()=>{
   await save();closeForm();
   ui.q=perVon(t.von);ui.jahr=+t.von.slice(0,4);render();
   toast('Reise gespeichert');
+  await cockpitAbschliessen('reise');
 });
 el('btnDelete').addEventListener('click',async()=>{
   state.trips=state.trips.filter(x=>x.id!==editId);
