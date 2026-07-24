@@ -549,6 +549,9 @@ body{padding-bottom:64px}
           <input type="text" id="mGesellschaftFrei" placeholder="Name" style="display:none;margin-top:6px">
         </div>
       </div>
+      <div class="f"><label>Kurs / Seminar</label>
+        <input type="text" id="mKurs" list="kursListe" placeholder="z. B. Sachkunde 34d Aufbau">
+      </div>
       <input type="hidden" id="mJoinUrl">
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
         <button type="button" class="minibtn" id="btnMeetSpeichern">Erfassen</button>
@@ -744,6 +747,10 @@ body{padding-bottom:64px}
           <input type="text" id="wsGesellschaftFrei" placeholder="Name" style="display:none;margin-top:6px">
         </div>
       </div>
+      <div class="f" id="wsKursWrap"><label>Kurs / Seminar</label>
+        <input type="text" id="wsKurs" list="kursListe" placeholder="z. B. Sachkunde 34d Aufbau">
+      </div>
+      <datalist id="kursListe"></datalist>
       <div class="f"><label>Was soll passieren?</label><textarea id="wsAuftrag" rows="3" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 14px/1.45 'IBM Plex Sans',sans-serif" placeholder="z. B. Kapitel 3 der Folien aktualisieren, neue Praxisbeispiele ergänzen"></textarea></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
         <button type="button" class="minibtn" id="btnWsOrdner">Ordner in OneDrive öffnen</button>
@@ -2255,13 +2262,14 @@ async function toolSpeichern(){
 function wsAuftraggeber(){return el('wsAg').value==='__frei'?el('wsAgFrei').value.trim():el('wsAg').value}
 function wsGesellschaftWert(){return el('wsGesellschaft').value==='__frei'?el('wsGesellschaftFrei').value.trim():el('wsGesellschaft').value}
 function wsIstDihk(){return wsAuftraggeber()==='DIHK'}
+function wsKursWert(){return el('wsKurs')?el('wsKurs').value.trim():''}
 function wsPfad(){
   if(wsIstDihk())return dihkOrdner(el('wsDihkThema').value.trim());
-  return kursOrdner(wsAuftraggeber(),el('wsKategorie').value,wsGesellschaftWert());
+  return kursOrdner(wsAuftraggeber(),el('wsKategorie').value,wsGesellschaftWert(),wsKursWert());
 }
 function wsLabelText(){
   if(wsIstDihk())return 'DIHK – '+el('wsDihkThema').value.trim();
-  return wsAuftraggeber()+' · '+el('wsKategorie').value+' · '+wsGesellschaftWert();
+  return wsAuftraggeber()+' · '+el('wsKategorie').value+' · '+wsGesellschaftWert()+(wsKursWert()?' · '+wsKursWert():'');
 }
 function wsPflichtfelderOk(){
   if(!wsAuftraggeber())return false;
@@ -2272,7 +2280,7 @@ async function wsOrdnerOeffnen(){
   const st=el('wsStatus');
   if(!wsPflichtfelderOk()){st.textContent=wsIstDihk()?'Bitte Klausur-Thema angeben.':'Bitte Auftraggeber, Kategorie und Gesellschaft angeben.';return}
   if(!msAccount){st.textContent='Bitte zuerst Outlook verbinden (für OneDrive-Zugriff).';return}
-  if(!wsIstDihk())kgMemoUpdate(wsAuftraggeber(),el('wsKategorie').value,wsGesellschaftWert());
+  if(!wsIstDihk()){kgMemoUpdate(wsAuftraggeber(),el('wsKategorie').value,wsGesellschaftWert());kursMemoUpdate(wsAuftraggeber(),wsGesellschaftWert(),wsKursWert())}
   st.innerHTML='<span class="spin"></span>Ordner wird vorbereitet …';
   try{
     const pfad=wsPfad();
@@ -2286,7 +2294,7 @@ async function wsPromptGenerieren(){
   const auftrag=el('wsAuftrag').value.trim();
   const st=el('wsStatus');
   if(!wsPflichtfelderOk()||!auftrag){st.textContent='Bitte alle Felder ausfüllen.';return}
-  if(!wsIstDihk())kgMemoUpdate(wsAuftraggeber(),el('wsKategorie').value,wsGesellschaftWert());
+  if(!wsIstDihk()){kgMemoUpdate(wsAuftraggeber(),el('wsKategorie').value,wsGesellschaftWert());kursMemoUpdate(wsAuftraggeber(),wsGesellschaftWert(),wsKursWert())}
   st.innerHTML='<span class="spin"></span>Sammle Kontext (Ordnerinhalt, letztes Memo) …';
   const pfad=wsPfad(), label=wsLabelText();
   let dateien=[], letztesMemo='';
@@ -2297,8 +2305,11 @@ async function wsPromptGenerieren(){
       dateien=(d.value||[]).map(f=>f.name);
     }catch(e){/* Ordnerinhalt optional */}
     try{
-      const dd=await graph('/me/drive/root:/'+pfad.split('/').map(encodeURIComponent).join('/')+':/children?$orderby=name desc&$top=10');
-      const memoFile=(dd.value||[]).find(f=>/-memo\.md$|-meeting.*\.md$/.test(f.name));
+      /* Memos liegen seit der Kursebene unter <Kurs>/Meetings/Memos, bei DIHK
+         weiterhin flach im Klausurordner. */
+      const memoPfad=wsIstDihk()?pfad:memoOrdner(pfad);
+      const dd=await graph('/me/drive/root:/'+memoPfad.split('/').map(encodeURIComponent).join('/')+':/children?$orderby=name desc&$top=10');
+      const memoFile=(dd.value||[]).find(f=>/\.md$/.test(f.name));
       if(memoFile){
         const tok=await msToken();
         const c=await fetch('https://graph.microsoft.com/v1.0/me/drive/items/'+encodeURIComponent(memoFile.id)+'/content',{headers:{Authorization:'Bearer '+tok}});
@@ -3460,6 +3471,9 @@ function meetFormOeffnen(id){
   if([...gSel.options].some(o=>o.value===gWert||o.text===gWert)){gSel.value=gWert;el('mGesellschaftFrei').style.display='none'}
   else{gSel.value='__frei';el('mGesellschaftFrei').style.display='block';el('mGesellschaftFrei').value=gWert}
   if(!m)kgMemoApply(agSel.value,'mKategorie','mGesellschaft','mGesellschaftFrei');
+  kursListeFuellen();
+  const gAktuell=el('mGesellschaft').value==='__frei'?el('mGesellschaftFrei').value.trim():el('mGesellschaft').value;
+  el('mKurs').value=m?(m.kurs||''):kursMemoGet(agSel.value,gAktuell);
   el('meetForm').scrollIntoView({behavior:'smooth'});
 }
 async function meetSpeichern(){
@@ -3472,6 +3486,7 @@ async function meetSpeichern(){
     id:meetEditId||('m'+Date.now()),
     ag, thema:el('mThema').value.trim(), datum:el('mDatum').value,
     kategorie:el('mKategorie').value, gesellschaft,
+    kurs:el('mKurs').value.trim(),
     joinUrl:el('mJoinUrl').value||'',
     memo:meetEditId?(liste.find(x=>x.id===meetEditId)||{}).memo||'':'',
     transcriptSummary:meetEditId?(liste.find(x=>x.id===meetEditId)||{}).transcriptSummary||'':''
@@ -3480,6 +3495,7 @@ async function meetSpeichern(){
   const idx=liste.findIndex(x=>x.id===obj.id);
   if(idx>=0)liste[idx]=obj; else liste.push(obj);
   kgMemoUpdate(ag,obj.kategorie,gesellschaft);
+  kursMemoUpdate(ag,gesellschaft,obj.kurs);
   await save();
   el('meetForm').style.display='none';
   meetEditId=null;
@@ -3505,7 +3521,7 @@ function renderMeetings(){
   }).join('')||'<div class="hint">Noch keine Konzeptionsmeetings erfasst.</div>';
   box.querySelectorAll('button[data-act]').forEach(b=>b.addEventListener('click',()=>meetAction(b.dataset.act,b.dataset.id)));
 }
-let meetRec=null, meetRecActiveId=null;
+let meetRec=null, meetRecActiveId=null, meetRecStop=false;
 function meetAction(act,id){
   const m=meetingsListe().find(x=>x.id===id); if(!m)return;
   if(act==='edit')meetFormOeffnen(id);
@@ -3517,19 +3533,59 @@ function meetAction(act,id){
 function meetDictToggle(id){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   const ta=el('mMemo_'+id);
-  if(!SR){el('mStatus_'+id).textContent='Diktat wird von diesem Browser nicht unterstützt.';return}
-  if(meetRecActiveId===id){meetRec.stop();return}
-  meetRec=new SR(); meetRec.lang='de-DE'; meetRec.continuous=true; meetRec.interimResults=true;
+  const st=el('mStatus_'+id);
+  const btn=document.querySelector('button[data-act="dict"][data-id="'+id+'"]');
+  if(!SR){st.textContent='Diktat wird von diesem Browser nicht unterstützt (Chrome verwenden) — bitte tippen.';return}
+  if(meetRecActiveId===id){meetRecStop=true;try{meetRec.stop()}catch(e){}return}
+  if(meetRec){try{meetRec.abort()}catch(e){}}
+  andereDiktateStoppen('meeting');
+  meetRecStop=false;
   let basis=ta.value?ta.value.trim()+' ':'';
-  meetRec.onresult=ev=>{
-    let fin='',interim='';
-    for(let i=0;i<ev.results.length;i++){const r=ev.results[i];if(r.isFinal)fin+=r[0].transcript+' ';else interim+=r[0].transcript}
-    ta.value=basis+fin+interim;
+  let gehoert=false, leerlauf=0;
+  const beenden=text=>{
+    meetRecActiveId=null;
+    if(btn)btn.textContent='🎙 Diktat';
+    st.textContent=text;
   };
-  meetRec.onend=()=>{meetRecActiveId=null};
-  meetRec.onerror=e=>{el('mStatus_'+id).textContent='Diktat-Fehler: '+e.error;meetRecActiveId=null};
-  meetRec.start(); meetRecActiveId=id;
-  el('mStatus_'+id).textContent='Aufnahme läuft …';
+  const starte=()=>{
+    meetRec=new SR(); meetRec.lang='de-DE'; meetRec.continuous=true; meetRec.interimResults=true;
+    meetRec.onresult=ev=>{
+      let fin='',interim='';
+      for(let i=0;i<ev.results.length;i++){const r=ev.results[i];if(r.isFinal)fin+=r[0].transcript+' ';else interim+=r[0].transcript}
+      if(fin||interim){gehoert=true;leerlauf=0}
+      ta.value=basis+fin+interim;
+    };
+    /* Chrome beendet die Erkennung bei jeder laengeren Sprechpause und meldet
+       dabei "no-speech". Im Meeting ist eine Pause der Normalfall, kein Fehler —
+       deshalb still neu starten, bis er selbst stoppt. */
+    meetRec.onerror=e=>{
+      if(e.error==='no-speech'||e.error==='aborted')return;
+      meetRecStop=true;
+      beenden('Diktat-Fehler: '+e.error+(e.error==='not-allowed'?' — Mikrofon fuer diese Seite freigeben.':''));
+    };
+    meetRec.onend=()=>{
+      if(meetRecStop){
+        if(meetRecActiveId===id)beenden(ta.value.trim()?'Aufnahme beendet — jetzt „Memo strukturieren & ablegen".':'Nichts aufgenommen.');
+        return;
+      }
+      /* Der Neustart beginnt eine neue Sitzung, ev.results faengt wieder bei
+         null an. Ohne diese Zeile wuerde das bisher Gesagte ueberschrieben. */
+      basis=ta.value?ta.value.trim()+' ':'';
+      if(!gehoert&&++leerlauf>=3){
+        meetRecStop=true;
+        beenden('Das Mikrofon liefert kein Signal. In den Windows-Sound-Einstellungen pruefen, ob das richtige Eingabegeraet aktiv und nicht stummgeschaltet ist.');
+        return;
+      }
+      starte();
+    };
+    try{meetRec.start()}catch(e){meetRecStop=true;beenden('Diktat konnte nicht starten: '+e.message)}
+  };
+  starte();
+  if(!meetRecStop){
+    meetRecActiveId=id;
+    if(btn)btn.textContent='⏹ Diktat stoppen';
+    st.textContent='Aufnahme läuft — sprich einfach. Zum Beenden dieselbe Taste.';
+  }
 }
 async function meetMemoSpeichern(id){
   const m=meetingsListe().find(x=>x.id===id); if(!m)return;
@@ -3540,8 +3596,9 @@ async function meetMemoSpeichern(id){
   if(!msAccount){st.textContent='Memo lokal gespeichert (Outlook nicht verbunden — keine Ablage in OneDrive).';return}
   st.innerHTML='<span class="spin"></span>Claude strukturiert das Memo …';
   try{
-    const md=await claudeStructureAndFile(roh,m.ag,m.kategorie,m.gesellschaft,'meeting');
-    st.textContent='✓ Memo abgelegt: '+md.pfad+(md.todoInfo||'');
+    const md=await claudeStructureAndFile(roh,{ag:m.ag,kategorie:m.kategorie,gesellschaft:m.gesellschaft,kurs:m.kurs,art:'meeting',thema:m.thema});
+    st.textContent='✓ Memo abgelegt: '+md.pfad;
+    todoVorschau(st,md.todos,m.ag);
     toast('Memo gespeichert');
   }catch(err){st.textContent='Fehler: '+err.message}
 }
@@ -3563,17 +3620,25 @@ async function meetTranscriptHolen(id){
     const text=vtt.split('\n').filter(l=>l&&!/^WEBVTT/.test(l)&&!/^\d+$/.test(l.trim())&&!/-->/.test(l)).join(' ').replace(/<\/?v[^>]*>/g,'').replace(/\s+/g,' ').trim();
     if(!text){throw new Error('Transkript war leer.')}
     st.innerHTML='<span class="spin"></span>Claude fasst das Transkript zusammen …';
-    const md=await claudeStructureAndFile(text,m.ag,m.kategorie,m.gesellschaft,'meeting-transkript',true);
+    const md=await claudeStructureAndFile(text,{ag:m.ag,kategorie:m.kategorie,gesellschaft:m.gesellschaft,kurs:m.kurs,art:'meeting-transkript',thema:m.thema,istTranskript:true});
     m.transcriptSummary=md.markdown; await save();
-    st.textContent='✓ Transkript zusammengefasst und abgelegt: '+md.pfad+(md.todoInfo||'');
+    const vorschlaege=md.todos;
     renderMeetings();
+    const stNeu=el('mStatus_'+id)||st;
+    stNeu.textContent='✓ Transkript zusammengefasst und abgelegt: '+md.pfad;
+    todoVorschau(stNeu,vorschlaege,m.ag);
   }catch(err){st.textContent=err.message}
 }
-async function claudeStructureAndFile(rohText,ag,kategorie,gesellschaft,art,istTranskript){
-  const bereichLabel=kategorie+' · '+gesellschaft;
+/* ctx: {ag, kategorie, gesellschaft, kurs, art, thema, istTranskript}
+   Legt die strukturierte Notiz ab und gibt die Aufgabenvorschläge zurück —
+   angelegt werden sie erst nach Bestätigung durch todoVorschau(). */
+async function claudeStructureAndFile(rohText,ctx){
+  const ag=ctx.ag, kategorie=ctx.kategorie, gesellschaft=ctx.gesellschaft;
+  const art=ctx.art, istTranskript=ctx.istTranskript;
+  const bereichLabel=kategorie+' · '+gesellschaft+(ctx.kurs?' · '+ctx.kurs:'');
   const resp=await fetch(claudeEndpoint(),{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1400,
-      messages:[{role:"user",content:(istTranskript?"Das ist das automatische Transkript eines Konzeptionsmeetings":"Das ist ein diktiertes Memo zu einem Konzeptionsmeeting")+" mit einem Auftraggeber. Auftraggeber: "+ag+", Bereich: "+bereichLabel+". Text: \""+rohText.replace(/"/g,"'").slice(0,15000)+"\"\n\nAntworte AUSSCHLIESSLICH mit JSON ohne Markdown: {\"markdown\":\"strukturierte Zusammenfassung als Markdown (Ergebnisse/Entscheidungen, offene Punkte, Sonstiges — nur belegte Abschnitte)\",\"todos\":[\"konkrete Aufgaben, nur wenn wirklich genannt\"]}"}]
+      messages:[{role:"user",content:(istTranskript?"Das ist das automatische Transkript eines Konzeptionsmeetings":"Das ist ein diktiertes Memo zu einem Konzeptionsmeeting")+" mit einem Auftraggeber. Auftraggeber: "+ag+", Bereich: "+bereichLabel+". Text: \""+rohText.replace(/"/g,"'").slice(0,15000)+"\"\n\nAntworte AUSSCHLIESSLICH mit JSON ohne Markdown: {\"markdown\":\"strukturierte Zusammenfassung als Markdown (Ergebnisse/Entscheidungen, offene Punkte, Sonstiges — nur belegte Abschnitte)\",\"todos\":[{\"titel\":\"konkrete Aufgabe, handlungsorientiert, beginnt mit einem Verb\",\"faellig\":\"YYYY-MM-DD oder leer\"}]}\n\nHeute ist "+heuteISO()+". Setze faellig nur, wenn der Text eine Frist oder ein Datum nennt (auch relativ wie 'bis Freitag'), sonst leer lassen. Nimm nur Aufgaben auf, die wirklich genannt wurden - erfinde nichts."}]
     })});
   const data=await resp.json();
   if(data.error)throw new Error(data.error.message||'API-Fehler');
@@ -3581,28 +3646,65 @@ async function claudeStructureAndFile(rohText,ag,kategorie,gesellschaft,art,istT
   const clean=text.replace(/```json|```/g,'').trim();
   const p=JSON.parse(clean.slice(clean.indexOf('{'),clean.lastIndexOf('}')+1));
   const heute=heuteISO();
-  const kursbasis=kursOrdner(ag,kategorie,gesellschaft);
+  const kursbasis=kursOrdner(ag,kategorie,gesellschaft,ctx.kurs);
   await kursOrdnerAnlegen(kursbasis);
-  const pfad=kursbasis+'/'+heute+'-'+art+'.md';
+  const ziel=memoOrdner(kursbasis);
+  const kuerzel=dateiKuerzel(ctx.thema);
+  const name=await freierDateiname(ziel,heute+'-'+art+(kuerzel?'-'+kuerzel:''),'.md');
+  const pfad=ziel+'/'+name;
   await odPutFile(pfad,p.markdown||rohText,'text/markdown');
-  let todoInfo='';
-  if(p.todos&&p.todos.length){
+  /* Aeltere Antworten liefern todos noch als reine Strings — beides annehmen. */
+  const todos=(Array.isArray(p.todos)?p.todos:[])
+    .map(t=>typeof t==='string'?{titel:t,faellig:''}:{titel:(t&&t.titel)||'',faellig:(t&&t.faellig)||''})
+    .filter(t=>t.titel);
+  return {pfad,markdown:p.markdown,todos};
+}
+/* Aufgabenvorschläge erst zeigen, dann anlegen — Titel und Fälligkeit bleiben
+   editierbar. Muster wie in „Kurz notieren". */
+function todoVorschau(anker,todos,ag){
+  if(!anker||!todos||!todos.length)return;
+  const alt=anker.parentNode.querySelector('.todoVorschau');
+  if(alt)alt.remove();
+  const box=document.createElement('div');
+  box.className='todoVorschau';
+  box.style.cssText='margin-top:8px;border:1px solid var(--line);border-radius:10px;padding:10px';
+  box.innerHTML='<div class="lbl-klein">Vorgeschlagene Aufgaben — prüfen, dann anlegen</div>'+
+    todos.map(t=>'<div class="grid2" style="margin-top:6px" data-tv="1">'+
+      '<div class="f"><label>Aufgabe</label><input type="text" class="tvTitel" value="'+esc(t.titel)+'"></div>'+
+      '<div class="f"><label>Fällig</label><input type="date" class="tvFaellig" value="'+esc(t.faellig)+'"></div>'+
+    '</div>').join('')+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">'+
+      '<button type="button" class="minibtn haupt tvAnlegen">In Aufgaben anlegen</button>'+
+      '<button type="button" class="minibtn tvWeg">Verwerfen</button>'+
+    '</div><div class="hint tvStatus"></div>';
+  anker.parentNode.insertBefore(box,anker.nextSibling);
+  box.querySelector('.tvWeg').addEventListener('click',()=>box.remove());
+  box.querySelector('.tvAnlegen').addEventListener('click',async()=>{
+    const st=box.querySelector('.tvStatus');
+    const zeilen=[...box.querySelectorAll('[data-tv]')].map(r=>({
+      titel:r.querySelector('.tvTitel').value.trim(),
+      faellig:r.querySelector('.tvFaellig').value
+    })).filter(z=>z.titel);
+    if(!zeilen.length){st.textContent='Nichts anzulegen.';return}
+    st.innerHTML='<span class="spin"></span>Lege an …';
     try{
-      /* Die Aufgaben gehoeren in die Liste des Auftraggebers — landeten sie in der
+      /* Die Aufgaben gehoeren in die Liste des Auftraggebers - landeten sie in der
          Standardliste, muesste er sie hinterher von Hand einsortieren. */
       await taskListenHolen();
       const ziel=taskListeFuer(ag);
       const listId=(ziel&&ziel.id)||await taskListIdHolen();
       const zielName=(ziel&&ziel.name)||((taskListen||[]).find(l=>l.istDefault)||{}).name||'Standardliste';
-      for(const td of p.todos){
-        const body={title:td};
+      for(const z of zeilen){
+        const body={title:z.titel};
         if(!ziel)body.categories=[ag||'Dozentur'];
+        if(z.faellig)body.dueDateTime={dateTime:z.faellig+'T00:00:00',timeZone:'Europe/Berlin'};
         await graph('/me/todo/lists/'+encodeURIComponent(listId)+'/tasks',{method:'POST',body:JSON.stringify(body)});
       }
-      todoInfo=' · '+p.todos.length+' Aufgaben in „'+zielName+'“ angelegt';
-    }catch(e){todoInfo=' · Aufgaben konnten nicht angelegt werden'}
-  }
-  return {pfad,todoInfo,markdown:p.markdown};
+      box.innerHTML='<div class="hint">\u2713 '+zeilen.length+' Aufgabe'+(zeilen.length>1?'n':'')+' in \u201e'+esc(zielName)+'\u201c angelegt.</div>';
+      toast('Aufgaben angelegt');
+      if(typeof taskBoardLaden==='function')taskBoardLaden();
+    }catch(e){st.textContent='Anlegen fehlgeschlagen: '+e.message}
+  });
 }
 
 /* ---------- Arbeitszeit (Stundensatz) ---------- */
@@ -4356,6 +4458,7 @@ function werkstattVorbefuellen(quelle){
         if(gBekannt){el('wsGesellschaft').value=quelle.gesellschaft;el('wsGesellschaftFrei').style.display='none'}
         else{el('wsGesellschaft').value='__frei';el('wsGesellschaftFrei').style.display='block';el('wsGesellschaftFrei').value=quelle.gesellschaft}
       }
+      el('wsKurs').value=quelle.kurs||kursMemoGet(quelle.ag,quelle.gesellschaft);
     }
     el('werkstattCard').scrollIntoView({behavior:'smooth'});
   },50);
@@ -4687,6 +4790,24 @@ async function odPutFile(pfad,inhalt,mime){
   if(!r.ok)throw new Error('OneDrive '+r.status);
   return r.json();
 }
+/* Zwei Meetings am selben Tag ergaben bisher denselben Dateinamen — das zweite
+   hat das erste kommentarlos überschrieben. Deshalb vorher im Zielordner nachsehen
+   und bei Bedarf -2, -3 … anhängen. */
+async function freierDateiname(ordner,basis,endung){
+  let vorhanden=[];
+  try{
+    const d=await graph('/me/drive/root:/'+ordner.split('/').map(encodeURIComponent).join('/')+':/children?$select=name&$top=200');
+    vorhanden=(d.value||[]).map(f=>String(f.name||'').toLowerCase());
+  }catch(e){/* Ordner frisch angelegt oder nicht lesbar — dann kollidiert nichts */}
+  const frei=n=>!vorhanden.includes(n.toLowerCase());
+  if(frei(basis+endung))return basis+endung;
+  for(let i=2;i<100;i++){if(frei(basis+'-'+i+endung))return basis+'-'+i+endung}
+  return basis+'-'+Date.now()+endung;
+}
+/* Themenkürzel für den Dateinamen: aus dem Meeting-Thema, gekürzt und pfadsicher. */
+function dateiKuerzel(thema){
+  return String(thema||'').replace(/[\\/:*?"<>|#%]/g,' ').trim().replace(/\s+/g,'-').slice(0,32).replace(/-+$/,'');
+}
 function b64ToBlob(b64,mime){
   const bin=atob(b64);const arr=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
@@ -4750,16 +4871,44 @@ function populateOptionSets(){
   document.querySelectorAll('.ag-select').forEach(s=>{const cur=s.value;s.innerHTML=s.classList.contains('ag-dihk')?agDihkHtml:agHtml;if(cur)s.value=cur});
   const tkatHtml=TOOL_KATEGORIEN.map(k=>'<option>'+k+'</option>').join('');
   document.querySelectorAll('.tkat-select').forEach(s=>{const cur=s.value;s.innerHTML=tkatHtml;if(cur)s.value=cur});
+  kursListeFuellen();
 }
-function kursOrdner(ag,kategorie,gesellschaft){
+function kursOrdner(ag,kategorie,gesellschaft,kurs){
   const clean=s=>String(s||'').replace(/[\\/:*?"<>|#%]/g,'').trim().slice(0,60);
-  return 'Dozentur/Kurse/'+clean(ag)+'/'+clean(kategorie||'Sonstiges')+'/'+clean(gesellschaft||'Allgemein');
+  const basis='Dozentur/Kurse/'+clean(ag)+'/'+clean(kategorie||'Sonstiges')+'/'+clean(gesellschaft||'Allgemein');
+  const k=clean(kurs);
+  /* Ohne Kursangabe bleibt es beim alten Pfad auf Gesellschaftsebene. So bleibt
+     der Altbestand (z. B. …/Versicherung/ÖVB) erreichbar, ohne ihn umzuräumen. */
+  return k?basis+'/'+k:basis;
 }
+/* Strukturierte Meeting-Notizen liegen unterhalb des Kurses, nicht mehr lose
+   im Gesellschaftsordner. */
+function memoOrdner(kursbasis){return kursbasis+'/Meetings/Memos'}
 function dihkOrdner(thema){
   const clean=s=>String(s||'').replace(/[\\/:*?"<>|#%]/g,'').trim().slice(0,60);
   return 'Dozentur/DIHK/'+clean(thema||'Allgemein')+'/Klausuren';
 }
-const KURS_UNTERORDNER=['Folien','Übungen-Fälle','Teilnehmerunterlagen'];
+const KURS_UNTERORDNER=['Folien','Übungen-Fälle','Teilnehmerunterlagen','Meetings','Meetings/Memos'];
+/* Kurs merken je Auftraggeber-Gesellschaft-Paar — analog kgMemo, nur eine Ebene
+   tiefer: dieselbe Gesellschaft kann mehrere Kurse haben. */
+function kursMemoKey(ag,gesellschaft){return String(ag||'')+'|'+String(gesellschaft||'')}
+function kursMemoUpdate(ag,gesellschaft,kurs){
+  if(!ag||!kurs)return;
+  state.settings.kursMemo=state.settings.kursMemo||{};
+  state.settings.kursMemo[kursMemoKey(ag,gesellschaft)]=kurs;
+  save();
+  kursListeFuellen();
+}
+function kursMemoGet(ag,gesellschaft){
+  return ((state.settings||{}).kursMemo||{})[kursMemoKey(ag,gesellschaft)]||'';
+}
+/* Alle bisher genutzten Kurse als Vorschlagsliste — spart Tippen am Handy. */
+function kursListeFuellen(){
+  const dl=el('kursListe'); if(!dl)return;
+  const werte=new Set(Object.values((state.settings||{}).kursMemo||{}));
+  (Array.isArray(state.meetings)?state.meetings:[]).forEach(m=>{if(m.kurs)werte.add(m.kurs)});
+  dl.innerHTML=[...werte].filter(Boolean).sort().map(k=>'<option value="'+esc(k)+'">').join('');
+}
 function kgMemoUpdate(ag,kategorie,gesellschaft){
   if(!ag||!kategorie)return;
   state.settings.kgMemo=state.settings.kgMemo||{};
@@ -4788,6 +4937,7 @@ function memoToggleRec(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){el('memoStatus').textContent='Diktat wird von diesem Browser nicht unterst\u00fctzt (Chrome verwenden) \u2014 bitte tippen.';return}
   if(memoRecActive){memoRec.stop();return}
+  andereDiktateStoppen('memo');
   memoRec=new SR(); memoRec.lang='de-DE'; memoRec.continuous=true; memoRec.interimResults=true;
   let basis=el('memoText').value?el('memoText').value.trim()+' ':'';
   memoRec.onresult=ev=>{
@@ -4808,8 +4958,10 @@ async function memoSave(){
   const t=formData();
   st.innerHTML='<span class="spin"></span>Claude strukturiert das Memo \u2026';
   try{
-    const md=await claudeStructureAndFile(roh,t.ag,t.kategorie,t.gesellschaft,'memo');
-    st.textContent='\u2713 Memo abgelegt: '+md.pfad+(md.todoInfo||'');
+    const md=await claudeStructureAndFile(roh,{ag:t.ag,kategorie:t.kategorie,gesellschaft:t.gesellschaft,
+      kurs:t.kurs||kursMemoGet(t.ag,t.gesellschaft),art:'memo',thema:t.zweck});
+    st.textContent='\u2713 Memo abgelegt: '+md.pfad;
+    todoVorschau(st,md.todos,t.ag);
     toast('Memo gespeichert');
   }catch(err){st.textContent='Fehler: '+err.message}
 }
@@ -4829,6 +4981,17 @@ function andereDiktateStoppen(ausser){
   if(ausser!=='tagebuch'&&typeof tagebuchRecActive!=='undefined'&&tagebuchRecActive){
     try{tagebuchRec.stop()}catch(e){}
     tagebuchRecActive=false;
+  }
+  /* Zwei laufende Erkennungen teilen sich das Mikrofon nicht — die zweite bekommt
+     dann gar kein Signal und meldet "no-speech", obwohl gesprochen wird. */
+  if(ausser!=='memo'&&typeof memoRecActive!=='undefined'&&memoRecActive){
+    try{memoRec.stop()}catch(e){}
+    memoRecActive=false;
+    const b=el('btnMemoRec'); if(b)b.textContent='\ud83c\udf99 Diktat starten';
+  }
+  if(ausser!=='meeting'&&meetRecActiveId){
+    meetRecStop=true;
+    try{meetRec.stop()}catch(e){}
   }
 }
 function inboxDiktToggle(){
@@ -5593,10 +5756,14 @@ async function renderBriefing(){
   el('btnTagebuchSpeichern').addEventListener('click',tagebuchSpeichern);
   tagebuchLaden(next);
 }
+/* Die Reise selbst kennt keinen Kurs. Deshalb der gemerkte Kurs zum
+   Auftraggeber-Gesellschaft-Paar; ohne Merkeintrag bleibt es bei der
+   Gesellschaftsebene, damit alte Einträge sichtbar bleiben. */
+function tagebuchKurs(t){return (t&&t.kurs)||kursMemoGet(t&&t.ag,t&&t.gesellschaft)}
 async function tagebuchLaden(next){
   const box=el('tagebuchListe');if(!box)return;
   try{
-    const ordner=kursOrdner(next.ag,next.kategorie,next.gesellschaft);
+    const ordner=memoOrdner(kursOrdner(next.ag,next.kategorie,next.gesellschaft,tagebuchKurs(next)));
     const d=await graph('/me/drive/root:/'+ordner.split('/').map(encodeURIComponent).join('/')+':/children?$orderby=name desc&$top=30');
     const eintraege=(d.value||[]).filter(f=>/\.md$/.test(f.name));
     if(!eintraege.length){box.innerHTML='<div class="hint">Noch kein Tagebucheintrag zu diesem Kurs.</div>';return}
@@ -5653,9 +5820,11 @@ async function tagebuchSpeichern(){
   if(!briefingAktuell){st.textContent='Kein Seminar gefunden.';return}
   st.innerHTML='<span class="spin"></span>Claude strukturiert den Eintrag \u2026';
   try{
-    const md=await claudeStructureAndFile(roh,briefingAktuell.ag,briefingAktuell.kategorie,briefingAktuell.gesellschaft,'memo');
+    const md=await claudeStructureAndFile(roh,{ag:briefingAktuell.ag,kategorie:briefingAktuell.kategorie,
+      gesellschaft:briefingAktuell.gesellschaft,kurs:tagebuchKurs(briefingAktuell),art:'memo',thema:briefingAktuell.zweck});
     el('tagebuchText').value='';
-    st.textContent='\u2713 Eintrag gespeichert: '+md.pfad+(md.todoInfo||'');
+    st.textContent='\u2713 Eintrag gespeichert: '+md.pfad;
+    todoVorschau(st,md.todos,briefingAktuell.ag);
     tagebuchLaden(briefingAktuell);
     toast('Tagebucheintrag gespeichert');
   }catch(err){st.textContent='Fehler: '+err.message}
@@ -6072,7 +6241,13 @@ el('btnMeetNeu').addEventListener('click',()=>meetFormOeffnen(null));
 el('btnMeetSpeichern').addEventListener('click',meetSpeichern);
 el('btnMeetAbbrechen').addEventListener('click',()=>{el('meetForm').style.display='none';meetEditId=null});
 el('mAg').addEventListener('change',()=>{el('mAgFrei').style.display=el('mAg').value==='__frei'?'block':'none';kgMemoApply(el('mAg').value,'mKategorie','mGesellschaft','mGesellschaftFrei')});
-el('mGesellschaft').addEventListener('change',()=>{el('mGesellschaftFrei').style.display=el('mGesellschaft').value==='__frei'?'block':'none'});
+el('mGesellschaft').addEventListener('change',()=>{
+  el('mGesellschaftFrei').style.display=el('mGesellschaft').value==='__frei'?'block':'none';
+  const ag=el('mAg').value==='__frei'?el('mAgFrei').value.trim():el('mAg').value;
+  const ges=el('mGesellschaft').value==='__frei'?el('mGesellschaftFrei').value.trim():el('mGesellschaft').value;
+  const k=kursMemoGet(ag,ges);
+  if(k)el('mKurs').value=k;
+});
 el('btnTaskReload').addEventListener('click',()=>{taskListen=null;taskListId=null;taskBoardLaden()});
 el('btnTaskNeu').addEventListener('click',taskFormOeffnen);
 el('btnTaskSpeichern').addEventListener('click',taskAnlegen);
@@ -6081,15 +6256,23 @@ function syncWsAg(){
   const dihk=wsIstDihk();
   el('wsDihkThemaWrap').style.display=dihk?'block':'none';
   el('wsKatWrap').style.display=dihk?'none':'grid';
+  el('wsKursWrap').style.display=dihk?'none':'block';
 }
 el('wsAg').addEventListener('change',()=>{
   el('wsAgFrei').style.display=el('wsAg').value==='__frei'?'block':'none';
   syncWsAg();
   const memo=(state.settings.satzMemo||{})[wsAuftraggeber()];
   if(memo)el('azSatz').value=memo;
-  if(!wsIstDihk())kgMemoApply(wsAuftraggeber(),'wsKategorie','wsGesellschaft','wsGesellschaftFrei');
+  if(!wsIstDihk()){
+    kgMemoApply(wsAuftraggeber(),'wsKategorie','wsGesellschaft','wsGesellschaftFrei');
+    el('wsKurs').value=kursMemoGet(wsAuftraggeber(),wsGesellschaftWert());
+  }
 });
-el('wsGesellschaft').addEventListener('change',()=>{el('wsGesellschaftFrei').style.display=el('wsGesellschaft').value==='__frei'?'block':'none'});
+el('wsGesellschaft').addEventListener('change',()=>{
+  el('wsGesellschaftFrei').style.display=el('wsGesellschaft').value==='__frei'?'block':'none';
+  const k=kursMemoGet(wsAuftraggeber(),wsGesellschaftWert());
+  if(k)el('wsKurs').value=k;
+});
 el('btnWsOrdner').addEventListener('click',wsOrdnerOeffnen);
 el('btnWsGenerate').addEventListener('click',wsPromptGenerieren);
 el('btnWsCopyOpen').addEventListener('click',wsKopierenUndOeffnen);
