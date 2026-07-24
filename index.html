@@ -1255,7 +1255,7 @@ body{padding-bottom:64px}
 <div class="modal" id="importModal">
   <div class="sheet">
     <h2>Kalender-Import</h2>
-    <p style="font-size:14px;color:var(--grau);margin-bottom:10px">Durchsucht deinen Google Kalender nach Seminar- und Reiseterminen und legt daraus Reise-Entwürfe an, die du prüfst und speicherst.</p>
+    <p style="font-size:14px;color:var(--grau);margin-bottom:10px">Durchsucht deinen verbundenen Outlook-Kalender nach Seminar- und Reiseterminen und legt daraus Reise-Entwürfe an, die du prüfst und speicherst. Der Google-Familienkalender wird dabei nicht gelesen.</p>
     <div class="grid2">
       <div class="f"><label>Von</label><input type="date" id="iVon"></div>
       <div class="f"><label>Bis</label><input type="date" id="iBis"></div>
@@ -2492,6 +2492,25 @@ function renderTaskFilter(){
     taskFilter=b.dataset.tf;renderTaskFilter();renderTaskBoard();
   }));
 }
+/* Titel und Notiz waren bisher nur in To Do selbst aenderbar. Die Notiz traegt bei
+   einsortierten Mails den Kontext, deshalb hier mitbearbeitbar. */
+function taskBearbeiten(id){
+  const t=taskCache.find(x=>x.id===id); if(!t)return;
+  const row=document.querySelector('[data-trow="'+id+'"]'); if(!row)return;
+  const notiz=String((t.body&&t.body.content)||'').replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
+  row.innerHTML='<div class="f"><label>Titel</label><input type="text" class="teTitel" value="'+esc(t.title||'')+'"></div>'+
+    '<div class="f" style="margin-top:6px"><label>Notiz</label><textarea class="teNotiz" rows="3">'+esc(notiz)+'</textarea></div>'+
+    '<div style="display:flex;gap:8px;margin-top:8px">'+
+    '<button type="button" class="minibtn haupt teOk">Speichern</button>'+
+    '<button type="button" class="minibtn teAb">Abbrechen</button></div>';
+  row.querySelector('.teTitel').focus();
+  row.querySelector('.teAb').addEventListener('click',renderTaskBoard);
+  row.querySelector('.teOk').addEventListener('click',()=>{
+    const titel=row.querySelector('.teTitel').value.trim();
+    if(!titel){toast('Ohne Titel geht es nicht');return}
+    taskAendern(id,{title:titel,body:{content:row.querySelector('.teNotiz').value,contentType:'text'}});
+  });
+}
 function renderTaskBoard(){
   const box=el('taskBoard');
   const sicht=taskSichtbar();
@@ -2511,6 +2530,7 @@ function renderTaskBoard(){
   }).join('')+'</div>';
   box.querySelectorAll('[data-tdone]').forEach(b=>b.addEventListener('click',()=>taskAendern(b.dataset.tdone,{status:'completed'})));
   box.querySelectorAll('[data-tstart]').forEach(b=>b.addEventListener('click',()=>taskAendern(b.dataset.tstart,{status:'inProgress'})));
+  box.querySelectorAll('[data-tedit]').forEach(b=>b.addEventListener('click',()=>taskBearbeiten(b.dataset.tedit)));
   box.querySelectorAll('[data-flagfix]').forEach(b=>b.addEventListener('click',()=>flaggeEinsortieren(b.dataset.flagfix)));
   box.querySelectorAll('select[data-tprio]').forEach(s=>s.addEventListener('change',()=>taskAendern(s.dataset.tprio,{importance:s.value})));
   box.querySelectorAll('input[data-tdue]').forEach(i=>i.addEventListener('change',()=>{
@@ -2548,14 +2568,17 @@ function taskRowHtml(t){
   /* Herkunft = Liste (das neue Ordnungssystem), Kategorie nur als Rückfall
      für Aufgaben, die noch in der Standardliste liegen. */
   const kat=t._listName||(t.categories||[]).find(c=>TASK_KATEGORIEN.includes(c))||'';
-  return '<div class="trow">'+
+  const hatNotiz=!!String((t.body&&t.body.content)||'').replace(/<[^>]+>/g,'').trim();
+  return '<div class="trow" data-trow="'+t.id+'">'+
     '<div class="ttitle">'+esc(t.title)+'</div>'+
     '<div class="tmeta">'+
     (kat?'<span class="tpill">'+esc(kat)+'</span>':'')+
     (t.importance==='high'?'<span class="tpill prio-high">Hoch</span>':'')+
+    (hatNotiz?'<span class="tpill" title="Notiz vorhanden">Notiz</span>':'')+
     '<input type="date" data-tdue="'+t.id+'" value="'+due+'" style="font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 4px">'+
     '<select data-tprio="'+t.id+'" style="width:auto"><option value="normal"'+(t.importance==='normal'?' selected':'')+'>Normal</option><option value="high"'+(t.importance==='high'?' selected':'')+'>Hoch</option><option value="low"'+(t.importance==='low'?' selected':'')+'>Niedrig</option></select>'+
     ((istFlaggenListe(t._listName)||t._istDefault)?'<button type="button" class="minibtn klein" data-flagfix="'+t.id+'" title="In die richtige Liste übernehmen">→ Einsortieren</button>':'')+
+    '<button type="button" class="minibtn klein" data-tedit="'+t.id+'" title="Titel und Notiz ändern">✎ Bearbeiten</button>'+
     (t.status!=='inProgress'?'<button type="button" class="minibtn klein" data-tstart="'+t.id+'" >Start</button>':'')+
     '<button type="button" class="minibtn klein" data-tdone="'+t.id+'" >✓ Fertig</button>'+
     '</div></div>';
@@ -3936,8 +3959,12 @@ async function cockpitZaehlen(){
 }
 
 async function cockpitAuswerten(){
-  const box=el('cockpitListe'), st=el('cockpitStatus');
+  const box=el('cockpitListe'), st=el('cockpitStatus'), knopf=el('btnCockpitLesen');
   if(!msAccount){st.textContent='Erst Outlook verbinden (Einstellungen).';return}
+  /* Jeder Lauf kostet je Mail einen Sonnet-Aufruf. Ein zweiter Klick waehrend des
+     Laufs wuerde alles noch einmal bezahlen. */
+  if(knopf&&knopf.disabled)return;
+  if(knopf)knopf.disabled=true;
   st.textContent=''; box.innerHTML='<div class="hint"><span class="spin"></span>Ordner wird gelesen …</div>';
   try{
     const o=await cockpitOrdnerHolen(true);
@@ -3957,6 +3984,7 @@ async function cockpitAuswerten(){
     }
     cockpitRendern();
   }catch(e){box.innerHTML='<div class="hint">Fehler: '+esc(e.message)+'</div>'}
+  finally{if(knopf)knopf.disabled=false}
 }
 
 /* Ein Aufruf je Mail. Der Text wird auf 6.000 Zeichen gekürzt — das Wesentliche steht
@@ -3999,16 +4027,22 @@ function cockpitRendern(){
   const box=el('cockpitListe');
   if(!cockpitEintraege.length){box.innerHTML='<div class="hint">Ordner ist leer — alles verarbeitet.</div>';return}
   box.innerHTML=cockpitEintraege.map((e,i)=>{
-    const inhalt=e.vorschlaege.length?e.vorschlaege.map((v,j)=>
+    const offen=e.vorschlaege.filter(v=>!v.uebergeben).length;
+    const inhalt=(e.vorschlaege.length?e.vorschlaege.map((v,j)=>
       '<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">'+
-      '<select class="ckArt" data-i="'+i+'" data-j="'+j+'">'+
+      '<select class="ckArt" data-i="'+i+'" data-j="'+j+'"'+(v.uebergeben?' disabled':'')+'>'+
       COCKPIT_ARTEN.map(a=>'<option value="'+a[0]+'"'+(a[0]===v.art?' selected':'')+'>'+a[1]+'</option>').join('')+'</select>'+
       '<div class="hint" style="margin-top:4px">'+esc(v.kurz||'')+'</div>'+
-      '<div style="display:flex;gap:8px;margin-top:6px">'+
-      '<button class="minibtn haupt" data-ck="ok" data-i="'+i+'" data-j="'+j+'">Übernehmen</button>'+
-      '<button class="minibtn" data-ck="weg" data-i="'+i+'" data-j="'+j+'">Verwerfen</button></div></div>').join('')
-      :'<div style="margin-top:6px"><span class="hint">Nichts erkannt.</span> '+
-       '<button class="minibtn" data-ck="weg" data-i="'+i+'" data-j="-1">Nach Erledigt</button></div>';
+      (v.uebergeben?'<div class="hint" style="margin-top:6px">\u2192 ins Formular übertragen — dort noch speichern.</div>'
+        :'<div style="display:flex;gap:8px;margin-top:6px">'+
+         '<button class="minibtn haupt" data-ck="ok" data-i="'+i+'" data-j="'+j+'">Übernehmen</button>'+
+         '<button class="minibtn" data-ck="weg" data-i="'+i+'" data-j="'+j+'">Verwerfen</button></div>')+
+      '</div>').join('')
+      :'<div class="hint" style="margin-top:6px">Nichts erkannt.</div>')+
+      /* Zwei offene Vorschlaege fuellen nacheinander dasselbe Formular - der zweite
+         wuerde den ersten ueberschreiben, wenn dazwischen nicht gespeichert wird. */
+      (offen>1?'<div class="hint" style="margin-top:6px">Mehreres erkannt — nacheinander übernehmen und jeweils speichern.</div>':'')+
+      '<div style="margin-top:8px"><button class="minibtn" data-ck="fertig" data-i="'+i+'" data-j="-1">Mail nach Erledigt</button></div>';
     return '<div class="mailrow" style="display:block"><div><b>'+esc(e.betreff)+'</b></div>'+
       '<div class="mfrom">'+esc(e.von)+'</div>'+inhalt+'</div>';
   }).join('');
@@ -4018,25 +4052,25 @@ function cockpitRendern(){
   box.querySelectorAll('button[data-ck]').forEach(b=>b.addEventListener('click',()=>cockpitAktion(b.dataset.ck,+b.dataset.i,+b.dataset.j)));
 }
 
-/* Übernehmen füllt über universalWeiterleiten dieselbe Karte wie die Ablage-Zone.
-   Die Mail wandert erst, wenn zu ihr kein Vorschlag mehr offen ist. */
+/* Übernehmen füllt über universalWeiterleiten nur das jeweilige Formular — außer bei
+   der IHK-Abrechnung wird dort noch nichts gespeichert. Die Mail darf deshalb NICHT
+   schon beim Übernehmen wandern: sonst wäre sie aus dem Ordner verschwunden, während
+   das Formular noch ungespeichert ist, und ein Abbruch verlöre den Vorgang lautlos.
+   Sie wandert erst, wenn er selbst „Mail nach Erledigt" drückt. */
 async function cockpitAktion(was,i,j){
   const e=cockpitEintraege[i]; if(!e)return;
-  const v=j>=0?e.vorschlaege[j]:null;
-  if(v){
-    e.vorschlaege.splice(j,1);
-    if(was==='ok'){
-      const p={art:v.art}; p[v.art]=v.felder||{};
-      await universalWeiterleiten(p, el('cockpitStatus'));
-    }
-  }else{
-    e.vorschlaege=[];
-  }
-  if(!e.vorschlaege.length){
+  if(was==='fertig'){
     cockpitEintraege.splice(i,1);
     await cockpitVerschieben(e.id);
+    cockpitRendern(); cockpitZaehlen();
+    return;
   }
-  cockpitRendern(); cockpitZaehlen();
+  const v=e.vorschlaege[j]; if(!v)return;
+  if(was==='weg'){e.vorschlaege.splice(j,1);cockpitRendern();return}
+  v.uebergeben=true;
+  cockpitRendern();
+  const p={art:v.art}; p[v.art]=v.felder||{};
+  await universalWeiterleiten(p, el('cockpitStatus'));
 }
 
 async function cockpitVerschieben(id){
@@ -6334,7 +6368,7 @@ async function importKalender(){
     st.textContent=neu+' Reise-Entwürfe angelegt. Tippe sie in der Liste an, um Details zu prüfen.';
     toast(neu+' Entwürfe importiert');
   }catch(err){
-    st.textContent='Import fehlgeschlagen: '+err.message+'. Prüfe, ob der Google-Kalender-Connector verbunden ist, und versuche es erneut.';
+    st.textContent='Import fehlgeschlagen: '+err.message+'. Prüfe unter Einstellungen, ob Outlook verbunden ist, und versuche es erneut.';
   }
   el('iStart').disabled=false;
 }
