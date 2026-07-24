@@ -8,7 +8,7 @@
    Hinweis: Kommentare bewusst ohne Umlaute - Cloudflare liefert .js ohne
    charset-Angabe aus, dann stellt der Browser Umlaute falsch dar.
 */
-const CACHE = 'dozenten-cockpit-v63';
+const CACHE = 'dozenten-cockpit-v64';
 const SHELL = ['/', '/index.html'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
