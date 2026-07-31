@@ -5662,26 +5662,28 @@ async function istKostenScan(){
   const seit=new Date(); seit.setMonth(seit.getMonth()-monate);
   const mails=[];
   let quellFehler=[];
-  /* --- Gmail: Volltext, weil der Betrag oft erst im Body steht --- */
+  /* --- Gmail: Volltext, weil der Betrag oft erst im Body steht. Die Mails werden
+         in Sechserbloecken parallel geholt - einzeln nacheinander dauert bei 100
+         Treffern mehrere Minuten, und man sieht nicht, dass es laeuft. --- */
   if(gdToken){
     try{
       const q=encodeURIComponent('(invoice OR receipt OR rechnung OR quittung OR beleg OR "payment received" OR zahlungsbestaetigung) after:'+ymd(seit).replace(/-/g,'/')+' -category:promotions');
-      let seite='', geholt=0;
-      do{
-        const liste=await gmailApi('/messages?q='+q+'&maxResults=100'+(seite?'&pageToken='+encodeURIComponent(seite):''));
-        const ids=(liste.messages||[]).map(m=>m.id);
-        for(const id of ids){
-          if(geholt>=120)break;
-          try{
-            const m=await gmailApi('/messages/'+id+'?format=full');
-            const h={};(m.payload&&m.payload.headers||[]).forEach(x=>{h[x.name.toLowerCase()]=x.value});
-            const txt=(gmailBodyText(m.payload)||m.snippet||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-            mails.push({quelle:'Gmail',from:h.from||'',subject:h.subject||'',date:h.date||'',text:txt.slice(0,1400)});
-            geholt++;
-          }catch(e){}
-        }
-        seite=liste.nextPageToken||'';
-      }while(seite&&geholt<120);
+      const liste=await gmailApi('/messages?q='+q+'&maxResults=60');
+      const ids=(liste.messages||[]).map(m=>m.id).slice(0,60);
+      st.innerHTML='<span class="spin"></span>Gmail: '+ids.length+' Treffer, lade Inhalte \u2026';
+      for(let i=0;i<ids.length;i+=6){
+        const teil=ids.slice(i,i+6);
+        const res=await Promise.all(teil.map(id=>
+          gmailApi('/messages/'+id+'?format=full').catch(()=>null)
+        ));
+        res.forEach(m=>{
+          if(!m)return;
+          const h={};(m.payload&&m.payload.headers||[]).forEach(x=>{h[x.name.toLowerCase()]=x.value});
+          const txt=(gmailBodyText(m.payload)||m.snippet||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+          mails.push({quelle:'Gmail',from:h.from||'',subject:h.subject||'',date:h.date||'',text:txt.slice(0,1200)});
+        });
+        st.innerHTML='<span class="spin"></span>Gmail: '+Math.min(i+6,ids.length)+'/'+ids.length+' Mails geladen \u2026';
+      }
     }catch(e){quellFehler.push('Gmail: '+e.message)}
   }
   /* --- Outlook (Optima) ueber Graph. $search laesst sich nicht mit $filter
