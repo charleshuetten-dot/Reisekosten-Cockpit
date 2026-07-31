@@ -1003,7 +1003,7 @@ body{padding-bottom:64px}
 <div class="kpis" id="toolKpis"></div>
 
 <div class="card vollbreite" id="istKostenCard" style="border-color:var(--rot)">
-    <h2>💶 Ist-Kosten aus Belegen</h2>
+    <h2>💶 Ist-Kosten aus Belegen <span class="hint mono" style="margin:0;font-size:11px">Fassung 56</span></h2>
     <div class="hint" style="margin:6px 0 10px">Liest Rechnungsmails aus Gmail und dem Optima-Postfach im Volltext, zieht Anbieter, Betrag und Datum heraus und summiert je Anbieter <b>und Monat</b>. Bei schwankenden Posten — etwa der Claude-Extra-Usage — rechnet das Cockpit danach mit dem Schnitt der gemessenen Monate statt mit einem festen Grundbetrag. Es wird nichts angelegt und nichts geändert, bis du es einzeln übernimmst.</div>
     <div class="grid3">
       <div class="f"><label>Zeitraum</label><select id="ikMonate"><option value="3">3 Monate</option><option value="6">6 Monate</option><option value="12">12 Monate</option></select></div>
@@ -1011,6 +1011,7 @@ body{padding-bottom:64px}
       <div class="f"><label>Quellen</label><div class="hint" id="ikQuellen" style="margin:0"></div></div>
     </div>
     <button type="button" class="minibtn haupt" id="btnIstKosten" style="width:100%;margin-top:12px;padding:15px 16px;font-size:16px;font-weight:600">💶 Belege jetzt auswerten</button>
+    <button type="button" class="minibtn rot" id="btnIstKostenStop" style="width:100%;margin-top:6px;padding:12px;display:none">Abbrechen</button>
     <div class="hint" id="ikStand" style="margin-top:8px"></div>
     <div class="hint" id="ikStatus" style="margin-top:6px"></div>
     <div id="ikErgebnis" style="margin-top:10px"></div>
@@ -5652,13 +5653,31 @@ function ikStandZeigen(){
   const q=el('ikQuellen');
   if(q)q.innerHTML=(gdToken?'\u2713 Gmail':'\u2013 Gmail nicht verbunden')+'<br>'+(msAccount?'\u2713 Outlook':'\u2013 Outlook nicht verbunden');
 }
+let ikAbbruch=false;
+function ikStop(){ikAbbruch=true;const st=el('ikStatus');if(st)st.textContent='Abgebrochen.';const b=el('btnIstKostenStop');if(b)b.style.display='none'}
 async function istKostenScan(){
   const st=el('ikStatus'), box=el('ikErgebnis');
+  const stopBtn=el('btnIstKostenStop');
   const monate=+el('ikMonate').value||3;
   const kurs=+el('ikKurs').value||0.86;
   if(!gdToken&&!msAccount){st.textContent='Weder Google noch Outlook verbunden \u2014 unten unter \u201eVerbindungen\u201c verbinden.';return}
-  st.innerHTML='<span class="spin"></span>Sammle Rechnungsmails \u2026';
+  ikAbbruch=false;
+  if(stopBtn)stopBtn.style.display='block';
+  const fertig=()=>{if(stopBtn)stopBtn.style.display='none'};
+  st.innerHTML='<span class="spin"></span>Schritt 1/4: Google-Zugang pr\u00fcfen \u2026';
   if(box)box.innerHTML='';
+  /* Zugang zuerst und mit hartem Zeitlimit pruefen: haengt hier etwas, sagen wir
+     das - frueher lief der Scan endlos weiter, ohne dass man den Grund sah. */
+  if(gdToken){
+    const probe=await Promise.race([
+      gdEnsureToken().catch(()=>null),
+      new Promise(r=>setTimeout(()=>r('__timeout__'),15000))
+    ]);
+    if(probe==='__timeout__'||!probe){
+      st.innerHTML='Google-Zugang l\u00e4sst sich nicht erneuern. Unten unter \u201eVerbindungen\u201c einmal <b>Trennen</b> und neu verbinden, dann nochmal starten.';
+      fertig();return;
+    }
+  }
   const seit=new Date(); seit.setMonth(seit.getMonth()-monate);
   const mails=[];
   let quellFehler=[];
@@ -5668,10 +5687,12 @@ async function istKostenScan(){
   if(gdToken){
     try{
       const q=encodeURIComponent('(invoice OR receipt OR rechnung OR quittung OR beleg OR "payment received" OR zahlungsbestaetigung) after:'+ymd(seit).replace(/-/g,'/')+' -category:promotions');
+      st.innerHTML='<span class="spin"></span>Schritt 2/4: Gmail durchsuchen \u2026';
       const liste=await gmailApi('/messages?q='+q+'&maxResults=60');
       const ids=(liste.messages||[]).map(m=>m.id).slice(0,60);
-      st.innerHTML='<span class="spin"></span>Gmail: '+ids.length+' Treffer, lade Inhalte \u2026';
+      st.innerHTML='<span class="spin"></span>Schritt 2/4: Gmail \u2014 '+ids.length+' Treffer, lade Inhalte \u2026';
       for(let i=0;i<ids.length;i+=6){
+        if(ikAbbruch)break;
         const teil=ids.slice(i,i+6);
         const res=await Promise.all(teil.map(id=>
           gmailApi('/messages/'+id+'?format=full').catch(()=>null)
@@ -5682,7 +5703,7 @@ async function istKostenScan(){
           const txt=(gmailBodyText(m.payload)||m.snippet||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
           mails.push({quelle:'Gmail',from:h.from||'',subject:h.subject||'',date:h.date||'',text:txt.slice(0,1200)});
         });
-        st.innerHTML='<span class="spin"></span>Gmail: '+Math.min(i+6,ids.length)+'/'+ids.length+' Mails geladen \u2026';
+        st.innerHTML='<span class="spin"></span>Schritt 2/4: Gmail \u2014 '+Math.min(i+6,ids.length)+'/'+ids.length+' Mails geladen \u2026';
       }
     }catch(e){quellFehler.push('Gmail: '+e.message)}
   }
@@ -5690,7 +5711,7 @@ async function istKostenScan(){
          kombinieren, deshalb mehrere Suchbegriffe nacheinander und danach
          selbst nach Datum filtern. --- */
   if(msAccount){
-    st.innerHTML='<span class="spin"></span>Sammle Rechnungsmails \u2026 (Optima-Postfach)';
+    st.innerHTML='<span class="spin"></span>Schritt 3/4: Optima-Postfach durchsuchen \u2026';
     const begriffe=['rechnung','invoice','receipt','quittung','beleg'];
     let ok=0;
     for(const w of begriffe){
@@ -5717,13 +5738,15 @@ async function istKostenScan(){
     const k=(m.subject||'').toLowerCase()+'|'+String(m.date||'').slice(0,10);
     if(seen.has(k))return; seen.add(k); uniq.push(m);
   });
+  if(ikAbbruch){fertig();return}
   if(!uniq.length){
     st.textContent='Keine Rechnungsmails im Zeitraum gefunden.'+(quellFehler.length?' ('+quellFehler.join('; ')+')':'');
-    return;
+    fertig();return;
   }
   /* --- Claude zieht je Mail einen Posten. In Haeppchen, sonst platzt der Prompt. --- */
   const posten=[];
   for(let i=0;i<uniq.length;i+=12){
+    if(ikAbbruch)break;
     const teil=uniq.slice(i,i+12);
     const prompt='Ziehe aus jeder E-Mail EINEN Zahlungsposten, wenn eindeutig ein bezahlter Betrag genannt ist. '+
       'Keine Angebote, keine reinen Zahlungserinnerungen, keine Werbung. '+
@@ -5742,7 +5765,7 @@ async function istKostenScan(){
       const arr=JSON.parse(txt);
       if(Array.isArray(arr))arr.forEach(p=>{if(p&&p.anbieter&&+p.betrag>0)posten.push(p)});
     }catch(e){}
-    st.innerHTML='<span class="spin"></span>Werte aus \u2026 '+Math.min(i+12,uniq.length)+'/'+uniq.length+' Mails';
+    st.innerHTML='<span class="spin"></span>Schritt 4/4: Belege auswerten \u2026 '+Math.min(i+12,uniq.length)+'/'+uniq.length+' Mails';
   }
   /* --- Aggregieren je Anbieter UND Monat --- */
   const pro={};
@@ -5768,6 +5791,7 @@ async function istKostenScan(){
   state.settings.istKosten={stand:heuteISO(),kurs:kurs,monate:monate,belege:posten.length,mails:uniq.length,liste:liste};
   await save();
   st.textContent='Fertig: '+posten.length+' Belege aus '+uniq.length+' Mails \u2192 '+liste.length+' Anbieter.'+(quellFehler.length?' Hinweis: '+quellFehler.join('; '):'');
+  fertig();
   renderIstKosten();
 }
 function renderIstKosten(){
@@ -6567,13 +6591,22 @@ function gdInitClient(){
   return true;
 }
 function gdRequestToken(promptMode){
+  /* Wichtig: Google ruft den callback bei stiller Erneuerung ('none') NICHT auf,
+     wenn die Sitzung abgelaufen ist oder Drittanbieter-Cookies blockiert sind.
+     Ohne Zeitlimit blieb dieses Promise dann fuer immer offen - und jeder
+     await darauf (Gmail-Scan, Ist-Kosten) haengt sichtbar "ewig". Deshalb:
+     error_callback anhaengen und nach 12 s hart mit null aufloesen. */
   return new Promise(resolve=>{
     if(!gdTokenClient){resolve(null);return}
+    let fertig=false;
+    const ende=v=>{if(fertig)return;fertig=true;clearTimeout(uhr);resolve(v)};
+    const uhr=setTimeout(()=>ende(null),12000);
     gdTokenClient.callback=(resp)=>{
-      if(resp&&resp.access_token){gdSaveToken({access_token:resp.access_token,expires_at:Date.now()+(resp.expires_in||3600)*1000});resolve(resp.access_token)}
-      else resolve(null);
+      if(resp&&resp.access_token){gdSaveToken({access_token:resp.access_token,expires_at:Date.now()+(resp.expires_in||3600)*1000});ende(resp.access_token)}
+      else ende(null);
     };
-    try{gdTokenClient.requestAccessToken(promptMode?{prompt:promptMode}:{})}catch(e){resolve(null)}
+    gdTokenClient.error_callback=()=>ende(null);
+    try{gdTokenClient.requestAccessToken(promptMode?{prompt:promptMode}:{})}catch(e){ende(null)}
   });
 }
 async function gdEnsureToken(){
@@ -7177,6 +7210,7 @@ el('btnToolAufraeumen').addEventListener('click',()=>{if(confirm('Tool-Liste auf
 el('btnAboImport').addEventListener('click',()=>{if(confirm('Die geprüften Abo-Daten (Stand 21.07.2026) importieren? 9 Tools mit Tarif, Betrag, Konto und Vertragsende. Vorhandene Tools mit gleichem Namen werden aktualisiert, neue angelegt. Konten SCC-KK, Coaching-Karte und Optima werden bei Bedarf angelegt.'))abosImportieren()});
 el('btnGmailScan').addEventListener('click',gmailScan);
 el('btnIstKosten').addEventListener('click',istKostenScan);
+el('btnIstKostenStop').addEventListener('click',ikStop);
 document.addEventListener('click',e=>{const b=e.target.closest('[data-gmailadd]');if(b)gmailAboUebernehmen(+b.getAttribute('data-gmailadd'))});
 el('btnAccountNeu').addEventListener('click',accountNeu);
 el('btnZielKm').addEventListener('click',zielKmBerechnen);
