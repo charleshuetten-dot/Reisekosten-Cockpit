@@ -1002,6 +1002,20 @@ body{padding-bottom:64px}
 
 <div class="kpis" id="toolKpis"></div>
 
+<div class="card vollbreite" id="istKostenCard" style="border-color:var(--rot)">
+    <h2>💶 Ist-Kosten aus Belegen</h2>
+    <div class="hint" style="margin:6px 0 10px">Liest Rechnungsmails aus Gmail und dem Optima-Postfach im Volltext, zieht Anbieter, Betrag und Datum heraus und summiert je Anbieter <b>und Monat</b>. Bei schwankenden Posten — etwa der Claude-Extra-Usage — rechnet das Cockpit danach mit dem Schnitt der gemessenen Monate statt mit einem festen Grundbetrag. Es wird nichts angelegt und nichts geändert, bis du es einzeln übernimmst.</div>
+    <div class="grid3">
+      <div class="f"><label>Zeitraum</label><select id="ikMonate"><option value="3">3 Monate</option><option value="6">6 Monate</option><option value="12">12 Monate</option></select></div>
+      <div class="f"><label>USD → EUR</label><input type="number" id="ikKurs" step="0.001" min="0" inputmode="decimal" value="0.86"></div>
+      <div class="f"><label>Quellen</label><div class="hint" id="ikQuellen" style="margin:0"></div></div>
+    </div>
+    <button type="button" class="minibtn haupt" id="btnIstKosten" style="width:100%;margin-top:12px;padding:15px 16px;font-size:16px;font-weight:600">💶 Belege jetzt auswerten</button>
+    <div class="hint" id="ikStand" style="margin-top:8px"></div>
+    <div class="hint" id="ikStatus" style="margin-top:6px"></div>
+    <div id="ikErgebnis" style="margin-top:10px"></div>
+  </div>
+
 <div class="card vollbreite" id="toolKontenCard" style="display:none"><h2>Kosten je Konto</h2><div id="toolKonten"></div></div>
 
 <div class="card" id="toolWarnCard" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
@@ -2116,6 +2130,11 @@ const TOOL_DB=[
 ];
 function toolListe(){ if(!Array.isArray(state.tools))state.tools=[]; return state.tools; }
 function toolMonatskosten(t){
+  /* Ist-Kosten aus Belegen schlagen den erfassten Grundbetrag: bei schwankenden
+     Posten (Claude-Extra-Usage, ElevenLabs-Kontingente) ist der Schnitt der
+     gemessenen Monate naeher an der Wahrheit als ein fixer Tarif. Nur aktiv,
+     wenn er den Anbieter im Ist-Kosten-Block ausdruecklich uebernommen hat. */
+  if(t.istAktiv&&+t.istSchnitt>0)return +t.istSchnitt;
   const b=+t.betrag||0;
   if(t.intervall==='monatlich')return b;
   if(t.intervall==='jaehrlich')return b/12;
@@ -4974,7 +4993,7 @@ function bereichWechseln(b){
   if(b==='seminare'){renderMsStatus();renderMeetings();renderReiseplanung()}
   if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderProjekte();renderWerkstattAufgaben()}
   if(b==='abrechnung'){render()}
-  if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true)}
+  if(b==='tools'){renderTools();renderIstKosten();renderMsStatus();renderOdStatus();renderGtasks(true)}
   if(b==='werkstatt')renderJobs();
   if(b==='start'){renderTbAuswertung();renderHeuteZeile()}
   /* FAB ist jetzt ueberall sichtbar — der Schnellerfassen-Knopf soll in jedem Bereich
@@ -5610,6 +5629,182 @@ function gmailAboUebernehmen(i){
   /* Zeile als erledigt markieren */
   const btn=document.querySelector('[data-gmailadd="'+i+'"]');
   if(btn)btn.outerHTML='<span class="hint" style="margin:0">✓ übernommen</span>';
+}
+
+/* ---------- Ist-Kosten aus Belegen: Gmail + Outlook (Optima) ----------
+   Der Tool-Stack kennt nur Tarife. Was tatsaechlich abgebucht wurde, steht in den
+   Rechnungsmails. Dieser Block liest sie, laesst Claude je Mail einen Zahlungsposten
+   herausziehen und summiert je Anbieter UND Monat. Mehrere Belege desselben Anbieters
+   im selben Monat werden addiert - genau das ist bei der Claude-Extra-Usage der Punkt. */
+function ikMonatsKey(d){
+  const x=new Date(d);
+  if(isNaN(x))return '';
+  return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0');
+}
+function ikStandZeigen(){
+  const st=el('ikStand');
+  if(st){
+    const s=state.settings.istKosten;
+    st.innerHTML = (s&&s.stand)
+      ? 'Zuletzt ausgewertet: '+dfmt(s.stand)+' \u00b7 '+(s.belege||0)+' Belege aus '+(s.mails||0)+' Mails \u00b7 Kurs '+(s.kurs||'')+'.'
+      : 'Noch nie ausgewertet.';
+  }
+  const q=el('ikQuellen');
+  if(q)q.innerHTML=(gdToken?'\u2713 Gmail':'\u2013 Gmail nicht verbunden')+'<br>'+(msAccount?'\u2713 Outlook':'\u2013 Outlook nicht verbunden');
+}
+async function istKostenScan(){
+  const st=el('ikStatus'), box=el('ikErgebnis');
+  const monate=+el('ikMonate').value||3;
+  const kurs=+el('ikKurs').value||0.86;
+  if(!gdToken&&!msAccount){st.textContent='Weder Google noch Outlook verbunden \u2014 unten unter \u201eVerbindungen\u201c verbinden.';return}
+  st.innerHTML='<span class="spin"></span>Sammle Rechnungsmails \u2026';
+  if(box)box.innerHTML='';
+  const seit=new Date(); seit.setMonth(seit.getMonth()-monate);
+  const mails=[];
+  let quellFehler=[];
+  /* --- Gmail: Volltext, weil der Betrag oft erst im Body steht --- */
+  if(gdToken){
+    try{
+      const q=encodeURIComponent('(invoice OR receipt OR rechnung OR quittung OR beleg OR "payment received" OR zahlungsbestaetigung) after:'+ymd(seit).replace(/-/g,'/')+' -category:promotions');
+      let seite='', geholt=0;
+      do{
+        const liste=await gmailApi('/messages?q='+q+'&maxResults=100'+(seite?'&pageToken='+encodeURIComponent(seite):''));
+        const ids=(liste.messages||[]).map(m=>m.id);
+        for(const id of ids){
+          if(geholt>=120)break;
+          try{
+            const m=await gmailApi('/messages/'+id+'?format=full');
+            const h={};(m.payload&&m.payload.headers||[]).forEach(x=>{h[x.name.toLowerCase()]=x.value});
+            const txt=(gmailBodyText(m.payload)||m.snippet||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+            mails.push({quelle:'Gmail',from:h.from||'',subject:h.subject||'',date:h.date||'',text:txt.slice(0,1400)});
+            geholt++;
+          }catch(e){}
+        }
+        seite=liste.nextPageToken||'';
+      }while(seite&&geholt<120);
+    }catch(e){quellFehler.push('Gmail: '+e.message)}
+  }
+  /* --- Outlook (Optima) ueber Graph. $search laesst sich nicht mit $filter
+         kombinieren, deshalb mehrere Suchbegriffe nacheinander und danach
+         selbst nach Datum filtern. --- */
+  if(msAccount){
+    st.innerHTML='<span class="spin"></span>Sammle Rechnungsmails \u2026 (Optima-Postfach)';
+    const begriffe=['rechnung','invoice','receipt','quittung','beleg'];
+    let ok=0;
+    for(const w of begriffe){
+      try{
+        const r=await graph('/me/messages?$search='+encodeURIComponent('"'+w+'"')+'&$top=25&$select=subject,from,receivedDateTime,bodyPreview');
+        (r&&r.value||[]).forEach(m=>{
+          if(new Date(m.receivedDateTime)<seit)return;
+          mails.push({
+            quelle:'Outlook',
+            from:(m.from&&m.from.emailAddress&&m.from.emailAddress.address)||'',
+            subject:m.subject||'',
+            date:m.receivedDateTime||'',
+            text:(m.bodyPreview||'').replace(/\s+/g,' ').slice(0,1000)
+          });
+        });
+        ok++;
+      }catch(e){}
+    }
+    if(!ok)quellFehler.push('Outlook: Suche lieferte nichts (Graph $search)');
+  }
+  /* Dubletten raus \u2014 dieselbe Mail taucht ueber mehrere Suchbegriffe auf */
+  const seen=new Set(), uniq=[];
+  mails.forEach(m=>{
+    const k=(m.subject||'').toLowerCase()+'|'+String(m.date||'').slice(0,10);
+    if(seen.has(k))return; seen.add(k); uniq.push(m);
+  });
+  if(!uniq.length){
+    st.textContent='Keine Rechnungsmails im Zeitraum gefunden.'+(quellFehler.length?' ('+quellFehler.join('; ')+')':'');
+    return;
+  }
+  /* --- Claude zieht je Mail einen Posten. In Haeppchen, sonst platzt der Prompt. --- */
+  const posten=[];
+  for(let i=0;i<uniq.length;i+=12){
+    const teil=uniq.slice(i,i+12);
+    const prompt='Ziehe aus jeder E-Mail EINEN Zahlungsposten, wenn eindeutig ein bezahlter Betrag genannt ist. '+
+      'Keine Angebote, keine reinen Zahlungserinnerungen, keine Werbung. '+
+      'WICHTIG: Mehrere Belege desselben Anbieters bleiben EINZELNE Posten \u2014 nicht zusammenfassen, nicht entdoppeln.\n'+
+      'Antworte AUSSCHLIESSLICH mit JSON-Array, ohne Markdown:\n'+
+      '[{"anbieter":"Name","betrag":Zahl,"waehrung":"EUR|USD","datum":"YYYY-MM-DD"}]\n'+
+      'Kein Betrag erkennbar \u2192 Mail weglassen. Leeres Array ist erlaubt.\n\nE-Mails:\n'+
+      teil.map((m,j)=>(j+1)+'. ['+m.quelle+'] Von: '+m.from+' | Betreff: '+m.subject+' | Datum: '+m.date+' | '+m.text).join('\n---\n').slice(0,14000);
+    try{
+      const resp=await fetch(claudeEndpoint(),{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,messages:[{role:'user',content:prompt}]})
+      });
+      const data=await resp.json();
+      let txt=(data.content&&data.content[0]&&data.content[0].text||'').trim().replace(/^```json/,'').replace(/^```/,'').replace(/```$/,'').trim();
+      const arr=JSON.parse(txt);
+      if(Array.isArray(arr))arr.forEach(p=>{if(p&&p.anbieter&&+p.betrag>0)posten.push(p)});
+    }catch(e){}
+    st.innerHTML='<span class="spin"></span>Werte aus \u2026 '+Math.min(i+12,uniq.length)+'/'+uniq.length+' Mails';
+  }
+  /* --- Aggregieren je Anbieter UND Monat --- */
+  const pro={};
+  posten.forEach(p=>{
+    const name=String(p.anbieter).trim();
+    const key=norm2(name);
+    if(!key)return;
+    let b=+p.betrag||0;
+    if(String(p.waehrung||'').toUpperCase()==='USD')b=b*kurs;
+    const mk=ikMonatsKey(p.datum);
+    if(!mk)return;
+    if(!pro[key])pro[key]={name:name,monate:{},belege:0};
+    pro[key].monate[mk]=(pro[key].monate[mk]||0)+b;
+    pro[key].belege++;
+  });
+  const liste=Object.keys(pro).map(k=>{
+    const a=pro[k];
+    const mk=Object.keys(a.monate).sort();
+    const summe=mk.reduce((s,m)=>s+a.monate[m],0);
+    return {key:k,name:a.name,monate:a.monate,belege:a.belege,summe:summe,
+            anzMonate:mk.length,schnitt:mk.length?summe/mk.length:0};
+  }).sort((a,b)=>b.schnitt-a.schnitt);
+  state.settings.istKosten={stand:heuteISO(),kurs:kurs,monate:monate,belege:posten.length,mails:uniq.length,liste:liste};
+  await save();
+  st.textContent='Fertig: '+posten.length+' Belege aus '+uniq.length+' Mails \u2192 '+liste.length+' Anbieter.'+(quellFehler.length?' Hinweis: '+quellFehler.join('; '):'');
+  renderIstKosten();
+}
+function renderIstKosten(){
+  ikStandZeigen();
+  const s=state.settings.istKosten;
+  const selM=el('ikMonate'), selK=el('ikKurs');
+  if(s&&selM&&s.monate)selM.value=String(s.monate);
+  if(s&&selK&&s.kurs)selK.value=s.kurs;
+  const box=el('ikErgebnis'); if(!box)return;
+  if(!s||!s.liste||!s.liste.length){box.innerHTML='';return}
+  const max=Math.max.apply(null,s.liste.map(a=>a.schnitt))||1;
+  box.innerHTML=s.liste.map((a,i)=>{
+    const mk=Object.keys(a.monate).sort();
+    const detail=mk.map(m=>m.slice(5)+'/'+m.slice(2,4)+': '+eur(a.monate[m])).join(' \u00b7 ');
+    const breite=Math.round(a.schnitt/max*100);
+    const t=toolListe().find(x=>norm2(x.name)===a.key);
+    const knopf = t
+      ? (t.istAktiv
+          ? '<span class="hint" style="margin:0;color:var(--ok)">\u2713 fliesst in die Kostenrechnung</span>'
+          : '<button type="button" class="minibtn" data-ikuse="'+i+'" style="margin-top:6px">Als Ist-Kosten f\u00fcr \u201e'+esc(t.name)+'\u201c \u00fcbernehmen</button>')
+      : '<span class="hint" style="margin:0">kein passendes Tool im Stack</span>';
+    return '<div style="padding:9px 0;border-bottom:1px solid var(--line)">'+
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">'+
+      '<b>'+esc(a.name)+'</b><span class="mono">'+eur(a.schnitt)+'/M</span></div>'+
+      '<div style="height:6px;background:var(--line);border-radius:3px;margin:5px 0"><div style="height:6px;width:'+breite+'%;background:var(--rot);border-radius:3px"></div></div>'+
+      '<div class="hint" style="margin:0">'+a.belege+' Belege \u00b7 '+a.anzMonate+' Monat(e) \u00b7 '+esc(detail)+'</div>'+
+      knopf+'</div>';
+  }).join('');
+  box.querySelectorAll('[data-ikuse]').forEach(b=>b.addEventListener('click',()=>ikUebernehmen(+b.getAttribute('data-ikuse'))));
+}
+async function ikUebernehmen(i){
+  const s=state.settings.istKosten;
+  const a=s&&s.liste&&s.liste[i]; if(!a)return;
+  const t=toolListe().find(x=>norm2(x.name)===a.key); if(!t)return;
+  t.istSchnitt=Math.round(a.schnitt*100)/100;
+  t.istAktiv=true;
+  t.notiz=(t.notiz?t.notiz+' \u00b7 ':'')+'Ist-Kosten '+dfmt(s.stand)+': '+eur(t.istSchnitt)+'/M aus '+a.belege+' Belegen';
+  await save(); renderTools(); renderIstKosten();
+  toast(t.name+': '+eur(t.istSchnitt)+'/M \u00fcbernommen');
 }
 
 /* ---------- Google Kalender (Familienkalender als Ziel) ---------- */
@@ -6979,6 +7174,7 @@ el('btnWerkzeugeStack').addEventListener('click',werkzeugeInStack);
 el('btnToolAufraeumen').addEventListener('click',()=>{if(confirm('Tool-Liste aufräumen? Claude-Varianten werden zu einem Eintrag zusammengeführt, „HeyGen / ElevenLabs" entfernt (die beiden gibt es einzeln), und ChatGPT, Telekom, Prompt Cowboy, Mentimeter auf inaktiv gesetzt. Beträge und Konten bleiben erhalten.'))toolAufraeumen()});
 el('btnAboImport').addEventListener('click',()=>{if(confirm('Die geprüften Abo-Daten (Stand 21.07.2026) importieren? 9 Tools mit Tarif, Betrag, Konto und Vertragsende. Vorhandene Tools mit gleichem Namen werden aktualisiert, neue angelegt. Konten SCC-KK, Coaching-Karte und Optima werden bei Bedarf angelegt.'))abosImportieren()});
 el('btnGmailScan').addEventListener('click',gmailScan);
+el('btnIstKosten').addEventListener('click',istKostenScan);
 document.addEventListener('click',e=>{const b=e.target.closest('[data-gmailadd]');if(b)gmailAboUebernehmen(+b.getAttribute('data-gmailadd'))});
 el('btnAccountNeu').addEventListener('click',accountNeu);
 el('btnZielKm').addEventListener('click',zielKmBerechnen);
