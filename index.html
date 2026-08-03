@@ -999,6 +999,10 @@ body{padding-bottom:64px}
       <button class="minibtn" id="btnInstall" style="display:none">App installieren</button>
       <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
     </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button class="minibtn rot" id="btnNeuAufsetzen">Bewegungsdaten neu aufsetzen</button>
+      <button type="button" class="hilfe" data-tip="Zieht zuerst eine JSON-Sicherung und löscht dann Reisen, Liefer-Aufträge, Rechnungen und Meetings. Auftraggeber-Stammdaten, Tool-Stack, gelernte Kategorien und alle Verbindungen bleiben erhalten." aria-label="Erklärung">?</button>
+    </div>
     <div class="hint" id="envHint"></div>
   </details>
 
@@ -1182,9 +1186,14 @@ body{padding-bottom:64px}
     </div>
     <div class="f"><label>Anlass</label><input type="text" id="fZweck" placeholder="z. B. Seminar Marketing Grundlagen"></div>
     <div class="grid2">
-      <div class="f"><label>Anreise</label><input type="date" id="fVon"></div>
-      <div class="f"><label>Rückreise</label><input type="date" id="fBis"></div>
+      <div class="f"><label>Seminar von</label><input type="date" id="fVon"></div>
+      <div class="f"><label>Seminar bis</label><input type="date" id="fBis"></div>
     </div>
+    <div class="grid2" id="fReiseTageWrap">
+      <div class="f"><label>Anreise (nur bei Vorabend)</label><input type="date" id="fAnreise"></div>
+      <div class="f"><label>Abreise (nur bei Folgetag)</label><input type="date" id="fAbreise"></div>
+    </div>
+    <div class="hint" id="reiseSpanneHint" style="margin:-4px 0 10px"></div>
     <div class="check" id="fMitternachtWrap" style="display:none"><input type="checkbox" id="fMitternacht"><label for="fMitternacht">Ohne Übernachtung — Rückkehr erst nach Mitternacht</label></div>
     <div class="check" id="f8hWrap" style="display:none"><input type="checkbox" id="f8h" checked><label for="f8h">Eintägig, mehr als 8 h abwesend</label></div>
 
@@ -1245,8 +1254,16 @@ body{padding-bottom:64px}
         <div class="hint" style="margin-bottom:8px">Separater Vorgang: was die SCC dem Auftraggeber in Rechnung stellt (nicht deine interne Erstattung oben).</div>
         <div class="grid2">
           <div class="f"><label>Auftragsnummer</label><input type="text" id="fAuftragsnr" placeholder="z. B. AB-2026-0417"></div>
+          <div class="f"><label>Abrechnungseinheit</label>
+            <select id="fHonEinheit"><option value="tag">je Seminartag</option><option value="block">je Block</option><option value="stunde">je Stunde</option><option value="pauschal">Pauschal</option></select>
+          </div>
+        </div>
+        <div class="grid3" id="fHonorarWrap">
+          <div class="f"><label>Satz (€)</label><input type="number" id="fHonSatz" min="0" step="0.01" inputmode="decimal" placeholder="z. B. 650,00"></div>
+          <div class="f"><label>Anzahl</label><input type="number" id="fHonAnzahl" min="0" step="0.5" inputmode="decimal" placeholder="2"></div>
           <div class="f"><label>Honorar netto (€)</label><input type="number" id="fHonorar" min="0" step="0.01" inputmode="decimal" placeholder="z. B. 950,00"></div>
         </div>
+        <div class="hint" id="honorarHint" style="margin:-4px 0 8px"></div>
         <div class="f" id="rechnungModusWrap"><label>Reisekosten-Abrechnung beim Auftraggeber</label>
           <div class="segment">
             <button type="button" id="segEinzel">Einzelabrechnung</button>
@@ -1356,6 +1373,11 @@ function syncModus(){
   if(el('stHotelRow'))el('stHotelRow').style.display=online?'none':'flex';
   el('rechnungModusWrap').style.display=online?'none':'block';
   if(online)el('fPauschaleWrap').style.display='none';
+  /* Online heisst kein Ortswechsel: An-/Abreise und Mahlzeiten sind gegenstandslos. */
+  if(el('fReiseTageWrap'))el('fReiseTageWrap').style.display=online?'none':'grid';
+  if(el('mahlzeitenWrap'))el('mahlzeitenWrap').style.display=online?'none':'block';
+  if(online){if(el('fAnreise'))el('fAnreise').value='';if(el('fAbreise'))el('fAbreise').value=''}
+  reiseSpanneHint();
 }
 
 /* ---------- Helfer ---------- */
@@ -1397,7 +1419,26 @@ function renderPerBtns(){
   box.querySelectorAll('.qbtn').forEach(b=>b.onclick=()=>{ui.q=+b.dataset.q;render()});
 }
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function naechte(t){if(!t.von||!t.bis||t.bis<=t.von)return 0;return Math.round((new Date(t.bis)-new Date(t.von))/86400000)}
+/* Vier Daten je Reise. von/bis sind die SEMINARTAGE — nur die zaehlen fuers Honorar.
+   anreise/abreise sind optional und nur gesetzt, wenn er vorabends faehrt oder erst
+   am Folgetag zurueckkommt; diese Tage bezahlt der Auftraggeber nicht, die Fahrtkosten
+   erstattet er trotzdem. Die Verpflegungspauschale gegenueber der SCC rechnet ueber die
+   volle Reise, also von reiseBeginn bis reiseEnde. */
+/* Die vier Datumsfelder als Objekt — damit naechte()/semTage() im Formular
+   dasselbe rechnen wie auf einer gespeicherten Reise. */
+function formDatum(){
+  return {von:el('fVon').value, bis:el('fBis').value||el('fVon').value,
+          anreise:el('fAnreise')?el('fAnreise').value:'', abreise:el('fAbreise')?el('fAbreise').value:''};
+}
+function reiseBeginn(t){ return t.anreise||t.von||''; }
+function reiseEnde(t){ return t.abreise||t.bis||t.von||''; }
+function semTage(t){
+  if(!t.von)return 0;
+  const b=t.bis||t.von;
+  if(b<t.von)return 1;
+  return Math.round((new Date(b)-new Date(t.von))/86400000)+1;
+}
+function naechte(t){const v=reiseBeginn(t),b=reiseEnde(t);if(!v||!b||b<=v)return 0;return Math.round((new Date(b)-new Date(v))/86400000)}
 
 /* ---------- Berechnung ---------- */
 function berechne(t){
@@ -1557,6 +1598,8 @@ function openForm(id){
   zeigeKontakt();
   el('fZiel').value=t?(t.zielAdresse||t.ziel||''):''; el('fZweck').value=t?t.zweck||'':'';
   el('fVon').value=t?t.von:''; el('fBis').value=t?t.bis||'':'';
+  if(el('fAnreise'))el('fAnreise').value=t?(t.anreise||''):'';
+  if(el('fAbreise'))el('fAbreise').value=t?(t.abreise||''):'';
   el('fMitternacht').checked=t?!!t.mitternacht:false;
   el('f8h').checked=t?!!t.ueber8h:true;
   mahl=t?Object.assign({fr:0,mi:0,ab:0},t.mahl):{fr:0,mi:0,ab:0};
@@ -1581,6 +1624,9 @@ function openForm(id){
   el('memoWrap').style.display=t?'block':'none'; el('memoWrap').open=false;
   el('memoText').value=''; el('memoStatus').textContent='';
   el('fAuftragsnr').value=t?t.auftragsnr||'':''; el('fHonorar').value=t&&t.honorar?t.honorar:'';
+  if(el('fHonEinheit'))el('fHonEinheit').value=(t&&t.honEinheit)||'tag';
+  if(el('fHonSatz'))el('fHonSatz').value=t&&t.honSatz?t.honSatz:'';
+  if(el('fHonAnzahl'))el('fHonAnzahl').value=t&&t.honAnzahl?t.honAnzahl:'';
   rechnungModus=t?(t.rechnungModus||'einzel'):'einzel';
   el('fPauschale').value=t&&t.pauschale?t.pauschale:'';
   el('fRechnungGestellt').checked=!!(t&&t.rechnungGestellt);
@@ -1632,6 +1678,9 @@ function prefillInBestand(t,p){
   if(p.auftragsnummer)t.auftragsnr=p.auftragsnummer;
   const honorar=p.honorarGesamt||((p.honorarProTermin||0)*(p.anzahlTermine||1));
   if(honorar)t.honorar=honorar;
+  if(p.honorarEinheit)t.honEinheit=p.honorarEinheit;
+  if(p.honorarProTermin)t.honSatz=p.honorarProTermin;
+  if(p.anzahlTermine)t.honAnzahl=p.anzahlTermine;
   if(p.ustBefreit&&!/USt-befreit/.test(t.zweck||''))t.zweck=(t.zweck?t.zweck+' · ':'')+'USt-befreit §4 Nr.21a UStG';
   t.entwurf=false;
   return t;
@@ -1672,6 +1721,10 @@ function openFormPrefill(p){
   el('fAuftragsnr').value=p.auftragsnummer||'';
   const honorar=p.honorarGesamt||((p.honorarProTermin||0)*(p.anzahlTermine||1));
   el('fHonorar').value=honorar||'';
+  if(el('fHonEinheit'))el('fHonEinheit').value=p.honorarEinheit||'tag';
+  if(el('fHonSatz'))el('fHonSatz').value=p.honorarProTermin||'';
+  if(el('fHonAnzahl'))el('fHonAnzahl').value=p.anzahlTermine||'';
+  honorarSync('summe');
   rechnungModus='einzel';syncRechnungModus();
   el('rechnungWrap').open=true;
   if(p.zielAdresse||p.ziel){autoKmAusAdresse(p.zielAdresse||p.ziel)}
@@ -1689,7 +1742,7 @@ async function abParseFile(file){
       body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,
         messages:[{role:"user",content:[
           {type:isPdf?"document":"image",source:{type:"base64",media_type:isPdf?"application/pdf":file.type,data:b64}},
-          {type:"text",text:"Das ist eine Auftragsbestätigung/Dozentenvereinbarung für eine Seminar-/Dozententätigkeit. Extrahiere die Angaben und antworte AUSSCHLIESSLICH mit einem JSON-Objekt, ohne Markdown, ohne Erklärung, in genau diesem Format: {\"auftragsnummer\":\"\",\"auftraggeber\":\"\",\"ziel\":\"Stadt des Veranstaltungsortes\",\"zielAdresse\":\"Name oder Adresse der Räumlichkeit, so wortwörtlich wie im Dokument\",\"zweck\":\"kurze Bezeichnung der Maßnahme/des Seminars\",\"von\":\"YYYY-MM-DD (erster Termin/Tag)\",\"bis\":\"YYYY-MM-DD (letzter Termin/Tag)\",\"honorarProTermin\":0,\"anzahlTermine\":1,\"honorarGesamt\":0,\"ustBefreit\":false}. honorarGesamt ist honorarProTermin multipliziert mit anzahlTermine, außer im Dokument steht bereits ein expliziter Gesamtbetrag. Wenn ein Feld nicht auffindbar ist: leer lassen bzw. 0. Nichts erfinden."}
+          {type:"text",text:"Das ist eine Auftragsbestätigung/Dozentenvereinbarung für eine Seminar-/Dozententätigkeit. Extrahiere die Angaben und antworte AUSSCHLIESSLICH mit einem JSON-Objekt, ohne Markdown, ohne Erklärung, in genau diesem Format: {\"auftragsnummer\":\"\",\"auftraggeber\":\"\",\"ziel\":\"Stadt des Veranstaltungsortes\",\"zielAdresse\":\"Name oder Adresse der Räumlichkeit, so wortwörtlich wie im Dokument\",\"zweck\":\"kurze Bezeichnung der Maßnahme/des Seminars\",\"von\":\"YYYY-MM-DD (erster Termin/Tag)\",\"bis\":\"YYYY-MM-DD (letzter Termin/Tag)\",\"honorarEinheit\":\"tag|block|stunde|pauschal\",\"honorarProTermin\":0,\"anzahlTermine\":1,\"honorarGesamt\":0,\"ustBefreit\":false}. honorarEinheit sagt, WORAUF sich der Satz bezieht: \"tag\" bei einem Tagessatz, \"block\" bei Abrechnung je Seminarblock (mehrere Blöcke können auf denselben Tag fallen), \"stunde\" bei Stundensatz, \"pauschal\" wenn nur ein Gesamtbetrag ohne Satz genannt ist. honorarProTermin ist der Satz je Einheit, anzahlTermine die Anzahl der Einheiten. honorarGesamt ist honorarProTermin multipliziert mit anzahlTermine, außer im Dokument steht bereits ein expliziter Gesamtbetrag. Wenn ein Feld nicht auffindbar ist: leer lassen bzw. 0. Nichts erfinden."}
         ]}]
       })
     });
@@ -1785,16 +1838,27 @@ function syncRechnungModus(){
   el('fPauschaleWrap').style.display=rechnungModus==='pauschale'?'block':'none';
 }
 function syncTage(){
-  const von=el('fVon').value,bis=el('fBis').value;
+  const d=formDatum();
+  const von=reiseBeginn(d), bis=reiseEnde(d);
   const span=von&&bis&&bis>von?Math.round((new Date(bis)-new Date(von))/86400000):0;
   el('fMitternachtWrap').style.display=span===1?'flex':'none';
   if(span!==1)el('fMitternacht').checked=false;
-  const eintaegig=span===0||el('fMitternacht').checked;
   el('f8hWrap').style.display=(span===0)?'flex':'none';
-  const n=el('fMitternacht').checked?0:span;
-  /* Der alte Tipp „Frühstück auf N setzen" ist überflüssig — vpAutoAnwenden macht das
-     jetzt selbst; vpHinweis schreibt stattdessen die vollständige Herleitung ins Feld. */
-  vpHinweis();
+  vpHinweis(); reiseSpanneHint();
+}
+/* Zeigt in einem Satz, was die vier Daten bedeuten — welche Tage bezahlt werden
+   und ueber welche Spanne die Verpflegungspauschale laeuft. */
+function reiseSpanneHint(){
+  const box=el('reiseSpanneHint'); if(!box)return;
+  const d=formDatum();
+  if(!d.von){box.textContent='';return}
+  if(reiseModus==='online'){box.textContent='Online — keine An-/Abreise, keine Verpflegungspauschale.';return}
+  const tage=semTage(d), n=naechte(d);
+  const teile=[tage+' Seminartag(e) — nur die zählen fürs Honorar'];
+  teile.push(n>0?('Reise '+dfmt(reiseBeginn(d))+' bis '+dfmt(reiseEnde(d))+', '+n+' Übernachtung(en)'):'Eintägig, keine Übernachtung');
+  if(d.anreise&&d.anreise>=d.von)teile.push('⚠ Anreise liegt nicht vor dem ersten Seminartag');
+  if(d.abreise&&d.abreise<=(d.bis||d.von))teile.push('⚠ Abreise liegt nicht nach dem letzten Seminartag');
+  box.textContent=teile.join(' · ');
 }
 /* ---------- Verpflegungs-Automatik (Welle 2) ----------
    Sein Schmerzpunkt bei der Abrechnung war, die Verpflegungstage korrekt zu treffen.
@@ -1806,14 +1870,14 @@ function syncTage(){
 function vpAutoAnwenden(){
   const cb=el('fHotelFr'); if(!cb)return;
   if(cb.checked){
-    const n=naechte({von:el('fVon').value,bis:el('fBis').value});
+    const n=naechte(formDatum());
     mahl.fr=n;
   }
   renderMahl(); vpHinweis(); calcPreview();
 }
 function vpHinweis(){
   const box=el('frHint'); if(!box)return;
-  const n=naechte({von:el('fVon').value,bis:el('fBis').value});
+  const n=naechte(formDatum());
   const auto=el('fHotelFr')&&el('fHotelFr').checked;
   const teile=[];
   if(n>0){
@@ -1845,6 +1909,7 @@ function formData(){
     ag:agSel==='__frei'?(el('fAgFrei').value.trim()||'Sonstige'):agSel,
     ziel:el('fZiel').value.trim(), zweck:el('fZweck').value.trim(),
     von:el('fVon').value, bis:el('fBis').value||el('fVon').value,
+    anreise:(el('fAnreise')&&el('fAnreise').value)||'', abreise:(el('fAbreise')&&el('fAbreise').value)||'',
     zielAdresse:(selZiel&&selZiel.adresse)?selZiel.adresse:(editId?((state.trips.find(x=>x.id===editId)||{}).zielAdresse||''):''),
     mitternacht:el('fMitternacht').checked, ueber8h:el('f8h').checked,
     mahl:Object.assign({},mahl), hotelFr:!!(el('fHotelFr')&&el('fHotelFr').checked),
@@ -1855,9 +1920,33 @@ function formData(){
     gesellschaft:reiseTyp==='ihk'?'':(el('fGesellschaft').value==='__frei'?el('fGesellschaftFrei').value.trim():el('fGesellschaft').value),
     status:{bahn:el('stBahn').checked,hotel:el('stHotel').checked,termine:el('stTermine').checked,unterlagen:el('stUnterlagen').checked},
     auftragsnr:el('fAuftragsnr').value.trim(), honorar:+el('fHonorar').value||0,
+    honEinheit:el('fHonEinheit')?el('fHonEinheit').value:'pauschal',
+    honSatz:+((el('fHonSatz')||{}).value)||0, honAnzahl:+((el('fHonAnzahl')||{}).value)||0,
     rechnungModus:reiseModus==='online'?'einzel':rechnungModus, pauschale:reiseModus==='online'?0:(+el('fPauschale').value||0), rechnungGestellt:el('fRechnungGestellt').checked,
     entwurf:false, abgerechnet:editId?(state.trips.find(x=>x.id===editId)||{}).abgerechnet&&!unlocked:false
   };
+}
+/* Honorar: Satz mal Anzahl, aber die Summe bleibt das fuehrende Feld. Steht in der
+   Bestaetigung nur ein Gesamtbetrag, traegt er ihn direkt ein und laesst Satz und
+   Anzahl leer. Bei "je Seminartag" wird die Anzahl aus den Seminartagen VORGESCHLAGEN,
+   nicht gesetzt — zwei Bloecke an einem Tag waeren sonst falsch gezaehlt. */
+function honorarSync(quelle){
+  const einheit=el('fHonEinheit')?el('fHonEinheit').value:'pauschal';
+  const satzF=el('fHonSatz'), anzF=el('fHonAnzahl'), sumF=el('fHonorar');
+  if(!satzF||!anzF||!sumF)return;
+  const tage=semTage(formDatum());
+  if(einheit==='tag'&&!anzF.value&&tage)anzF.value=tage;
+  const satz=+satzF.value||0, anz=+anzF.value||0;
+  if(quelle!=='summe'&&satz&&anz)sumF.value=(satz*anz).toFixed(2);
+  const box=el('honorarHint');
+  if(box){
+    const teile=[];
+    if(satz&&anz)teile.push(eur(satz)+' × '+anz+' = '+eur(satz*anz));
+    if(einheit==='tag'&&tage)teile.push(tage+' Seminartag(e) erfasst');
+    if(einheit!=='pauschal'&&!satz)teile.push('Satz aus der Auftragsbestätigung eintragen, oder nur die Summe rechts.');
+    box.textContent=teile.join(' · ');
+  }
+  rechnungCalcPreview();
 }
 function berechneKundenkosten(t){
   const c=berechne(t);
@@ -1896,16 +1985,23 @@ function rechnungenFuer(ag,ym){ return state.rechnungen.filter(r=>r.auftraggeber
    Pauschale das Einzelhonorar; die Seminare stehen darunter als Leistungsnachweis. */
 function agMonatPositionen(ag,ym){
   const stamm=agStamm(ag), trips=agMonatTrips(ag,ym);
-  if(stamm.pauschale){
-    return {positionen:[{text:stamm.pauschaleText||'Monatspauschale',honorar:stamm.pauschale,reise:0}],
-      nachweis:trips, soll:stamm.pauschale};
-  }
-  const positionen=trips.map(t=>{
+  const einzelPos=t=>{
     const k=berechneKundenkosten(t);
     const dat=t.von===t.bis||!t.bis?dfmt(t.von):dfmt(t.von)+'–'+dfmt(t.bis);
     return {text:(t.zweck||'Seminar')+' · '+dat+(t.ziel?' · '+t.ziel:''),
       honorar:k.honorar, reise:k.reisekosten, reiseModus:t.rechnungModus, tripId:t.id};
-  });
+  };
+  if(stamm.pauschale){
+    /* Die Monatspauschale deckt die regelmaessigen Termine ab. Alles mit eigener
+       Auftragsnummer ist ein separat beauftragter Termin (bei Global Finanz der
+       Praesenzfall) und wird zusaetzlich abgerechnet — Honorar plus Fahrtkosten. */
+    const separat=trips.filter(t=>(t.auftragsnr||'').trim());
+    const gedeckt=trips.filter(t=>!(t.auftragsnr||'').trim());
+    const positionen=[{text:stamm.pauschaleText||'Monatspauschale',honorar:stamm.pauschale,reise:0}]
+      .concat(separat.map(einzelPos));
+    return {positionen, nachweis:gedeckt, soll:positionen.reduce((s,p)=>s+p.honorar+p.reise,0)};
+  }
+  const positionen=trips.map(einzelPos);
   const soll=positionen.reduce((s,p)=>s+p.honorar+p.reise,0);
   return {positionen,nachweis:[],soll};
 }
@@ -3258,9 +3354,10 @@ async function ibDropParse(file){
 async function reiseTermineAnlegen(){
   if(!msAccount){toast('Bitte zuerst Outlook verbinden');return}
   const von=el('fVon').value, bis=el('fBis').value||el('fVon').value;
-  if(!von){toast('Bitte zuerst ein Anreisedatum eintragen');return}
+  if(!von){toast('Bitte zuerst den ersten Seminartag eintragen');return}
   const ag=(el('fAg').value==='__frei'&&el('fAgFrei'))?el('fAgFrei').value:el('fAg').value;
   const p={auftraggeber:ag,zweck:el('fZweck').value||'Seminar',von:von,bis:bis,
+    anreise:(el('fAnreise')&&el('fAnreise').value)||'', abreise:(el('fAbreise')&&el('fAbreise').value)||'',
     ziel:el('fZiel').value,zielAdresse:el('fZiel').value,beginn:'09:00',ende:'17:00'};
   const termine=planTermineBauen(p);
   const liste=termine.map(t=>'· '+dfmt(t.datum)+' '+t.von+'–'+t.bis+'  '+t.subject).join('\n');
@@ -4462,7 +4559,7 @@ async function mailAuslesen(mid,btn){
     const resp=await fetch(claudeEndpoint(),{
       method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,
-        messages:[{role:"user",content:"Das ist eine E-Mail an einen selbstständigen Seminardozenten. Betreff: "+(m.subject||'')+"\nText: "+bodyText+"\n\nWICHTIG — sein Geschäftsmodell: Eine Bildungsakademie (sein AUFTRAGGEBER) wird von einer Versicherung/Bank (der GESELLSCHAFT) mit einem Seminar beauftragt und bucht ihn als Dozenten. Er rechnet immer mit der Akademie ab, nie mit der Gesellschaft — auch wenn die Einladung direkt von der Gesellschaft kommt oder die Gesellschaft im Betreff steht.\nAUFTRAGGEBER ist immer genau einer aus dieser Liste: "+AUFTRAGGEBER.join(' | ')+". Ist keiner davon erkennbar, lass das Feld leer — rate NICHT den Absender.\nGESELLSCHAFT ist das Unternehmen, für dessen Mitarbeiter/Vermittler das Seminar stattfindet (z.B. "+GESELLSCHAFTEN.filter(g=>g!=='Allgemein').join(', ')+" oder eine andere). Steht keine fest, gib 'Allgemein' an.\nKATEGORIE ist das Fachthema, genau eines aus: "+KATEGORIEN.join(' | ')+".\n\nBestimme zuerst die Art: 'reise' = Seminarauftrag/Termin (Präsenz oder Online), 'lieferauftrag' = Arbeitsauftrag MIT Abgabefrist und ohne Seminartermin (WBT erstellen/konzipieren, WBT lektorieren/korrigieren, Klausuren korrigieren), 'unterlagen' = Auftrag zur Erstellung/Aktualisierung eigener Seminarunterlagen ohne Frist und ohne Seminartermin, 'bahn' = Buchungsbestätigung der Deutschen Bahn für eine Zugfahrt. Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\nBei 'reise': {\"art\":\"reise\",\"auftragsnummer\":\"\",\"auftraggeber\":\"\",\"gesellschaft\":\"\",\"kategorie\":\"\",\"ziel\":\"Stadt\",\"zielAdresse\":\"Name/Adresse der Räumlichkeit wörtlich\",\"zweck\":\"kurze Seminarbezeichnung\",\"von\":\"YYYY-MM-DD\",\"bis\":\"YYYY-MM-DD\",\"beginn\":\"HH:MM oder leer\",\"ende\":\"HH:MM oder leer\",\"honorarProTermin\":0,\"anzahlTermine\":1,\"honorarGesamt\":0,\"ustBefreit\":false,\"online\":false}\nBei 'lieferauftrag': {\"art\":\"lieferauftrag\",\"auftraggeber\":\"\",\"auftragsnummer\":\"\",\"jobArt\":\"wbt-erstellen|wbt-lektorat|klausuren|unterlagen|sonstiges\",\"titel\":\"kurze Bezeichnung der Leistung\",\"deadline\":\"YYYY-MM-DD oder leer\",\"umfang\":\"z.B. 5 Module, 12 Klausuren, 45 WBT-Minuten\",\"notiz\":\"Rückgabeweg/Ansprechpartner falls genannt\"}\nBei 'unterlagen': {\"art\":\"unterlagen\",\"auftraggeber\":\"\",\"gesellschaft\":\"\",\"kategorie\":\"\",\"thema\":\"Kurs/Klausur-Bezeichnung\",\"auftrag\":\"kurze Beschreibung was zu tun ist\"}\nBei 'bahn': {\"art\":\"bahn\",\"buchungsnummer\":\"Auftragsnummer der Bahn\",\"preisGesamt\":0,\"fahrten\":[{\"datum\":\"YYYY-MM-DD\",\"abfahrt\":\"HH:MM\",\"ankunft\":\"HH:MM\",\"von\":\"Startbahnhof\",\"nach\":\"Zielbahnhof\",\"zug\":\"z.B. ICE 599\"}]}\nBei 'bahn' WICHTIG: preisGesamt ist der Gesamtpreis der Buchung in Euro (alle Fahrten zusammen, wie in der Mail ausgewiesen). Gib pro Richtung GENAU EINE Fahrt an — fasse Umstiege zusammen zur Gesamtfahrt (erste Abfahrt, letzte Ankunft, bei mehreren Zügen alle Zugnummern durch Komma getrennt). Eine Hin- und Rückfahrt ergibt also zwei Einträge, eine einfache Fahrt einen.\nBei 'von'/'bis' NUR die reinen Seminartage, ohne An-/Abreise. Unbekannte Felder leer/0. Nichts erfinden."}]
+        messages:[{role:"user",content:"Das ist eine E-Mail an einen selbstständigen Seminardozenten. Betreff: "+(m.subject||'')+"\nText: "+bodyText+"\n\nWICHTIG — sein Geschäftsmodell: Eine Bildungsakademie (sein AUFTRAGGEBER) wird von einer Versicherung/Bank (der GESELLSCHAFT) mit einem Seminar beauftragt und bucht ihn als Dozenten. Er rechnet immer mit der Akademie ab, nie mit der Gesellschaft — auch wenn die Einladung direkt von der Gesellschaft kommt oder die Gesellschaft im Betreff steht.\nAUFTRAGGEBER ist immer genau einer aus dieser Liste: "+AUFTRAGGEBER.join(' | ')+". Ist keiner davon erkennbar, lass das Feld leer — rate NICHT den Absender.\nGESELLSCHAFT ist das Unternehmen, für dessen Mitarbeiter/Vermittler das Seminar stattfindet (z.B. "+GESELLSCHAFTEN.filter(g=>g!=='Allgemein').join(', ')+" oder eine andere). Steht keine fest, gib 'Allgemein' an.\nKATEGORIE ist das Fachthema, genau eines aus: "+KATEGORIEN.join(' | ')+".\n\nBestimme zuerst die Art: 'reise' = Seminarauftrag/Termin (Präsenz oder Online), 'lieferauftrag' = Arbeitsauftrag MIT Abgabefrist und ohne Seminartermin (WBT erstellen/konzipieren, WBT lektorieren/korrigieren, Klausuren korrigieren), 'unterlagen' = Auftrag zur Erstellung/Aktualisierung eigener Seminarunterlagen ohne Frist und ohne Seminartermin, 'bahn' = Buchungsbestätigung der Deutschen Bahn für eine Zugfahrt. Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\nBei 'reise': {\"art\":\"reise\",\"auftragsnummer\":\"\",\"auftraggeber\":\"\",\"gesellschaft\":\"\",\"kategorie\":\"\",\"ziel\":\"Stadt\",\"zielAdresse\":\"Name/Adresse der Räumlichkeit wörtlich\",\"zweck\":\"kurze Seminarbezeichnung\",\"von\":\"YYYY-MM-DD\",\"bis\":\"YYYY-MM-DD\",\"beginn\":\"HH:MM oder leer\",\"ende\":\"HH:MM oder leer\",\"honorarEinheit\":\"tag|block|stunde|pauschal\",\"honorarProTermin\":0,\"anzahlTermine\":1,\"honorarGesamt\":0,\"ustBefreit\":false,\"online\":false}\nBei 'lieferauftrag': {\"art\":\"lieferauftrag\",\"auftraggeber\":\"\",\"auftragsnummer\":\"\",\"jobArt\":\"wbt-erstellen|wbt-lektorat|klausuren|unterlagen|sonstiges\",\"titel\":\"kurze Bezeichnung der Leistung\",\"deadline\":\"YYYY-MM-DD oder leer\",\"umfang\":\"z.B. 5 Module, 12 Klausuren, 45 WBT-Minuten\",\"notiz\":\"Rückgabeweg/Ansprechpartner falls genannt\"}\nBei 'unterlagen': {\"art\":\"unterlagen\",\"auftraggeber\":\"\",\"gesellschaft\":\"\",\"kategorie\":\"\",\"thema\":\"Kurs/Klausur-Bezeichnung\",\"auftrag\":\"kurze Beschreibung was zu tun ist\"}\nBei 'bahn': {\"art\":\"bahn\",\"buchungsnummer\":\"Auftragsnummer der Bahn\",\"preisGesamt\":0,\"fahrten\":[{\"datum\":\"YYYY-MM-DD\",\"abfahrt\":\"HH:MM\",\"ankunft\":\"HH:MM\",\"von\":\"Startbahnhof\",\"nach\":\"Zielbahnhof\",\"zug\":\"z.B. ICE 599\"}]}\nBei 'bahn' WICHTIG: preisGesamt ist der Gesamtpreis der Buchung in Euro (alle Fahrten zusammen, wie in der Mail ausgewiesen). Gib pro Richtung GENAU EINE Fahrt an — fasse Umstiege zusammen zur Gesamtfahrt (erste Abfahrt, letzte Ankunft, bei mehreren Zügen alle Zugnummern durch Komma getrennt). Eine Hin- und Rückfahrt ergibt also zwei Einträge, eine einfache Fahrt einen.\nBei 'von'/'bis' NUR die reinen Seminartage, ohne An-/Abreise. honorarEinheit sagt, worauf sich der Satz bezieht: tag bei Tagessatz, block je Seminarblock, stunde bei Stundensatz, pauschal wenn nur ein Gesamtbetrag genannt ist. Unbekannte Felder leer/0. Nichts erfinden."}]
       })
     });
     const data=await resp.json();
@@ -4707,7 +4804,11 @@ function planTermineBauen(p){
   const out=[];
   const d0=new Date(p.von+'T00:00'), d1=new Date((p.bis||p.von)+'T00:00');
   const fahrMin=p._fahrMin;
-  if(fahrMin&&fahrMin<=60){
+  const dauerH=fahrMin?Math.max(1,Math.round(fahrMin/60)):3;
+  if(p.anreise&&p.anreise<p.von){
+    /* Erfasste Vorabendanreise schlaegt jede Schaetzung */
+    out.push({subject:'Anreise '+name,datum:p.anreise,von:'16:00',bis:addH('16:00',dauerH),ort:p.zielAdresse||p.ziel||''});
+  }else if(fahrMin&&fahrMin<=60){
     /* Anreise am Seminarmorgen: Abfahrt = Beginn − Fahrzeit − 60 Min Puffer */
     const start=minusMin(beginn,fahrMin+60);
     out.push({subject:'Anreise '+name,datum:p.von,von:start,bis:minusMin(beginn,60),ort:p.zielAdresse||p.ziel||''});
@@ -4721,7 +4822,10 @@ function planTermineBauen(p){
     out.push({subject:name,datum:ymd(d),von:beginn,bis:ende,ort:p.zielAdresse||p.ziel||''});
   }
   const abDauer=fahrMin?Math.max(1,Math.round(fahrMin/60)):3;
-  out.push({subject:'Abreise '+name,datum:(p.bis||p.von),von:ende,bis:addH(ende,abDauer),ort:p.zielAdresse||p.ziel||''});
+  if(p.abreise&&p.abreise>(p.bis||p.von))
+    out.push({subject:'Abreise '+name,datum:p.abreise,von:'09:00',bis:addH('09:00',abDauer),ort:p.zielAdresse||p.ziel||''});
+  else
+    out.push({subject:'Abreise '+name,datum:(p.bis||p.von),von:ende,bis:addH(ende,abDauer),ort:p.zielAdresse||p.ziel||''});
   return out;
 }
 function minusMin(hm,min){const[a,b]=hm.split(':').map(Number);let t=a*60+b-min;if(t<0)t=0;return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0')}
@@ -6287,7 +6391,7 @@ function nachOffen(){
   const grenze=tagVersetzt(heute,-21);
   return state.trips.filter(t=>
     t.typ!=='ihk' && t.modus!=='online' && !t.nachbereitet && !t.abgerechnet &&
-    t.von && (t.bis||t.von)<heute && (t.bis||t.von)>=grenze
+    t.von && reiseEnde(t)<heute && reiseEnde(t)>=grenze
   ).sort((a,b)=>(a.von||'').localeCompare(b.von||''));
 }
 function nachLuecken(t){
@@ -6908,7 +7012,10 @@ el('btnAzSpeichern').addEventListener('click',azSpeichern);
 el('btnOrdnerReload').addEventListener('click',()=>ordnerLaden(ordnerPfad));
 el('segEinzel').addEventListener('click',()=>{rechnungModus='einzel';syncRechnungModus();rechnungCalcPreview()});
 el('segPauschale').addEventListener('click',()=>{rechnungModus='pauschale';syncRechnungModus();rechnungCalcPreview()});
-['fAuftragsnr','fHonorar','fPauschale'].forEach(id=>el(id).addEventListener('input',rechnungCalcPreview));
+['fAuftragsnr','fPauschale'].forEach(id=>el(id).addEventListener('input',rechnungCalcPreview));
+el('fHonorar').addEventListener('input',()=>honorarSync('summe'));
+['fHonSatz','fHonAnzahl'].forEach(id=>{const n=el(id);if(n)n.addEventListener('input',()=>honorarSync('teile'))});
+if(el('fHonEinheit'))el('fHonEinheit').addEventListener('change',()=>honorarSync('einheit'));
 el('btnCopyRechnung').addEventListener('click',async()=>{
   const t=formData();
   const text=rechnungText(t);
@@ -6928,8 +7035,9 @@ document.querySelectorAll('.stepper button').forEach(b=>b.addEventListener('clic
   mahl[k]=Math.max(0,mahl[k]+ +b.dataset.d); renderMahl(); vpHinweis(); calcPreview();
 }));
 el('fHotelFr').addEventListener('change',vpAutoAnwenden);
-el('fVon').addEventListener('change',vpAutoAnwenden);
-el('fBis').addEventListener('change',vpAutoAnwenden);
+['fVon','fBis','fAnreise','fAbreise'].forEach(id=>{const n=el(id);if(n)n.addEventListener('change',()=>{
+  syncTage(); vpAutoAnwenden(); reiseSpanneHint(); honorarSync('datum');
+})});
 el('bAdd').addEventListener('click',()=>{
   const art=el('bArt').value.trim(), betrag=+el('bBetrag').value;
   if(!art||!betrag){toast('Belegart und Betrag angeben');return}
@@ -7038,6 +7146,22 @@ el('btnBackup').addEventListener('click',()=>{
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='Reisekosten_Backup_'+heuteISO()+'.json';a.click();
   toast('Backup exportiert');
+});
+/* Harter Schnitt vor dem Produktivstart: die Bewegungsdaten der Erprobungsphase
+   raus, die Stammdaten drin. Die Sicherung laeuft immer und ohne Rueckfrage —
+   sie kostet nichts und ist die einzige Umkehr. */
+const NEU_LEEREN=['trips','jobs','rechnungen','meetings','memos','ihkAbr','tagebuch'];
+el('btnNeuAufsetzen').addEventListener('click',async()=>{
+  const zaehl=NEU_LEEREN.map(k=>Array.isArray(state[k])?state[k].length:0).reduce((a,b)=>a+b,0);
+  if(!confirm('Sicherung wird heruntergeladen, danach werden '+zaehl+' Datensätze gelöscht:\nReisen, Liefer-Aufträge, Rechnungen, Meetings, Memos, Tagebuch.\n\nEinstellungen, Auftraggeber und Tool-Stack bleiben. Fortfahren?'))return;
+  const blob=new Blob([JSON.stringify(state,null,1)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='Cockpit_vor_Neustart_'+heuteISO()+'.json';a.click();
+  await new Promise(r=>setTimeout(r,900));
+  if(!confirm('Liegt die Sicherungsdatei im Download-Ordner? Erst danach wird gelöscht.'))return;
+  NEU_LEEREN.forEach(k=>{if(Array.isArray(state[k]))state[k]=[]});
+  await save(); render(); renderNachbereitung();
+  toast('Neu aufgesetzt — Stammdaten erhalten');
 });
 el('btnOdConnect').addEventListener('click',gdConnect);
 el('btnOdDisconnect').addEventListener('click',()=>{gdClearToken();renderOdStatus();toast('Google getrennt')});
