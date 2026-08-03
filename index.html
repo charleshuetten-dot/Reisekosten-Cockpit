@@ -201,9 +201,15 @@ header .wrap{padding:0 2px}
 .calc{background:var(--bg);border-radius:8px;padding:10px 12px;font-size:13.5px;margin:12px 0}
 .calc .row{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
 .calc .row.sum{border-top:1px solid var(--line);margin-top:5px;padding-top:6px;font-weight:600}
-.btnrow{display:flex;gap:10px;margin-top:14px}
-button.primary,button.ghost,button.danger{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-radius:8px;padding:11px 16px;cursor:pointer}
-button.primary{background:var(--rot);color:#fff;border:none;flex:1}
+.btnrow{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+/* Radius 999px wie bei .minibtn — im Sheet standen bisher eckige und runde
+   Knoepfe nebeneinander. Eine Form fuer alle Knoepfe. */
+button.primary,button.ghost,button.danger{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-radius:999px;padding:11px 16px;cursor:pointer}
+button.primary{background:var(--rot);color:#fff;border:none;flex:1 1 180px}
+/* Die Fussleiste bleibt am unteren Rand des Sheets stehen: bei kleinem Fenster
+   war "Speichern" sonst nur nach langem Scrollen erreichbar. Der negative
+   bottom-Wert gleicht das Innenabstand des Sheets aus. */
+.sheet .btnrow{position:sticky;bottom:calc(-26px - env(safe-area-inset-bottom));background:var(--paper);padding-top:10px;padding-bottom:calc(26px + env(safe-area-inset-bottom));margin-bottom:calc(-26px - env(safe-area-inset-bottom));box-shadow:0 -10px 14px -10px rgba(20,35,60,.22)}
 button.primary:disabled{background:#C6CDD6;cursor:default}
 button.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
 button.danger{background:#fff;color:var(--rot);border:1.5px solid var(--rot)}
@@ -411,8 +417,8 @@ body{padding-bottom:64px}
     <div id="taskForm" style="display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
       <div class="f"><label>Titel</label><input type="text" id="tkTitel" placeholder="z. B. Unterlagen Kapitel 3 überarbeiten"></div>
       <div class="grid2">
-        <div class="f"><label>Kategorie</label>
-          <select id="tkKat"><option>Dozentur</option><option>Going Public Akademie</option><option>BWV Rheinland</option><option>IHK Köln</option><option>Zinal</option><option>Global Finanz</option></select>
+        <div class="f"><label>Liste</label>
+          <select id="tkKat"></select>
         </div>
         <div class="f"><label>Priorität</label>
           <select id="tkPrio"><option value="normal">Normal</option><option value="high">Hoch</option><option value="low">Niedrig</option></select>
@@ -1213,6 +1219,11 @@ body{padding-bottom:64px}
     <div class="f" id="fKmWrap"><label>Kilometer (einfache Strecke)</label><input type="number" id="fKm" min="0" step="1" inputmode="numeric" placeholder="z. B. 290"></div>
     <div class="f" id="fBahnWrap" style="display:none">
       <label>Bahnkosten gesamt (€)</label><input type="number" id="fBahnK" min="0" step="0.01" inputmode="decimal" placeholder="z. B. 87,90">
+      <div id="bahnBelegDrop" class="dropzone" style="margin-top:8px">
+        Buchungsbestätigung oder Rechnung der Bahn hier ablegen — Preis wird übernommen
+        <input type="file" id="bahnBelegFile" accept=".pdf,.png,.jpg,.jpeg" style="display:none">
+      </div>
+      <div class="hint" id="bahnBelegStatus"></div>
       <button type="button" class="minibtn" id="btnBahnVergleich" style="margin-top:6px">🚄 Live vergleichen (Claude + BahnCard-Regeln)</button>
       <div class="hint" id="bahnVergleichBox"></div>
     </div>
@@ -1256,7 +1267,11 @@ body{padding-bottom:64px}
         <label class="check" style="display:flex"><input type="checkbox" id="stTermine"><span style="margin-left:6px">Outlook-Termine angelegt</span></label>
         <label class="check" style="display:flex"><input type="checkbox" id="stUnterlagen"><span style="margin-left:6px">Unterlagen vorbereitet</span></label>
       </div>
-      <button type="button" class="minibtn" id="btnBahnLink" style="margin-top:8px">Auf bahn.de suchen</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button type="button" class="minibtn" id="btnBahnLink">Auf bahn.de suchen</button>
+        <button type="button" class="minibtn" id="btnReiseTermine" title="Anreise, Seminartage und Abreise in Outlook anlegen">Termine anlegen</button>
+        <button type="button" class="minibtn" id="btnBestaetigung" title="Bestaetigungsmail als Outlook-Entwurf">Bestätigung entwerfen</button>
+      </div>
     </details>
 
     <details class="f" id="memoWrap" style="display:none"><summary style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer;padding:4px 0">Seminar-Memo <span id="memoBadge"></span></summary>
@@ -1277,8 +1292,6 @@ body{padding-bottom:64px}
       <button class="ghost" id="btnDup" style="display:none">Duplizieren</button>
       <button class="ghost" id="btnUnlock" style="display:none">Entsperren</button>
       <button class="ghost" id="btnCancel">Abbrechen</button>
-      <button class="minibtn" id="btnReiseTermine" title="Anreise, Seminartage und Abreise in Outlook anlegen">Termine anlegen</button>
-      <button class="minibtn" id="btnBestaetigung" title="Bestaetigungsmail als Outlook-Entwurf">Bestätigung entwerfen</button>
       <button class="primary" id="btnSave">Speichern</button>
     </div>
   </div>
@@ -1647,6 +1660,55 @@ async function abParseFile(file){
     }
   }catch(err){
     status.textContent='Auslesen fehlgeschlagen: '+err.message+'. Bitte Daten manuell eintragen.';
+  }
+}
+/* Bahnbeleg auslesen. Er bucht selbst und traegt den Preis bisher von Hand nach —
+   das ist die Stelle, an der sich ein Zahlendreher einschleicht. Ein Claude-Aufruf
+   je Beleg (Sonnet, ein bis zwei Seiten): rund 1 bis 2 Cent.
+   Der Preis wird NICHT stillschweigend gesetzt, sondern mit der erkannten
+   Buchungsnummer und den Fahrten angezeigt — Zahl aus einem Automaten gehoert geprueft. */
+async function bahnBelegParse(file){
+  const status=el('bahnBelegStatus');
+  if(!/pdf|png|jpe?g/i.test(file.type)&&!/\.(pdf|png|jpe?g)$/i.test(file.name)){status.textContent='Bitte PDF, PNG oder JPG ablegen.';return}
+  status.innerHTML='<span class="spin"></span>Lese Bahnbeleg …';
+  try{
+    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
+    const isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name);
+    const mime=isPdf?'application/pdf':(/png/i.test(file.type)?'image/png':'image/jpeg');
+    const resp=await fetch(claudeEndpoint(),{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:800,
+        messages:[{role:"user",content:[
+          {type:isPdf?"document":"image",source:{type:"base64",media_type:mime,data:b64}},
+          {type:"text",text:"Das ist eine Buchungsbestätigung oder Rechnung der Deutschen Bahn. Antworte AUSSCHLIESSLICH mit JSON, ohne Markdown: {\"buchungsnummer\":\"\",\"preisGesamt\":0,\"fahrten\":[{\"datum\":\"YYYY-MM-DD\",\"abfahrt\":\"HH:MM\",\"ankunft\":\"HH:MM\",\"von\":\"Startbahnhof\",\"nach\":\"Zielbahnhof\"}]}. preisGesamt ist der tatsächlich gezahlte Gesamtbetrag der Buchung in Euro (alle Fahrten zusammen, inkl. Reservierung, wie ausgewiesen) — NICHT der Preis einer einzelnen Fahrt und NICHT ein Normalpreis-Vergleichswert. Gib je Richtung genau EINE Fahrt an, Umstiege zusammengefasst (erste Abfahrt, letzte Ankunft). Nicht Auffindbares leer bzw. 0 lassen. Nichts erfinden."}
+        ]}]
+      })
+    });
+    const data=await resp.json();
+    if(data.error)throw new Error(data.error.message||'API-Fehler');
+    const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    const clean=text.replace(/```json|```/g,'').trim();
+    const s=clean.indexOf('{'),e2=clean.lastIndexOf('}');
+    if(s<0)throw new Error('Keine Daten erkannt');
+    const p=JSON.parse(clean.slice(s,e2+1));
+    const preis=Number(p.preisGesamt)||0;
+    if(!preis)throw new Error('Kein Gesamtpreis gefunden');
+    el('fBahnK').value=preis.toFixed(2);
+    el('stBahn').checked=true;
+    calcPreview();
+    const fahrten=(p.fahrten||[]).map(f=>[f.datum,f.von&&f.nach?f.von+' → '+f.nach:'',f.abfahrt&&f.ankunft?f.abfahrt+'–'+f.ankunft:''].filter(Boolean).join(' · ')).filter(Boolean);
+    status.innerHTML='Übernommen: <strong>'+eur(preis)+'</strong>'+(p.buchungsnummer?' · Buchung '+esc(p.buchungsnummer):'')+
+      (fahrten.length?'<br>'+fahrten.map(esc).join('<br>'):'')+'<br>Bitte gegen den Beleg prüfen.';
+    if(msAccount){
+      try{
+        const jahr=(el('fVon').value||heuteISO()).slice(0,4);
+        const name=('Bahn_'+(p.buchungsnummer||el('fVon').value||heuteISO())+'_'+(el('fZiel').value||'')).replace(/[\\/:*?"<>|#%]/g,'').trim()+(isPdf?'.pdf':'.jpg');
+        await odPutFile('Dozentur/Reisen/'+jahr+'/'+name,b64ToBlob(b64,mime),mime);
+        status.innerHTML+='<br>Beleg abgelegt: Dozentur/Reisen/'+jahr+'/'+esc(name);
+      }catch(e){/* Ablage optional */}
+    }
+  }catch(err){
+    status.textContent='Auslesen fehlgeschlagen: '+err.message+'. Bitte Betrag von Hand eintragen.';
   }
 }
 function setLock(locked){
@@ -2561,7 +2623,7 @@ let taskListId=null, taskListen=null, taskCache=[];
 async function taskListenHolen(){
   if(taskListen)return taskListen;
   const lists=await graph('/me/todo/lists');
-  taskListen=(lists.value||[]).map(l=>({id:l.id,name:l.displayName||'',istDefault:l.wellknownListName==='defaultList'}));
+  taskListen=(lists.value||[]).map(l=>({id:l.id,name:l.displayName||'',istDefault:l.wellknownListName==='defaultList',wk:l.wellknownListName||''}));
   return taskListen;
 }
 async function taskListIdHolen(){
@@ -2643,6 +2705,7 @@ async function taskBoardLaden(){
     if(taskFilter!=='alle' && !taskCache.some(t=>t._listName===taskFilter))taskFilter='alle';
     renderTaskFilter();
     renderTaskBoard();
+    if(el('taskForm')&&el('taskForm').style.display!=='none')tkListenFuellen();
   }catch(err){box.innerHTML='<div class="hint">Fehler: '+esc(err.message)+'</div>'}
 }
 function taskSichtbar(){
@@ -2765,7 +2828,24 @@ async function taskAendern(id,patch){
     else{const t=taskCache.find(x=>x.id===id);if(t)Object.assign(t,patch);renderTaskBoard()}
   }catch(e){toast('Änderung fehlgeschlagen')}
 }
-function taskFormOeffnen(){el('taskForm').style.display='block';el('tkTitel').value='';el('tkFaellig').value='';el('taskForm').scrollIntoView({behavior:'smooth'})}
+/* Die Auswahl kommt aus To Do selbst, nicht aus einer fest verdrahteten Liste —
+   sonst fehlt jede neu angelegte Liste hier, obwohl sie als Filter-Chip schon da ist.
+   "Gekennzeichnete E-Mail" fliegt raus: Graph laesst dort kein Anlegen zu. */
+async function tkListenFuellen(){
+  const sel=el('tkKat'); if(!sel)return;
+  const vorher=sel.value;
+  try{
+    const listen=await taskListenHolen();
+    const ziel=listen.filter(l=>l.name&&l.wk!=='flaggedEmails')
+                     .sort((a,b)=>a.name.localeCompare(b.name,'de'));
+    if(!ziel.length){sel.innerHTML='<option>Dozentur</option>';return}
+    sel.innerHTML=ziel.map(l=>'<option>'+esc(l.name)+'</option>').join('');
+    const wunsch=(vorher&&ziel.some(l=>l.name===vorher))?vorher
+      :((taskFilter!=='alle'&&ziel.some(l=>l.name===taskFilter))?taskFilter:ziel[0].name);
+    sel.value=wunsch;
+  }catch(e){ if(!sel.options.length)sel.innerHTML='<option>Dozentur</option>' }
+}
+function taskFormOeffnen(){el('taskForm').style.display='block';el('tkTitel').value='';el('tkFaellig').value='';tkListenFuellen();el('taskForm').scrollIntoView({behavior:'smooth'})}
 async function taskAnlegen(){
   const titel=el('tkTitel').value.trim();
   if(!titel){toast('Bitte Titel eingeben');return}
@@ -6809,6 +6889,15 @@ el('btnClose').addEventListener('click',quartalAbschliessen);
 /* Auftragsbestätigung: Drag & Drop / Klick */
 el('abDrop').addEventListener('click',()=>el('abFile').click());
 el('abFile').addEventListener('change',()=>{if(el('abFile').files[0])abParseFile(el('abFile').files[0]);el('abFile').value=''});
+/* Bahnbeleg im Reise-Formular: Klick, Ziehen, Ablegen */
+(function(){
+  const z=el('bahnBelegDrop'),f=el('bahnBelegFile'); if(!z||!f)return;
+  z.addEventListener('click',()=>f.click());
+  f.addEventListener('change',()=>{if(f.files[0])bahnBelegParse(f.files[0]);f.value=''});
+  ['dragover','dragenter'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.add('over')}));
+  ['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove('over')}));
+  z.addEventListener('drop',e=>{const d=e.dataTransfer.files[0];if(d)bahnBelegParse(d)});
+})();
 /* Merkt sich, über welcher Kachel der Cursor zuletzt war — entscheidet beim
    Strg+V, ob der Screenshot an IHK oder DATEV geht. */
 let pasteZiel='datev';
