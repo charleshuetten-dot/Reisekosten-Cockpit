@@ -207,6 +207,10 @@ header .wrap{padding:0 2px}
    Adressleiste eingeblendet ist - mit vh ragt das Sheet dann darunter. */
 .sheet{background:var(--paper);width:100%;max-width:640px;max-height:92vh;max-height:92dvh;overflow-y:auto;border-radius:16px 16px 0 0;padding:18px 16px calc(26px + env(safe-area-inset-bottom))}
 @media(min-width:680px){.modal{align-items:center}.sheet{border-radius:14px}}
+/* Eine Formularkarte, die ins Sheet gewandert ist, legt ihre Kartenhuelle ab:
+   Rahmen und Innenabstand kommen dort schon vom Sheet selbst. */
+.sheet .imSheet{border:0!important;padding:0!important;margin:0!important;background:transparent!important}
+.sheet .imSheet>h2{margin-bottom:12px}
 .sheet h2{font-size:var(--s-teil);font-weight:700;text-transform:uppercase;margin-bottom:12px}
 .f{margin-bottom:11px}
 .f label{display:block;font-size:var(--s-klein);font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin-bottom:4px}
@@ -1137,6 +1141,12 @@ body{padding-bottom:64px}
   </div>
 </div>
 
+<!-- Wirt fuer Formulare, die frueher als eigene Karte neben ihrer Liste standen.
+     Der Inhalt wird beim Oeffnen hierher verschoben und beim Schliessen zurueck. -->
+<div class="modal" id="formSheet">
+  <div class="sheet"><div id="sheetInhalt"></div></div>
+</div>
+
 <!-- Formular -->
 <div class="modal" id="modal">
   <div class="sheet">
@@ -1852,6 +1862,38 @@ function setLock(locked){
   document.querySelectorAll('#modal input,#modal select,.stepper button,#bAdd,.segment:not(#formTabs) button').forEach(n=>n.disabled=locked);
 }
 function closeForm(){el('modal').classList.remove('open')}
+
+/* ---------- Formulare als Sheet ----------
+   Die Formularkarten bleiben im Markup an ihrem Platz und werden zum Oeffnen in
+   das gemeinsame Modal verschoben. Weil es dieselben Knoten bleiben, gelten alle
+   IDs und Listener unveraendert weiter - getauscht wird nur der Ort im DOM. */
+let sheetOffen=null,sheetAnker=null;
+function sheetAuf(id){
+  const karte=el(id); if(!karte)return;
+  if(sheetOffen)sheetZu();
+  sheetAnker=document.createComment('sheet:'+id);
+  karte.parentNode.insertBefore(sheetAnker,karte);
+  el('sheetInhalt').appendChild(karte);
+  karte.style.display='';
+  karte.classList.add('imSheet');
+  el('formSheet').classList.add('open');
+  el('formSheet').scrollTop=0;
+  sheetOffen=id;
+}
+/* Klick auf den dunklen Rand und Escape schliessen das Sheet - am Handy der
+   erwartete Weg zurueck, ohne den Abbrechen-Knopf suchen zu muessen. */
+document.addEventListener('click',e=>{ if(e.target===el('formSheet'))sheetZu(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&sheetOffen)sheetZu(); });
+function sheetZu(){
+  if(!sheetOffen)return;
+  const karte=el(sheetOffen);
+  karte.classList.remove('imSheet');
+  karte.style.display='none';
+  if(sheetAnker&&sheetAnker.parentNode){sheetAnker.parentNode.insertBefore(karte,sheetAnker);sheetAnker.remove()}
+  sheetAnker=null;
+  el('formSheet').classList.remove('open');
+  sheetOffen=null;
+}
 function syncVm(){
   el('segAuto').classList.toggle('on',verkehrsmittel==='auto');
   el('segBahn').classList.toggle('on',verkehrsmittel==='bahn');
@@ -2639,7 +2681,6 @@ async function toolCheckStarten(){
 function toolFormOeffnen(id){
   toolEditId=id;
   const t=id?toolListe().find(x=>x.id===id):null;
-  el('toolFormCard').style.display='block';
   el('toolFormTitel').textContent=t?'Tool bearbeiten':'Neues Tool';
   el('btnToolLoeschen').style.display=t?'inline-block':'none';
   el('tName').value=t?t.name:'';
@@ -2655,7 +2696,7 @@ function toolFormOeffnen(id){
   el('tConnector').checked=t?!!t.connector:false;
   el('tSkill').checked=t?!!t.skill:false;
   el('tNotiz').value=t&&t.notiz?t.notiz:'';
-  el('toolFormCard').scrollIntoView({behavior:'smooth'});
+  sheetAuf('toolFormCard');
 }
 function accountsListe(){ if(!Array.isArray(state.settings.accounts))state.settings.accounts=[]; return state.settings.accounts; }
 function tAccountFuellen(aktiv){
@@ -2691,7 +2732,7 @@ async function toolSpeichern(){
   const idx=liste.findIndex(x=>x.id===obj.id);
   if(idx>=0)liste[idx]=obj; else liste.push(obj);
   await save();
-  el('toolFormCard').style.display='none';toolEditId=null;
+  sheetZu();toolEditId=null;
   renderTools();toast('Tool gespeichert');
 }
 
@@ -3021,7 +3062,7 @@ async function tkListenFuellen(){
     sel.value=wunsch;
   }catch(e){ if(!sel.options.length)sel.innerHTML='<option>Dozentur</option>' }
 }
-function taskFormOeffnen(){el('taskForm').style.display='block';el('tkTitel').value='';el('tkFaellig').value='';tkListenFuellen();el('taskForm').scrollIntoView({behavior:'smooth'})}
+function taskFormOeffnen(){el('tkTitel').value='';el('tkFaellig').value='';tkListenFuellen();sheetAuf('taskForm')}
 async function taskAnlegen(){
   const titel=el('tkTitel').value.trim();
   if(!titel){toast('Bitte Titel eingeben');return}
@@ -3035,7 +3076,7 @@ async function taskAnlegen(){
     const body={title:titel,categories:[kat],importance:el('tkPrio').value};
     if(el('tkFaellig').value)body.dueDateTime={dateTime:el('tkFaellig').value+'T00:00:00',timeZone:'Europe/Berlin'};
     await graph('/me/todo/lists/'+encodeURIComponent(listId)+'/tasks',{method:'POST',body:JSON.stringify(body)});
-    el('taskForm').style.display='none';
+    sheetZu();
     toast('Aufgabe angelegt');
     taskBoardLaden();
   }catch(e){toast('Anlegen fehlgeschlagen')}
@@ -3101,8 +3142,7 @@ function jobFormOeffnen(id){
   el('jNotiz').value=j?j.notiz||'':'';
   el('btnJobLoeschen').style.display=j?'inline-block':'none';
   jobModusAnwenden();
-  el('jobFormCard').style.display='block';
-  el('jobFormCard').scrollIntoView({behavior:'smooth',block:'start'});
+  sheetAuf('jobFormCard');
 }
 async function jobSpeichern(){
   const titel=el('jTitel').value.trim();
@@ -3123,7 +3163,7 @@ async function jobSpeichern(){
   }else{
     liste.push(Object.assign({id:uid(),status:'offen',angelegt:ymd(new Date())},daten));
   }
-  el('jobFormCard').style.display='none'; jobEditId=null;
+  sheetZu(); jobEditId=null;
   await save(); renderJobs();
   toast('Liefer-Auftrag gespeichert');
   await cockpitAbschliessen('lieferauftrag');
@@ -3134,7 +3174,7 @@ async function jobLoeschen(){
   const liste=jobsListe();
   const i=liste.findIndex(x=>x.id===jobEditId);
   if(i>=0)liste.splice(i,1);
-  el('jobFormCard').style.display='none'; jobEditId=null;
+  sheetZu(); jobEditId=null;
   await save(); renderJobs(); toast('Gelöscht');
 }
 async function jobStatusWeiter(id){
@@ -3536,7 +3576,7 @@ async function universalWeiterleiten(p, st){
   if(p.art==='termin'&&p.termin){
     const t=p.termin;
     bereichWechseln('kalender');
-    el('kalFormCard').style.display='block';
+    sheetAuf('kalFormCard');
     kalZieleLaden();   /* ohne Kalenderziele wüsste der Termin nicht, wohin */
     if(el('kTitel'))el('kTitel').value=t.titel||'';
     if(el('kDatum'))el('kDatum').value=t.datum||'';
@@ -5184,7 +5224,7 @@ async function kalTerminAnlegen(){
       st.textContent='✓ Termin im Google-Kalender angelegt.';
       await cockpitAbschliessen('termin');
       el('kTitel').value='';el('kOrt').value='';el('kNotiz').value='';
-      setTimeout(()=>{el('kalFormCard').style.display='none';kalenderLaden()},800);
+      setTimeout(()=>{sheetZu();kalenderLaden()},800);
       toast('Termin angelegt');
       return;
     }
@@ -5208,7 +5248,7 @@ async function kalTerminAnlegen(){
     st.textContent='✓ Termin in Outlook angelegt.';
     await cockpitAbschliessen('termin');
     el('kTitel').value='';el('kOrt').value='';el('kNotiz').value='';
-    setTimeout(()=>{el('kalFormCard').style.display='none';kalenderLaden()},800);
+    setTimeout(()=>{sheetZu();kalenderLaden()},800);
     toast('Termin angelegt');
   }catch(err){st.textContent='Fehler: '+err.message}
 }
@@ -7095,7 +7135,7 @@ el('mGesellschaft').addEventListener('change',()=>{
 el('btnTaskReload').addEventListener('click',()=>{taskListen=null;taskListId=null;taskBoardLaden()});
 el('btnTaskNeu').addEventListener('click',taskFormOeffnen);
 el('btnTaskSpeichern').addEventListener('click',taskAnlegen);
-el('btnTaskAbbrechen').addEventListener('click',()=>{el('taskForm').style.display='none'});
+el('btnTaskAbbrechen').addEventListener('click',sheetZu);
 function syncWsAg(){
   const dihk=wsIstDihk();
   el('wsDihkThemaWrap').style.display=dihk?'block':'none';
@@ -7419,7 +7459,7 @@ el('btnVpCopyGemini').addEventListener('click',()=>{navigator.clipboard&&navigat
 el('btnWsAufgabenReload').addEventListener('click',()=>{taskListen=null;renderWerkstattAufgaben()});
 el('btnKalReload').addEventListener('click',kalenderLaden);
 el('btnKalNeu').addEventListener('click',()=>{
-  el('kalFormCard').style.display='block';
+  sheetAuf('kalFormCard');
   kalZieleLaden();
   el('kTitel').value='';el('kDatum').value=heuteISO();
   el('kGanztag').value='nein';el('kVon').value='09:00';el('kBis').value='17:00';
@@ -7427,10 +7467,9 @@ el('btnKalNeu').addEventListener('click',()=>{
   if(el('kOrtSugg'))el('kOrtSugg').style.display='none';
   if(el('kAg').options.length)el('kAg').selectedIndex=0;
   el('kZeitWrap').style.display='grid';
-  el('kalFormCard').scrollIntoView({behavior:'smooth'});
 });
 el('btnKalSpeichern').addEventListener('click',kalTerminAnlegen);
-el('btnKalAbbrechen').addEventListener('click',()=>{el('kalFormCard').style.display='none'});
+el('btnKalAbbrechen').addEventListener('click',sheetZu);
 el('kGanztag').addEventListener('change',()=>{el('kZeitWrap').style.display=el('kGanztag').value==='ja'?'none':'grid'});
 el('tabSeminare').addEventListener('click',()=>bereichWechseln('seminare'));
 el('tabWerkstatt').addEventListener('click',()=>bereichWechseln('werkstatt'));
@@ -7485,18 +7524,18 @@ el('btnBestaetigung').addEventListener('click',bestaetigungEntwerfen);
   z.addEventListener('drop',e=>{ const d=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(d)universalDrop(d); });
 })();
 el('btnJobSpeichern').addEventListener('click',jobSpeichern);
-el('btnJobAbbrechen').addEventListener('click',()=>{el('jobFormCard').style.display='none';jobEditId=null});
+el('btnJobAbbrechen').addEventListener('click',()=>{sheetZu();jobEditId=null});
 el('btnJobLoeschen').addEventListener('click',jobLoeschen);
 el('jModus').addEventListener('change',jobModusAnwenden);
 el('jSatz').addEventListener('input',jobBerechnen);
 el('jMenge').addEventListener('input',jobBerechnen);
 el('btnToolCheck').addEventListener('click',toolCheckStarten);
 el('btnToolSpeichern').addEventListener('click',toolSpeichern);
-el('btnToolAbbrechen').addEventListener('click',()=>{el('toolFormCard').style.display='none';toolEditId=null});
+el('btnToolAbbrechen').addEventListener('click',()=>{sheetZu();toolEditId=null});
 el('btnToolLoeschen').addEventListener('click',async()=>{
   if(!toolEditId||!confirm('Dieses Tool wirklich löschen?'))return;
   state.tools=toolListe().filter(x=>x.id!==toolEditId);
-  await save();el('toolFormCard').style.display='none';toolEditId=null;renderTools();toast('Tool gelöscht');
+  await save();sheetZu();toolEditId=null;renderTools();toast('Tool gelöscht');
 });
 document.querySelectorAll('.quicknav button[data-jump]').forEach(b=>b.addEventListener('click',()=>{
   const t=el(b.dataset.jump); if(t)t.scrollIntoView({behavior:'smooth',block:'start'});
