@@ -207,6 +207,13 @@ header .wrap{padding:0 2px}
    Adressleiste eingeblendet ist - mit vh ragt das Sheet dann darunter. */
 .sheet{background:var(--paper);width:100%;max-width:640px;max-height:92vh;max-height:92dvh;overflow-y:auto;border-radius:16px 16px 0 0;padding:18px 16px calc(26px + env(safe-area-inset-bottom))}
 @media(min-width:680px){.modal{align-items:center}.sheet{border-radius:14px}}
+/* Fussnote mit der geladenen Fassung. Bewusst unauffaellig - sie wird nur
+   gebraucht, wenn etwas nicht so aussieht wie erwartet. */
+#versionZeile{font-family:'IBM Plex Mono',monospace;font-size:var(--s-klein);color:var(--grau);
+  text-align:center;padding:var(--a4) 0 var(--a2);line-height:1.6}
+#versionZeile .alt{color:var(--warn-text)}
+#versionZeile button{margin-top:var(--a2)}
+
 /* Eine Formularkarte, die ins Sheet gewandert ist, legt ihre Kartenhuelle ab:
    Rahmen und Innenabstand kommen dort schon vom Sheet selbst. */
 .sheet .imSheet{border:0!important;padding:0!important;margin:0!important;background:transparent!important}
@@ -1111,6 +1118,8 @@ body{padding-bottom:64px}
       </div>
     </div>
   </div>
+
+<div class="vollbreite" id="versionZeile"></div>
 </div>
 
 <div class="fab">
@@ -5274,6 +5283,7 @@ function bereichWechseln(b,ziel){
   });
   if(b==='start'){renderGtasks(true);renderNachbereitung();renderBriefing();taskBoardLaden();autoKalenderCheck()}
   if(b==='seminare'){renderMsStatus();renderMeetings();renderReiseplanung();kalenderLaden();konfliktKalRender()}
+  if(b==='tools'){versionAnzeigen()}
   if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderProjekte();renderWerkstattAufgaben()}
   if(b==='abrechnung'){render()}
   if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true)}
@@ -7366,6 +7376,35 @@ el('restoreFile').addEventListener('change',e=>{
 let installPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;el('btnInstall').style.display='inline-block'});
 /* Service Worker: App-Shell offline verfügbar (z. B. im Zug ohne Netz) */
+/* ---------- Fassung ----------
+   APP_VERSION muss bei jedem Ausliefern mit dem Cache-Namen in sw.js
+   uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
+   beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
+   Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
+const APP_VERSION='v75';
+const APP_STAND='3. August 2026';
+async function versionAnzeigen(){
+  const ziel=el('versionZeile'); if(!ziel)return;
+  let geladen=null;
+  try{
+    const eigene=(await caches.keys()).filter(k=>k.startsWith('dozenten-cockpit-'));
+    if(eigene.length)geladen=eigene.map(k=>k.replace('dozenten-cockpit-','')).join(', ');
+  }catch(e){/* ohne Service Worker gibt es keinen Cache - dann bleibt es bei der Konstante */}
+  const passt=!geladen||geladen===APP_VERSION;
+  ziel.innerHTML='Dozenten-Cockpit '+APP_VERSION+' · Stand '+APP_STAND+
+    (passt?'':'<br><span class="alt">Im Browser liegt noch '+geladen+'.</span>');
+  if(!passt){
+    const b=document.createElement('button');
+    b.className='minibtn'; b.type='button'; b.textContent='Neu laden';
+    b.addEventListener('click',async()=>{
+      try{ for(const k of await caches.keys())await caches.delete(k);
+           const r=await navigator.serviceWorker.getRegistration(); if(r)await r.update(); }catch(e){}
+      location.reload();
+    });
+    ziel.appendChild(b);
+  }
+}
+
 if(!IN_CLAUDE&&'serviceWorker'in navigator&&location.protocol==='https:'){
   window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{/* optional */})});
 }
