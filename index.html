@@ -1407,6 +1407,16 @@ function berechne(t){
     return {kmGeld:0,bahnK:0,vma:0,vmaText:['Wird über das IHK-Portal abgerechnet — hier nur Übersicht.'],neben:0,km,
       kmFrei:0,summe:0};
   }
+  /* Online heisst: keine Auswaertstaetigkeit. Ohne die faellt der
+     Verpflegungsmehraufwand weg (§ 9 Abs. 4a EStG setzt eine berufliche
+     Taetigkeit ausserhalb von Wohnung und erster Taetigkeitsstaette voraus),
+     und Fahrtkosten gibt es ohnehin keine. Bisher rechnete die Datei bei
+     "ueber8h" auch online 14,00 EUR — das war zu viel. */
+  if(t.modus==='online'){
+    const nebenOnline=(t.belege||[]).reduce((s,b)=>s+(+b.betrag||0),0);
+    return {kmGeld:0,bahnK:0,vma:0,vmaText:['Online — keine Auswärtstätigkeit, keine Verpflegungspauschale.'],
+      neben:nebenOnline,km:0,kmFrei:0,summe:nebenOnline};
+  }
   const kmGeld=t.vm==='auto'?km*2*KM_SATZ:0;
   const bahnK=t.vm==='bahn'?bahn:0;
   const n=naechte(t);
@@ -1591,10 +1601,53 @@ function openForm(id){
   else if(adr){el('routeHint').textContent=adr;}
   el('modal').classList.add('open');
 }
+/* Sein Ablauf: erst Terminanfrage -> Kalendereintrag -> Reise im Cockpit, und
+   Tage bis Wochen spaeter kommt die Auftragsbestaetigung. Die darf keine zweite
+   Reise erzeugen, sondern gehoert an die vorhandene. Als derselbe Vorgang gilt:
+   Zeitraeume ueberlappen sich (Tag genau) UND derselbe Auftraggeber. Ist kein
+   Auftraggeber erkennbar, zaehlt stattdessen dieselbe Stadt. */
+function reiseTreffer(p){
+  if(!p||!p.von)return null;
+  const pv=p.von, pb=p.bis||p.von;
+  const ag=(p.auftraggeber||'').trim().toLowerCase();
+  const stadt=(p.ziel||'').trim().toLowerCase();
+  return state.trips.find(t=>{
+    if(t.abgerechnet||!t.von)return false;
+    const tv=t.von, tb=t.bis||t.von;
+    if(pv>tb||pb<tv)return false;               /* keine Ueberlappung */
+    const tag=(t.ag||'').trim().toLowerCase();
+    if(ag&&tag)return tag===ag||tag.startsWith(ag.split(' ')[0])||ag.startsWith(tag.split(' ')[0]);
+    if(stadt&&t.ziel)return (t.ziel||'').trim().toLowerCase()===stadt;
+    return true;                                /* Ueberlappung ohne Gegenhinweis */
+  })||null;
+}
+/* Ergaenzt die gefundene Reise um das, was nur in der Auftragsbestaetigung steht.
+   Vorhandene Werte werden nicht ueberschrieben — Ausnahme Honorar und
+   Auftragsnummer, dort ist die Bestaetigung die bessere Quelle. */
+function prefillInBestand(t,p){
+  const setz=(feld,wert)=>{if(wert&&!t[feld])t[feld]=wert};
+  setz('zweck',p.zweck); setz('ziel',p.ziel||p.zielAdresse); setz('zielAdresse',p.zielAdresse);
+  if(p.kategorie&&KATEGORIEN.includes(p.kategorie)&&(!t.kategorie||t.kategorie==='Sonstiges'))t.kategorie=p.kategorie;
+  if(p.gesellschaft&&(!t.gesellschaft||t.gesellschaft==='Allgemein'))t.gesellschaft=p.gesellschaft;
+  if(p.auftragsnummer)t.auftragsnr=p.auftragsnummer;
+  const honorar=p.honorarGesamt||((p.honorarProTermin||0)*(p.anzahlTermine||1));
+  if(honorar)t.honorar=honorar;
+  if(p.ustBefreit&&!/USt-befreit/.test(t.zweck||''))t.zweck=(t.zweck?t.zweck+' · ':'')+'USt-befreit §4 Nr.21a UStG';
+  t.entwurf=false;
+  return t;
+}
 function openFormPrefill(p){
+  const bestand=reiseTreffer(p);
+  if(bestand){
+    prefillInBestand(bestand,p);
+    save();
+    openForm(bestand.id);
+    el('rechnungWrap').open=true;
+    toast('Zur vorhandenen Reise vom '+dfmt(bestand.von)+' ergänzt');
+    calcPreview(); rechnungCalcPreview();
+    return;
+  }
   openForm(null);
-  if(state.trips.some(t=>t.von===p.von&&(t.ziel||'').toLowerCase()===((p.ziel||p.zielAdresse||'')+'').toLowerCase()))
-    toast('Achtung: Reise mit gleichem Datum/Ziel existiert bereits');
   /* Auftraggeber: exakter Treffer in der Liste, sonst tolerante Erkennung, sonst Freitext */
   const roh=(p.auftraggeber||'').trim();
   const bekannt=AUFTRAGGEBER.find(a=>a.toLowerCase()===roh.toLowerCase())||titelAuftraggeber(roh);
@@ -6233,7 +6286,7 @@ function nachOffen(){
   const heute=heuteISO();
   const grenze=tagVersetzt(heute,-21);
   return state.trips.filter(t=>
-    t.typ!=='ihk' && !t.nachbereitet && !t.abgerechnet &&
+    t.typ!=='ihk' && t.modus!=='online' && !t.nachbereitet && !t.abgerechnet &&
     t.von && (t.bis||t.von)<heute && (t.bis||t.von)>=grenze
   ).sort((a,b)=>(a.von||'').localeCompare(b.von||''));
 }
@@ -6694,11 +6747,16 @@ async function importKalender(){
     if(start<0)throw new Error('Keine Termine erkannt');
     const arr=JSON.parse(clean.slice(start,end+1));
     if(!arr.length){st.textContent='Keine passenden Termine im Zeitraum gefunden.';el('iStart').disabled=false;return}
-    let neu=0;
+    let neu=0, zugeordnet=0;
     arr.forEach(e=>{
       if(!e.von)return;
-      const dupe=state.trips.some(t=>t.von===e.von&&(t.ziel||'').toLowerCase()===(e.ziel||'').toLowerCase()&&(t.zweck||'').toLowerCase()===(e.zweck||'').toLowerCase());
-      if(dupe)return;
+      /* Frueher wurde nur uebersprungen, wenn Datum, Ziel UND Zweck exakt
+         uebereinstimmten. Ein Anreisetermin der Bahn oder ein zweiter Termin
+         desselben Seminars erzeugte deshalb eine zweite Reise. Jetzt gilt:
+         ueberlappender Zeitraum beim selben Auftraggeber ist derselbe Vorgang.
+         Der Zeitraum der vorhandenen Reise wird NICHT stillschweigend
+         erweitert — das wuerde die Verpflegungspauschale veraendern. */
+      if(reiseTreffer({von:e.von,bis:e.bis||e.von,auftraggeber:e.auftraggeber||'',ziel:e.ziel||''})){zugeordnet++;return}
       const n=e.bis&&e.bis>e.von?Math.round((new Date(e.bis)-new Date(e.von))/86400000):0;
       const ag=e.auftraggeber||'Sonstige';
       const kat=e.kategorie&&KATEGORIEN.includes(e.kategorie)?e.kategorie:((state.settings.kgMemo||{})[ag]||{}).kategorie||'Sonstiges';
@@ -6710,8 +6768,9 @@ async function importKalender(){
       neu++;
     });
     await save(); render();
-    st.textContent=neu+' Reise-Entwürfe angelegt. Tippe sie in der Liste an, um Details zu prüfen.';
-    toast(neu+' Entwürfe importiert');
+    st.textContent=(neu?neu+' Reise-Entwürfe angelegt. Tippe sie in der Liste an, um Details zu prüfen.':'Keine neue Reise — alles war schon erfasst.')+
+      (zugeordnet?' '+zugeordnet+' Termin(e) gehören zu bereits erfassten Reisen und wurden übersprungen.':'');
+    toast(neu?neu+' Entwürfe importiert':'Nichts Neues');
   }catch(err){
     st.textContent='Import fehlgeschlagen: '+err.message+'. Prüfe unter Einstellungen, ob Outlook verbunden ist, und versuche es erneut.';
   }
