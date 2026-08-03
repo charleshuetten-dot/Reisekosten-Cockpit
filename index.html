@@ -1002,21 +1002,6 @@ body{padding-bottom:64px}
 
 <div class="kpis" id="toolKpis"></div>
 
-<div class="card vollbreite" id="istKostenCard" style="border-color:var(--rot)">
-    <h2>💶 Ist-Kosten aus Belegen <span class="hint mono" style="margin:0;font-size:11px">Fassung 57</span></h2>
-    <div class="hint" style="margin:6px 0 10px">Liest Rechnungsmails aus Gmail und dem Optima-Postfach im Volltext, zieht Anbieter, Betrag und Datum heraus und summiert je Anbieter <b>und Monat</b>. Bei schwankenden Posten — etwa der Claude-Extra-Usage — rechnet das Cockpit danach mit dem Schnitt der gemessenen Monate statt mit einem festen Grundbetrag. Es wird nichts angelegt und nichts geändert, bis du es einzeln übernimmst.</div>
-    <div class="grid3">
-      <div class="f"><label>Zeitraum</label><select id="ikMonate"><option value="3">3 Monate</option><option value="6">6 Monate</option><option value="12">12 Monate</option></select></div>
-      <div class="f"><label>USD → EUR</label><input type="number" id="ikKurs" step="0.001" min="0" inputmode="decimal" value="0.86"></div>
-      <div class="f"><label>Quellen</label><div class="hint" id="ikQuellen" style="margin:0"></div></div>
-    </div>
-    <button type="button" class="minibtn haupt" id="btnIstKosten" style="width:100%;margin-top:12px;padding:15px 16px;font-size:16px;font-weight:600">💶 Belege jetzt auswerten</button>
-    <button type="button" class="minibtn rot" id="btnIstKostenStop" style="width:100%;margin-top:6px;padding:12px;display:none">Abbrechen</button>
-    <div class="hint" id="ikStand" style="margin-top:8px"></div>
-    <div class="hint" id="ikStatus" style="margin-top:6px"></div>
-    <div id="ikErgebnis" style="margin-top:10px"></div>
-  </div>
-
 <div class="card vollbreite" id="toolKontenCard" style="display:none"><h2>Kosten je Konto</h2><div id="toolKonten"></div></div>
 
 <div class="card" id="toolWarnCard" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
@@ -1076,6 +1061,15 @@ body{padding-bottom:64px}
       <button type="button" class="minibtn rot" id="btnToolLoeschen" style="margin-left:auto">Löschen</button>
     </div>
   </div>
+
+<details class="card vollbreite" id="gmailScanCard">
+    <summary>📧 Gmail nach Rechnungen &amp; Abos durchsuchen</summary>
+    <div class="hint" style="margin:6px 0 10px">Durchsucht dein verbundenes Gmail-Postfach nach Rechnungen und Abo-Bestätigungen der letzten 90 Tage. Claude wertet die Treffer aus und zeigt mögliche Abos — du übernimmst sie einzeln per Klick. Es wird nichts automatisch angelegt und nichts gelesen außer den Treffern.</div>
+    <button class="minibtn" id="btnGmailScan">Postfach jetzt durchsuchen</button>
+    <div class="hint" id="gmailScanStand" style="margin-top:8px"></div>
+    <div class="hint" id="gmailScanStatus" style="margin-top:8px"></div>
+    <div id="gmailScanTreffer" style="margin-top:10px"></div>
+  </details>
 
 <details class="card vollbreite" id="toolCheckCard">
     <summary>Monatlicher Tool-Check</summary>
@@ -2122,11 +2116,6 @@ const TOOL_DB=[
 ];
 function toolListe(){ if(!Array.isArray(state.tools))state.tools=[]; return state.tools; }
 function toolMonatskosten(t){
-  /* Ist-Kosten aus Belegen schlagen den erfassten Grundbetrag: bei schwankenden
-     Posten (Claude-Extra-Usage, ElevenLabs-Kontingente) ist der Schnitt der
-     gemessenen Monate naeher an der Wahrheit als ein fixer Tarif. Nur aktiv,
-     wenn er den Anbieter im Ist-Kosten-Block ausdruecklich uebernommen hat. */
-  if(t.istAktiv&&+t.istSchnitt>0)return +t.istSchnitt;
   const b=+t.betrag||0;
   if(t.intervall==='monatlich')return b;
   if(t.intervall==='jaehrlich')return b/12;
@@ -2195,12 +2184,13 @@ function renderTools(){
   const box=el('toolListe');if(!box)return;
   const gefiltert=liste.filter(t=>toolFilterAktiv==='alle'||t.kategorie===toolFilterAktiv)
     .sort((a,b)=>(b.genutzt?1:0)-(a.genutzt?1:0)||a.name.localeCompare(b.name));
-  if(!gefiltert.length){box.innerHTML='<div class="hint">Noch keine Tools erfasst — leg unten aus den Vorschlägen los oder nutze „+ Tool".</div>';renderToolVorschlaege();renderToolCheckStand();return}
+  if(!gefiltert.length){box.innerHTML='<div class="hint">Noch keine Tools erfasst — leg unten aus den Vorschlägen los oder nutze „+ Tool".</div>';renderToolVorschlaege();renderToolCheckStand();gmailScanAutoCheck();return}
   if(toolAnsichtModus==='tabelle'){renderToolTabelle(gefiltert);}
   else{renderToolKarten(gefiltert);}
   box.querySelectorAll('[data-tedit]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();toolFormOeffnen(b.dataset.tedit)}));
   renderToolVorschlaege();
   renderToolCheckStand();
+  gmailScanAutoCheck();
   renderToolAuswertung();
 }
 /* ---------- Tool-Auswertung: Kosten je Kategorie, je Konto, Vertrags-Zeitstrahl ----------
@@ -4984,7 +4974,7 @@ function bereichWechseln(b){
   if(b==='seminare'){renderMsStatus();renderMeetings();renderReiseplanung()}
   if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderProjekte();renderWerkstattAufgaben()}
   if(b==='abrechnung'){render()}
-  if(b==='tools'){renderTools();renderIstKosten();renderMsStatus();renderOdStatus();renderGtasks(true)}
+  if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true)}
   if(b==='werkstatt')renderJobs();
   if(b==='start'){renderTbAuswertung();renderHeuteZeile()}
   /* FAB ist jetzt ueberall sichtbar — der Schnellerfassen-Knopf soll in jedem Bereich
@@ -5532,306 +5522,94 @@ function gmailBodyText(payload){
   if(payload.parts)payload.parts.forEach(p=>{out+=gmailBodyText(p)});
   return out;
 }
-function norm2(s){return (s||'').toLowerCase().replace(/\s*\(.*/,'').replace(/\s+(pro|plus|team|max|creator|professional|individual|business|premium)\b.*$/,'').trim()}
-/* ---------- Ist-Kosten aus Belegen: Gmail + Outlook (Optima) ----------
-   Der Tool-Stack kennt nur Tarife. Was tatsaechlich abgebucht wurde, steht in den
-   Rechnungsmails. Dieser Block liest sie, laesst Claude je Mail einen Zahlungsposten
-   herausziehen und summiert je Anbieter UND Monat. Mehrere Belege desselben Anbieters
-   im selben Monat werden addiert - genau das ist bei der Claude-Extra-Usage der Punkt. */
-/* Anbietername -> Vergleichsschluessel. "Anthropic, PBC", "Anthropic PBC" und
-   "Claude (Anthropic)" muessen denselben Posten treffen, sonst steht dasselbe
-   Abo dreimal in der Liste. Deshalb: Rechtsformen weg, Satzzeichen weg, alles
-   klein und ohne Leerzeichen. Bei Tools zusaetzlich der Klammerinhalt als
-   eigener Schluessel - "Dify (LangGenius)" wird so auch von "LangGenius, Inc."
-   getroffen. */
-const IK_RECHTSFORMEN=/\b(inc|inc\.|incorporated|pbc|llc|ltd|limited|gmbh|ug|ag|se|bv|b\.v\.|nv|corp|corporation|co|kg|sarl|sas|oy|ab|as|plc|technology|technologies|deutschland|europe|international|group)\b/g;
-function ikNorm(x){
-  return String(x||'').toLowerCase()
-    .replace(/&/g,'and')
-    .replace(/[.,;:()\[\]\/\-\u2013\u2014'\u2019"]/g,' ')
-    .replace(IK_RECHTSFORMEN,' ')
-    .replace(/[^a-z0-9]/g,'');
+function gmailScanStandZeigen(){
+  const st=el('gmailScanStand');if(!st)return;
+  const letzter=state.settings.gmailScanDatum;
+  if(!letzter){st.textContent='Noch nie durchsucht.';return}
+  const tage=Math.round((new Date()-new Date(letzter))/86400000);
+  st.innerHTML='Zuletzt: '+dfmt(letzter)+' (vor '+tage+' Tagen).'+(tage>=30?' <span style="color:var(--rot)">Wieder fällig.</span>':'');
 }
-function ikKeys(name){
-  const roh=String(name||'');
-  const out=new Set();
-  const haupt=ikNorm(roh.replace(/\s*\(.*?\)/g,''));
-  if(haupt)out.add(haupt);
-  const kl=roh.match(/\(([^)]+)\)/);
-  if(kl){const k=ikNorm(kl[1]); if(k)out.add(k)}
-  const ganz=ikNorm(roh); if(ganz)out.add(ganz);
-  return out;
-}
-function ikTrifft(a,b){
-  /* Treffer, wenn ein Schluessel gleich ist oder der laengere mit dem
-     kuerzeren beginnt ("heygentechnology" zu "heygen"). Ab 5 Zeichen,
-     damit "ai" oder "pro" nicht alles trifft. */
-  for(const x of a)for(const y of b){
-    if(!x||!y)continue;
-    if(x===y)return true;
-    if(x.length>=5&&y.length>=5&&(x.startsWith(y)||y.startsWith(x)))return true;
+let gmailAutoScanGelaufen=false;
+function gmailScanAutoCheck(){
+  /* Beim Öffnen des Tools-Reichs: Stand zeigen, und wenn >30 Tage her (oder nie)
+     und Google verbunden, EINMAL pro Sitzung automatisch scannen — er muss nichts klicken. */
+  gmailScanStandZeigen();
+  if(!gdToken||gmailAutoScanGelaufen)return;
+  const letzter=state.settings.gmailScanDatum;
+  const tage=letzter?Math.round((new Date()-new Date(letzter))/86400000):9999;
+  if(tage>=30){
+    gmailAutoScanGelaufen=true;
+    el('gmailScanCard').open=true;
+    gmailScan();
   }
-  return false;
 }
-function ikToolZu(key,name){
-  const kk=ikKeys(name); kk.add(key);
-  return toolListe().find(t=>ikTrifft(ikKeys(t.name),kk))||null;
-}
-/* Anbieter, die erfahrungsgemaess nichts mit dem Tool-Stack zu tun haben.
-   Sie werden nicht geloescht, sondern nur einklappt gezeigt. */
-const IK_IGNORE_START=['vinted','dhl','dpd','hermes','gls','ups','fedex','amazon','ebay','kleinanzeigen','zalando','temu','shein','lieferando','ikea','paypal'];
-function ikIgnoriert(){
-  if(!Array.isArray(state.settings.ikIgnore)){
-    state.settings.ikIgnore=IK_IGNORE_START.slice();
-  }
-  return state.settings.ikIgnore;
-}
-function ikMonatsKey(d){
-  const x=new Date(d);
-  if(isNaN(x))return '';
-  return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0');
-}
-function ikStandZeigen(){
-  const st=el('ikStand');
-  if(st){
-    const s=state.settings.istKosten;
-    st.innerHTML = (s&&s.stand)
-      ? 'Zuletzt ausgewertet: '+dfmt(s.stand)+' \u00b7 '+(s.belege||0)+' Belege aus '+(s.mails||0)+' Mails \u00b7 Kurs '+(s.kurs||'')+'.'
-      : 'Noch nie ausgewertet.';
-  }
-  const q=el('ikQuellen');
-  if(q)q.innerHTML=(gdToken?'\u2713 Gmail':'\u2013 Gmail nicht verbunden')+'<br>'+(msAccount?'\u2713 Outlook':'\u2013 Outlook nicht verbunden');
-}
-let ikAbbruch=false;
-function ikStop(){ikAbbruch=true;const st=el('ikStatus');if(st)st.textContent='Abgebrochen.';const b=el('btnIstKostenStop');if(b)b.style.display='none'}
-async function istKostenScan(){
-  const st=el('ikStatus'), box=el('ikErgebnis');
-  const stopBtn=el('btnIstKostenStop');
-  const monate=+el('ikMonate').value||3;
-  const kurs=+el('ikKurs').value||0.86;
-  if(!gdToken&&!msAccount){st.textContent='Weder Google noch Outlook verbunden \u2014 unten unter \u201eVerbindungen\u201c verbinden.';return}
-  ikAbbruch=false;
-  if(stopBtn)stopBtn.style.display='block';
-  const fertig=()=>{if(stopBtn)stopBtn.style.display='none'};
-  st.innerHTML='<span class="spin"></span>Schritt 1/4: Google-Zugang pr\u00fcfen \u2026';
+async function gmailScan(){
+  const st=el('gmailScanStatus'), box=el('gmailScanTreffer');
+  if(!gdToken){st.textContent='Bitte zuerst Google verbinden (Tools → Verbindungen).';return}
+  st.innerHTML='<span class="spin"></span>Suche Rechnungen und Abos im Postfach \u2026';
   if(box)box.innerHTML='';
-  /* Zugang zuerst und mit hartem Zeitlimit pruefen: haengt hier etwas, sagen wir
-     das - frueher lief der Scan endlos weiter, ohne dass man den Grund sah. */
-  if(gdToken){
-    const probe=await Promise.race([
-      gdEnsureToken().catch(()=>null),
-      new Promise(r=>setTimeout(()=>r('__timeout__'),15000))
-    ]);
-    if(probe==='__timeout__'||!probe){
-      st.innerHTML='Google-Zugang l\u00e4sst sich nicht erneuern. Unten unter \u201eVerbindungen\u201c einmal <b>Trennen</b> und neu verbinden, dann nochmal starten.';
-      fertig();return;
-    }
-  }
-  const seit=new Date(); seit.setMonth(seit.getMonth()-monate);
-  const mails=[];
-  let quellFehler=[];
-  /* --- Gmail: Volltext, weil der Betrag oft erst im Body steht. Die Mails werden
-         in Sechserbloecken parallel geholt - einzeln nacheinander dauert bei 100
-         Treffern mehrere Minuten, und man sieht nicht, dass es laeuft. --- */
-  if(gdToken){
-    try{
-      const q=encodeURIComponent('(invoice OR receipt OR rechnung OR quittung OR beleg OR "payment received" OR zahlungsbestaetigung) after:'+ymd(seit).replace(/-/g,'/')+' -category:promotions');
-      st.innerHTML='<span class="spin"></span>Schritt 2/4: Gmail durchsuchen \u2026';
-      const liste=await gmailApi('/messages?q='+q+'&maxResults=60');
-      const ids=(liste.messages||[]).map(m=>m.id).slice(0,60);
-      st.innerHTML='<span class="spin"></span>Schritt 2/4: Gmail \u2014 '+ids.length+' Treffer, lade Inhalte \u2026';
-      for(let i=0;i<ids.length;i+=6){
-        if(ikAbbruch)break;
-        const teil=ids.slice(i,i+6);
-        const res=await Promise.all(teil.map(id=>
-          gmailApi('/messages/'+id+'?format=full').catch(()=>null)
-        ));
-        res.forEach(m=>{
-          if(!m)return;
-          const h={};(m.payload&&m.payload.headers||[]).forEach(x=>{h[x.name.toLowerCase()]=x.value});
-          const txt=(gmailBodyText(m.payload)||m.snippet||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-          mails.push({quelle:'Gmail',from:h.from||'',subject:h.subject||'',date:h.date||'',text:txt.slice(0,1200)});
-        });
-        st.innerHTML='<span class="spin"></span>Schritt 2/4: Gmail \u2014 '+Math.min(i+6,ids.length)+'/'+ids.length+' Mails geladen \u2026';
-      }
-    }catch(e){quellFehler.push('Gmail: '+e.message)}
-  }
-  /* --- Outlook (Optima) ueber Graph. $search laesst sich nicht mit $filter
-         kombinieren, deshalb mehrere Suchbegriffe nacheinander und danach
-         selbst nach Datum filtern. --- */
-  if(msAccount){
-    st.innerHTML='<span class="spin"></span>Schritt 3/4: Optima-Postfach durchsuchen \u2026';
-    const begriffe=['rechnung','invoice','receipt','quittung','beleg'];
-    let ok=0;
-    for(const w of begriffe){
+  try{
+    /* Gezielte Gmail-Suche: Rechnungen/Abos der letzten 90 Tage, Werbung raus */
+    const q=encodeURIComponent('(invoice OR receipt OR rechnung OR abo OR subscription OR "payment" OR "zahlung" OR quittung) newer_than:90d -category:promotions');
+    const liste=await gmailApi('/messages?q='+q+'&maxResults=25');
+    const ids=(liste.messages||[]).map(m=>m.id);
+    if(!ids.length){st.textContent='Keine passenden Rechnungs- oder Abo-Mails der letzten 90 Tage gefunden.';return}
+    st.innerHTML='<span class="spin"></span>Lese '+ids.length+' Mails und werte aus \u2026';
+    /* Header + Snippet je Mail holen (metadata reicht für Absender/Betreff/Datum, Snippet gibt Kontext) */
+    const mails=[];
+    for(const id of ids.slice(0,20)){
       try{
-        const r=await graph('/me/messages?$search='+encodeURIComponent('"'+w+'"')+'&$top=25&$select=subject,from,receivedDateTime,bodyPreview');
-        (r&&r.value||[]).forEach(m=>{
-          if(new Date(m.receivedDateTime)<seit)return;
-          mails.push({
-            quelle:'Outlook',
-            from:(m.from&&m.from.emailAddress&&m.from.emailAddress.address)||'',
-            subject:m.subject||'',
-            date:m.receivedDateTime||'',
-            text:(m.bodyPreview||'').replace(/\s+/g,' ').slice(0,1000)
-          });
-        });
-        ok++;
+        const m=await gmailApi('/messages/'+id+'?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date');
+        const h={};(m.payload&&m.payload.headers||[]).forEach(x=>{h[x.name.toLowerCase()]=x.value});
+        mails.push({from:h.from||'',subject:h.subject||'',date:h.date||'',snippet:m.snippet||''});
       }catch(e){}
     }
-    if(!ok)quellFehler.push('Outlook: Suche lieferte nichts (Graph $search)');
-  }
-  /* Dubletten raus \u2014 dieselbe Mail taucht ueber mehrere Suchbegriffe auf */
-  const seen=new Set(), uniq=[];
-  mails.forEach(m=>{
-    const k=(m.subject||'').toLowerCase()+'|'+String(m.date||'').slice(0,10);
-    if(seen.has(k))return; seen.add(k); uniq.push(m);
-  });
-  if(ikAbbruch){fertig();return}
-  if(!uniq.length){
-    st.textContent='Keine Rechnungsmails im Zeitraum gefunden.'+(quellFehler.length?' ('+quellFehler.join('; ')+')':'');
-    fertig();return;
-  }
-  /* --- Claude zieht je Mail einen Posten. In Haeppchen, sonst platzt der Prompt. --- */
-  const posten=[];
-  for(let i=0;i<uniq.length;i+=12){
-    if(ikAbbruch)break;
-    const teil=uniq.slice(i,i+12);
-    const prompt='Ziehe aus jeder E-Mail EINEN Zahlungsposten, wenn eindeutig ein bezahlter Betrag genannt ist. '+
-      'Keine Angebote, keine reinen Zahlungserinnerungen, keine Werbung. '+
-      'WICHTIG: Mehrere Belege desselben Anbieters bleiben EINZELNE Posten \u2014 nicht zusammenfassen, nicht entdoppeln.\n'+
+    /* Claude wertet die Sammlung aus und liefert erkannte Abos als JSON */
+    const prompt='Hier sind Betreff, Absender und Vorschau von E-Mails aus einem Rechnungs-/Abo-Scan. '+
+      'Erkenne wiederkehrende ABONNEMENTS und Software-Dienste (keine einmaligen Einkäufe, keine Werbung). '+
+      'Fasse pro Dienst EINEN Eintrag zusammen, auch wenn mehrere Mails dazu da sind.\n\n'+
       'Antworte AUSSCHLIESSLICH mit JSON-Array, ohne Markdown:\n'+
-      '[{"anbieter":"Name","betrag":Zahl,"waehrung":"EUR|USD","datum":"YYYY-MM-DD"}]\n'+
-      'Kein Betrag erkennbar \u2192 Mail weglassen. Leeres Array ist erlaubt.\n\nE-Mails:\n'+
-      teil.map((m,j)=>(j+1)+'. ['+m.quelle+'] Von: '+m.from+' | Betreff: '+m.subject+' | Datum: '+m.date+' | '+m.text).join('\n---\n').slice(0,14000);
-    try{
-      const resp=await fetch(claudeEndpoint(),{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,messages:[{role:'user',content:prompt}]})
-      });
-      const data=await resp.json();
-      let txt=(data.content&&data.content[0]&&data.content[0].text||'').trim().replace(/^```json/,'').replace(/^```/,'').replace(/```$/,'').trim();
-      const arr=JSON.parse(txt);
-      if(Array.isArray(arr))arr.forEach(p=>{if(p&&p.anbieter&&+p.betrag>0)posten.push(p)});
-    }catch(e){}
-    st.innerHTML='<span class="spin"></span>Schritt 4/4: Belege auswerten \u2026 '+Math.min(i+12,uniq.length)+'/'+uniq.length+' Mails';
-  }
-  /* --- Aggregieren je Anbieter UND Monat --- */
-  const pro={};
-  posten.forEach(p=>{
-    const name=String(p.anbieter).trim();
-    const key=ikNorm(name.replace(/\s*\(.*?\)/g,''))||ikNorm(name);
-    if(!key)return;
-    let b=+p.betrag||0;
-    if(String(p.waehrung||'').toUpperCase()==='USD')b=b*kurs;
-    const mk=ikMonatsKey(p.datum);
-    if(!mk)return;
-    if(!pro[key])pro[key]={name:name,monate:{},belege:0};
-    pro[key].monate[mk]=(pro[key].monate[mk]||0)+b;
-    pro[key].belege++;
-  });
-  const liste=Object.keys(pro).map(k=>{
-    const a=pro[k];
-    const mk=Object.keys(a.monate).sort();
-    const summe=mk.reduce((s,m)=>s+a.monate[m],0);
-    return {key:k,name:a.name,monate:a.monate,belege:a.belege,summe:summe,
-            anzMonate:mk.length,schnitt:mk.length?summe/mk.length:0};
-  }).sort((a,b)=>b.schnitt-a.schnitt);
-  state.settings.istKosten={stand:heuteISO(),kurs:kurs,monate:monate,belege:posten.length,mails:uniq.length,liste:liste};
-  await save();
-  st.textContent='Fertig: '+posten.length+' Belege aus '+uniq.length+' Mails \u2192 '+liste.length+' Anbieter.'+(quellFehler.length?' Hinweis: '+quellFehler.join('; '):'');
-  fertig();
-  renderIstKosten();
+      '[{"name":"Dienstname","betrag":Zahl oder null,"waehrung":"EUR/USD","intervall":"monatlich/jaehrlich/unklar","hinweis":"kurzer Kontext, z.B. Abbuchungsdatum"}]\n\n'+
+      'E-Mails:\n'+mails.map((m,i)=>(i+1)+'. Von: '+m.from+' | Betreff: '+m.subject+' | '+m.snippet).join('\n').slice(0,9000);
+    const resp=await fetch(claudeEndpoint(),{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,messages:[{role:'user',content:prompt}]})
+    });
+    const data=await resp.json();
+    let txt=(data.content&&data.content[0]&&data.content[0].text||'').trim().replace(/^```json|^```|```$/g,'').trim();
+    let funde=[];try{funde=JSON.parse(txt)}catch(e){}
+    gmailScanErgebnis=funde;
+    if(!funde.length){st.textContent='Fertig — Claude hat in '+mails.length+' Mails keine klaren Abos erkannt.';return}
+    st.textContent='Gefunden: '+funde.length+' mögliche Abos aus '+mails.length+' Mails. Prüfe und übernimm einzeln:';
+    state.settings.gmailScanDatum=heuteISO();save();
+    box.innerHTML=funde.map((f,i)=>{
+      const schon=toolListe().some(t=>norm2(t.name)===norm2(f.name));
+      const betr=f.betrag?f.betrag+' '+(f.waehrung||''):'Betrag offen';
+      return '<div class="agrow" style="align-items:flex-start"><span><b>'+esc(f.name)+'</b> · '+esc(betr)+' · '+esc(f.intervall||'')+
+        (f.hinweis?'<br><span class="hint" style="margin:0">'+esc(f.hinweis)+'</span>':'')+'</span>'+
+        (schon?'<span class="hint" style="margin:0">schon erfasst</span>':'<button class="minibtn" data-gmailadd="'+i+'">übernehmen</button>')+'</div>';
+    }).join('');
+  }catch(err){st.textContent='Fehler: '+err.message}
 }
-function renderIstKosten(){
-  ikStandZeigen();
-  const s=state.settings.istKosten;
-  const selM=el('ikMonate'), selK=el('ikKurs');
-  if(s&&selM&&s.monate)selM.value=String(s.monate);
-  if(s&&selK&&s.kurs)selK.value=s.kurs;
-  const box=el('ikErgebnis'); if(!box)return;
-  if(!s||!s.liste||!s.liste.length){box.innerHTML='';return}
-  const ign=ikIgnoriert();
-  const zug=[], offen=[], weg=[];
-  s.liste.forEach((a,i)=>{
-    a._i=i;
-    a._tool=ikToolZu(a.key,a.name);
-    if(ign.some(g=>a.key.startsWith(g)||g.startsWith(a.key)&&g.length>=4))weg.push(a);
-    else if(a._tool)zug.push(a);
-    else offen.push(a);
-  });
-  const max=Math.max.apply(null,s.liste.map(a=>a.schnitt))||1;
-  const zeile=(a,knopf)=>{
-    const mk=Object.keys(a.monate).sort();
-    const detail=mk.map(m=>m.slice(5)+'/'+m.slice(2,4)+': '+eur(a.monate[m])).join(' \u00b7 ');
-    const breite=Math.round(a.schnitt/max*100);
-    return '<div style="padding:9px 0;border-bottom:1px solid var(--line)">'+
-      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">'+
-      '<b>'+esc(a.name)+'</b><span class="mono">'+eur(a.schnitt)+'/M</span></div>'+
-      '<div style="height:6px;background:var(--line);border-radius:3px;margin:5px 0"><div style="height:6px;width:'+breite+'%;background:var(--rot);border-radius:3px"></div></div>'+
-      '<div class="hint" style="margin:0">'+a.belege+' Belege \u00b7 '+a.anzMonate+' Monat(e) \u00b7 '+esc(detail)+'</div>'+
-      knopf+'</div>';
-  };
-  let html='';
-  if(zug.length){
-    html+='<div style="font-weight:600;margin:10px 0 2px">Deinen Tools zugeordnet</div>';
-    html+=zug.map(a=>zeile(a, a._tool.istAktiv
-      ? '<span class="hint" style="margin:0;color:var(--ok)">\u2713 flie\u00dft als Ist-Kosten in \u201e'+esc(a._tool.name)+'\u201c</span>'
-      : '<button type="button" class="minibtn" data-ikuse="'+a._i+'" style="margin-top:6px">Als Ist-Kosten f\u00fcr \u201e'+esc(a._tool.name)+'\u201c \u00fcbernehmen</button>'
-    )).join('');
-  }
-  if(offen.length){
-    html+='<div style="font-weight:600;margin:14px 0 2px">Noch nicht zugeordnet</div>'+
-      '<div class="hint" style="margin:0 0 4px">Entweder als Tool anlegen \u2014 oder dauerhaft ausblenden, wenn es privat ist.</div>';
-    html+=offen.map(a=>zeile(a,
-      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+
-      '<button type="button" class="minibtn" data-iknew="'+a._i+'">Als neues Tool anlegen</button>'+
-      '<button type="button" class="minibtn" data-ikign="'+a._i+'">Ausblenden</button></div>'
-    )).join('');
-  }
-  if(weg.length){
-    const summe=weg.reduce((x,a)=>x+a.schnitt,0);
-    html+='<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600">Ausgeblendet \u2014 '+weg.length+' Anbieter, '+eur(summe)+'/M</summary>'+
-      '<div class="hint" style="margin:4px 0">Privates und Versand. Z\u00e4hlt nicht in die Tool-Kosten.</div>'+
-      weg.map(a=>zeile(a,'<button type="button" class="minibtn" data-ikunign="'+a._i+'" style="margin-top:6px">Doch einblenden</button>')).join('')+
-      '</details>';
-  }
-  box.innerHTML=html;
-  box.querySelectorAll('[data-ikuse]').forEach(b=>b.addEventListener('click',()=>ikUebernehmen(+b.getAttribute('data-ikuse'))));
-  box.querySelectorAll('[data-iknew]').forEach(b=>b.addEventListener('click',()=>ikAlsToolAnlegen(+b.getAttribute('data-iknew'))));
-  box.querySelectorAll('[data-ikign]').forEach(b=>b.addEventListener('click',()=>ikAusblenden(+b.getAttribute('data-ikign'),true)));
-  box.querySelectorAll('[data-ikunign]').forEach(b=>b.addEventListener('click',()=>ikAusblenden(+b.getAttribute('data-ikunign'),false)));
-}
-async function ikAusblenden(i,rein){
-  const s=state.settings.istKosten; const a=s&&s.liste&&s.liste[i]; if(!a)return;
-  const ign=ikIgnoriert();
-  if(rein){ if(!ign.includes(a.key))ign.push(a.key); }
-  else{ state.settings.ikIgnore=ign.filter(g=>!(a.key.startsWith(g)||g.startsWith(a.key))); }
-  await save(); renderIstKosten();
-}
-async function ikAlsToolAnlegen(i){
-  const s=state.settings.istKosten; const a=s&&s.liste&&s.liste[i]; if(!a)return;
+function norm2(s){return (s||'').toLowerCase().replace(/\s*\(.*/,'').replace(/\s+(pro|plus|team|max|creator|professional|individual|business|premium)\b.*$/,'').trim()}
+let gmailScanErgebnis=[];
+function gmailAboUebernehmen(i){
+  const f=gmailScanErgebnis[i];if(!f)return;
+  const kk='SCC Kreditkarte (Mastercard •0838)';
+  const w=(f.waehrung||'').toUpperCase();
+  let betrag=+f.betrag||0; if(w==='USD'&&betrag)betrag=Math.round(betrag*0.91*100)/100;
   toolListe().push({
     id:'tl'+Date.now()+Math.floor(Math.random()*1000),
-    name:a.name, kategorie:'KI & Assistenz', genutzt:true,
-    tarif:'', intervall:'monatlich', betrag:Math.round(a.schnitt*100)/100,
-    istSchnitt:Math.round(a.schnitt*100)/100, istAktiv:true,
-    ablauf:'', useCases:'', url:'', connector:false, skill:false,
-    account:'SCC Kreditkarte (Mastercard \u20220838)',
-    notiz:'Aus Ist-Kosten '+dfmt(s.stand)+' angelegt \u00b7 '+a.belege+' Belege \u00b7 Konto und Kategorie bitte pr\u00fcfen'
+    name:f.name, kategorie:'KI & Assistenz', genutzt:true,
+    tarif:'', intervall:(f.intervall==='monatlich'||f.intervall==='jaehrlich')?f.intervall:'monatlich',
+    betrag:betrag, ablauf:'', useCases:'', url:'', connector:false, skill:false,
+    account:kk, notiz:'Aus Gmail-Scan übernommen'+(f.hinweis?': '+f.hinweis:'')+(w==='USD'?' (aus USD umgerechnet)':'')
   });
-  await save(); renderTools(); renderIstKosten();
-  toast(a.name+' angelegt \u2014 Konto und Kategorie noch pr\u00fcfen');
-}
-async function ikUebernehmen(i){
-  const s=state.settings.istKosten;
-  const a=s&&s.liste&&s.liste[i]; if(!a)return;
-  const t=ikToolZu(a.key,a.name); if(!t)return;
-  t.istSchnitt=Math.round(a.schnitt*100)/100;
-  t.istAktiv=true;
-  t.notiz=(t.notiz?t.notiz+' \u00b7 ':'')+'Ist-Kosten '+dfmt(s.stand)+': '+eur(t.istSchnitt)+'/M aus '+a.belege+' Belegen';
-  await save(); renderTools(); renderIstKosten();
-  toast(t.name+': '+eur(t.istSchnitt)+'/M \u00fcbernommen');
+  save();renderTools();
+  toast(f.name+' übernommen');
+  /* Zeile als erledigt markieren */
+  const btn=document.querySelector('[data-gmailadd="'+i+'"]');
+  if(btn)btn.outerHTML='<span class="hint" style="margin:0">✓ übernommen</span>';
 }
 
 /* ---------- Google Kalender (Familienkalender als Ziel) ---------- */
@@ -6592,22 +6370,13 @@ function gdInitClient(){
   return true;
 }
 function gdRequestToken(promptMode){
-  /* Wichtig: Google ruft den callback bei stiller Erneuerung ('none') NICHT auf,
-     wenn die Sitzung abgelaufen ist oder Drittanbieter-Cookies blockiert sind.
-     Ohne Zeitlimit blieb dieses Promise dann fuer immer offen - und jeder
-     await darauf (Gmail-Scan, Ist-Kosten) haengt sichtbar "ewig". Deshalb:
-     error_callback anhaengen und nach 12 s hart mit null aufloesen. */
   return new Promise(resolve=>{
     if(!gdTokenClient){resolve(null);return}
-    let fertig=false;
-    const ende=v=>{if(fertig)return;fertig=true;clearTimeout(uhr);resolve(v)};
-    const uhr=setTimeout(()=>ende(null),12000);
     gdTokenClient.callback=(resp)=>{
-      if(resp&&resp.access_token){gdSaveToken({access_token:resp.access_token,expires_at:Date.now()+(resp.expires_in||3600)*1000});ende(resp.access_token)}
-      else ende(null);
+      if(resp&&resp.access_token){gdSaveToken({access_token:resp.access_token,expires_at:Date.now()+(resp.expires_in||3600)*1000});resolve(resp.access_token)}
+      else resolve(null);
     };
-    gdTokenClient.error_callback=()=>ende(null);
-    try{gdTokenClient.requestAccessToken(promptMode?{prompt:promptMode}:{})}catch(e){ende(null)}
+    try{gdTokenClient.requestAccessToken(promptMode?{prompt:promptMode}:{})}catch(e){resolve(null)}
   });
 }
 async function gdEnsureToken(){
@@ -7209,8 +6978,8 @@ navBinden();
 el('btnWerkzeugeStack').addEventListener('click',werkzeugeInStack);
 el('btnToolAufraeumen').addEventListener('click',()=>{if(confirm('Tool-Liste aufräumen? Claude-Varianten werden zu einem Eintrag zusammengeführt, „HeyGen / ElevenLabs" entfernt (die beiden gibt es einzeln), und ChatGPT, Telekom, Prompt Cowboy, Mentimeter auf inaktiv gesetzt. Beträge und Konten bleiben erhalten.'))toolAufraeumen()});
 el('btnAboImport').addEventListener('click',()=>{if(confirm('Die geprüften Abo-Daten (Stand 21.07.2026) importieren? 9 Tools mit Tarif, Betrag, Konto und Vertragsende. Vorhandene Tools mit gleichem Namen werden aktualisiert, neue angelegt. Konten SCC-KK, Coaching-Karte und Optima werden bei Bedarf angelegt.'))abosImportieren()});
-el('btnIstKosten').addEventListener('click',istKostenScan);
-el('btnIstKostenStop').addEventListener('click',ikStop);
+el('btnGmailScan').addEventListener('click',gmailScan);
+document.addEventListener('click',e=>{const b=e.target.closest('[data-gmailadd]');if(b)gmailAboUebernehmen(+b.getAttribute('data-gmailadd'))});
 el('btnAccountNeu').addEventListener('click',accountNeu);
 el('btnZielKm').addEventListener('click',zielKmBerechnen);
 el('btnKShot').addEventListener('click',()=>el('kShotFile').click());
