@@ -71,7 +71,7 @@ header h1 em{font-style:normal;color:var(--rot)}
   .wrap.spalten>.spalte{display:flex;flex-direction:column;gap:20px;min-width:0}
   .wrap.spalten>.card,.wrap.spalten>details.card,.spalte>.card,.spalte>details.card{margin-bottom:0;width:auto}
   /* Kacheln, Zurück-Knopf, KPIs und breite Karten laufen über beide Spalten */
-  .wrap.spalten>.kacheln,.wrap.spalten>.zurueckStart,.wrap.spalten>.kpis,.wrap.spalten>.vollbreite{grid-column:1 / -1}
+  .wrap.spalten>.zurueckStart,.wrap.spalten>.kpis,.wrap.spalten>.vollbreite{grid-column:1 / -1}
 }
 header .wrap{padding:0 2px}
 
@@ -200,7 +200,7 @@ header .wrap{padding:0 2px}
 .quicknav button:hover{border-color:var(--rot);color:var(--rot)}
 
 /* Stapelordnung (bewusst gesetzt, damit nichts mehr den Dialog verdeckt):
-   40 fab · 50 tabbar · 65 mehrOverlay · 70 modal · 90 toast */
+   40 fab · 50 tabbar · 70 modal · 90 toast */
 .modal{position:fixed;inset:0;background:rgba(20,35,60,.45);display:none;align-items:flex-end;justify-content:center;z-index:70}
 .modal.open{display:flex}
 /* dvh statt vh: auf dem Handy schrumpft die sichtbare Hoehe, wenn die
@@ -361,43 +361,10 @@ body{padding-bottom:64px}
 /* Am Handy nicht nötig — dort gibt es die untere Leiste mit Start */
 @media (pointer:coarse){ .zurueckStart{display:none} }
 
-/* ---------- Mehr-Menü (Overlay) ---------- */
-.mehrOverlay{position:fixed;inset:0;z-index:65;background:rgba(0,0,0,.45);
-  display:none;align-items:flex-end}
-.mehrOverlay.auf{display:flex}
-.mehrSheet{background:var(--paper,#fff);width:100%;border-radius:16px 16px 0 0;
-  padding:16px 16px calc(20px + env(safe-area-inset-bottom));max-height:70vh;max-height:70dvh;overflow-y:auto}
-.mehrSheet h3{margin:0 0 12px;font-family:'Barlow Condensed',sans-serif;
-  text-transform:uppercase;letter-spacing:.05em;font-size:var(--s-text)}
-.mehrSheet button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
-  background:transparent;border:0;border-bottom:1px solid var(--line);
-  padding:14px 4px;font-size:var(--s-text);cursor:pointer;color:var(--ink)}
-.mehrSheet button .ic{font-size:var(--s-karte);width:26px;text-align:center}
-
-/* ---------- Startseiten-Kacheln ---------- */
-.kacheln{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 16px}
-/* IHK und DATEV nebeneinander, auf dem Handy untereinander. Eigene Klasse statt
-   .kacheln, weil .kacheln auf schmalen Schirmen ganz ausgeblendet wird. */
+/* ---------- Zweispaltige Kartenreihe (IHK und DATEV) ---------- */
 .kacheln2{display:grid;grid-template-columns:1fr;gap:20px;align-items:start;margin-bottom:16px}
 .kacheln2>.card{margin-bottom:0}
 @media (min-width:900px){ .kacheln2{grid-template-columns:1fr 1fr} }
-/* Am Handy sind die Kacheln reine Doppelung: Seminare/Werkstatt/Abrechnung stehen in
-   der unteren Leiste, Kalender und Einstellungen unter „Mehr", „Neue Reise" in der
-   Aktionsleiste. Ausgeblendet gehört die Startseite dem Inhalt — Heute, Eingang,
-   Notiz, Aufgaben — statt einem zweiten Navigationsblock über dem Falz. */
-@media (max-width:899px){ .kacheln{display:none} }
-.kachel{background:var(--paper,#fff);border:1px solid var(--line);border-radius:14px;
-  padding:16px 14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;
-  transition:border-color .15s;text-align:left}
-.kachel:hover{border-color:var(--rot)}
-.kachel .ic{font-size:var(--s-teil)}
-.kachel .kt{font-family:'Barlow Condensed',sans-serif;font-weight:600;
-  text-transform:uppercase;letter-spacing:.03em;font-size:var(--s-text)}
-.kachel .ks{font-size:var(--s-klein);color:var(--grau)}
-@media (min-width:900px){ .kacheln{grid-template-columns:repeat(3,1fr)} }
-/* Ab hier passen alle sechs Kacheln nebeneinander — spart eine ganze Reihe Höhe
-   über der eigentlichen Arbeitsfläche. */
-@media (min-width:1200px){ .kacheln{grid-template-columns:repeat(6,1fr);gap:8px} .kachel{padding:11px 10px} .kachel .ic{font-size:var(--s-karte)} .kachel .ks{display:none} }
 .kShotZone-drag{border-color:var(--rot)!important;background:var(--rot-dim,rgba(226,0,26,.06))!important}
 </style>
 </head>
@@ -409,9 +376,7 @@ body{padding-bottom:64px}
     <h1>Dozenten-<em>Cockpit</em></h1>
     <div class="bereiche">
       <button id="tabStart" class="on">Start</button>
-      <button id="tabKalender">Kalender</button>
       <button id="tabSeminare">Seminare &amp; Reise</button>
-      <button id="tabReiseplanung" style="display:none">Reiseplanung</button>
       <button id="tabWerkstatt">Werkstatt</button>
       <button id="tabAbrechnung">Abrechnung</button>
       <button id="tabTools">Einstellungen</button>
@@ -427,15 +392,6 @@ body{padding-bottom:64px}
     <div class="lbl-klein">Was ist heute dran?</div>
     <div id="heuteZeile" style="margin-top:6px;font-size:15.5px;line-height:1.6"></div>
   </div>
-
-<div class="kacheln" id="startKacheln">
-  <button class="kachel" data-nav="seminare"><span class="ic">🎓</span><span class="kt">Seminare & Reise</span><span class="ks">Aufträge, Planung, Bahn</span></button>
-  <button class="kachel" data-nav="werkstatt"><span class="ic">🔧</span><span class="kt">Werkstatt</span><span class="ks">Erstellen, Werkzeuge, Zeit</span></button>
-  <button class="kachel" data-nav="abrechnung"><span class="ic">📊</span><span class="kt">Abrechnung</span><span class="ks">Rechnungen, Jahr, IHK</span></button>
-  <button class="kachel" data-nav="kalender"><span class="ic">📅</span><span class="kt">Kalender</span><span class="ks">Termine, Konflikte</span></button>
-  <button class="kachel" data-nav="tools"><span class="ic">⚙️</span><span class="kt">Einstellungen</span><span class="ks">Verbindungen, Abos, Tools</span></button>
-  <button class="kachel" data-navmehr="__neuereise"><span class="ic">➕</span><span class="kt">Neue Reise</span><span class="ks">Seminar/Reise sofort erfassen</span></button>
-</div>
 
 <div class="card vollbreite" id="kalenderHinweis" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
 <div class="spalte">
@@ -525,9 +481,11 @@ body{padding-bottom:64px}
 </div>
 </div>
 
-<div class="wrap" id="bereichKalender" style="display:none">
+<div class="wrap spalten" id="bereichSeminare" style="display:none">
 
-<div class="card">
+<!-- Kalender: keine eigene Ebene mehr, sondern Ansicht in Seminare -->
+
+<div class="card" id="kalCard">
     <h2>Kalender
       <span class="tools">
         <button class="minibtn" id="btnKalNeu">+ Termin</button>
@@ -585,9 +543,17 @@ body{padding-bottom:64px}
     <div class="hint" id="konfliktKalStatus"></div>
   </details>
 
-</div>
 
-<div class="wrap spalten" id="bereichSeminare" style="display:none">
+<!-- Reiseplanung: fruehere eigene Ebene, jetzt Karte in Seminare -->
+
+  <div class="card" id="reiseplanCard">
+    <h2>Reiseplanung
+      <span class="tools"><button class="minibtn" id="btnImport">Kalender-Import</button></span>
+    </h2>
+    <div class="hint">Anstehende Präsenz-Seminare mit Reisebezug. Bahn/Auto-Vergleich, Anreise und Buchungsstatus öffnest du direkt in der jeweiligen Reise.</div>
+    <div id="reiseplanListe" style="margin-top:8px"></div>
+  </div>
+
 
 <div class="card" id="mailCard">
     <h2>Seminaraufträge aus Outlook
@@ -675,18 +641,6 @@ body{padding-bottom:64px}
       <button type="button" class="minibtn" id="btnBahnAbbrechen">Verwerfen</button>
     </div>
     <div class="hint" id="bahnStatus"></div>
-  </div>
-
-</div>
-
-<div class="wrap" id="bereichReiseplanung" style="display:none">
-
-  <div class="card">
-    <h2>Reiseplanung
-      <span class="tools"><button class="minibtn" id="btnImport">Kalender-Import</button></span>
-    </h2>
-    <div class="hint">Anstehende Präsenz-Seminare mit Reisebezug. Bahn/Auto-Vergleich, Anreise und Buchungsstatus öffnest du direkt in der jeweiligen Reise.</div>
-    <div id="reiseplanListe" style="margin-top:8px"></div>
   </div>
 
 </div>
@@ -5260,28 +5214,26 @@ async function kalTerminAnlegen(){
 }
 
 /* Bereichs-Wechsel */
-const BEREICHE=['start','kalender','seminare','reiseplanung','werkstatt','abrechnung','tools'];
-function bereichWechseln(b){
-  /* "Seminare & Reise" ist EIN Bereich für den Nutzer: der Reiseplanung-Block wird
-     im Seminare-Bereich mit eingeblendet, obwohl er technisch ein eigenes <div> ist. */
-  const zeigeReise=(b==='seminare');
+const BEREICHE=['start','seminare','werkstatt','abrechnung','tools'];
+function bereichWechseln(b,ziel){
+  /* Kalender und Reiseplanung sind seit dem Umbau keine eigenen Ebenen mehr,
+     sondern Karten in Seminare. Alte Aufrufe werden hier abgefangen, damit kein
+     Sprungziel ins Leere laeuft. */
+  if(b==='kalender'){ ziel=ziel||'kalCard'; b='seminare'; }
+  if(b==='reiseplanung'){ ziel=ziel||'reiseplanCard'; b='seminare'; }
   BEREICHE.forEach(x=>{
     const div=el('bereich'+x.charAt(0).toUpperCase()+x.slice(1));
     /* Sichtbar = Inline-Stil leeren, damit das CSS entscheidet: 'block' überschrieb
        das display:grid von .wrap.spalten — der Desktop lief deshalb einspaltig. */
-    if(x==='reiseplanung'){ div.style.display=zeigeReise?'':'none'; }
-    else{ div.style.display=(x===b)?'':'none'; }
+    div.style.display=(x===b)?'':'none';
     const tab=el('tab'+x.charAt(0).toUpperCase()+x.slice(1));
     if(tab)tab.classList.toggle('on',x===b);
   });
-  /* Untere Leiste markieren — Kalender/Tools zählen unter "Mehr" */
   document.querySelectorAll('.tabbar button[data-nav]').forEach(btn=>{
-    const ziel=btn.dataset.nav;
-    btn.classList.toggle('on', ziel===b || (ziel==='__mehr' && (b==='kalender'||b==='tools')));
+    btn.classList.toggle('on', btn.dataset.nav===b);
   });
   if(b==='start'){renderGtasks(true);renderNachbereitung();renderBriefing();taskBoardLaden();autoKalenderCheck()}
-  if(b==='kalender'){kalenderLaden();konfliktKalRender()}
-  if(b==='seminare'){renderMsStatus();renderMeetings();renderReiseplanung()}
+  if(b==='seminare'){renderMsStatus();renderMeetings();renderReiseplanung();kalenderLaden();konfliktKalRender()}
   if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderProjekte();renderWerkstattAufgaben()}
   if(b==='abrechnung'){render()}
   if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true)}
@@ -5294,15 +5246,14 @@ function bereichWechseln(b){
   el('btnCsv').style.display=(b==='abrechnung')?'':'none';
   el('btnCsv').style.display=(b==='abrechnung')?'inline-block':'none';
   window.scrollTo({top:0,behavior:'instant'});
+  /* Sprungziel innerhalb des Bereichs (z. B. Kalenderkarte aus einem alten Aufruf) */
+  if(ziel){ const k=el(ziel); if(k)setTimeout(()=>k.scrollIntoView({behavior:'smooth',block:'start'}),60); }
 }
 /* Navigation aus unterer Leiste, Kacheln und Mehr-Menü */
 function zurueckKnoepfeSetzen(){
   /* Am Desktop ist die obere Reiter-Leiste ausgeblendet — jeder Bereich außer Start
      bekommt oben einen "‹ Start"-Knopf, damit man ohne obere Leiste zurückfindet. */
-  /* "Reiseplanung" absichtlich NICHT in der Liste: der Block wird im Seminare-Bereich
-     mit eingeblendet und stand nie allein — ein eigener Knopf ergäbe einen zweiten
-     "Zurück zur Übersicht" mitten auf der Seite. */
-  ['Kalender','Seminare','Werkstatt','Abrechnung','Tools'].forEach(name=>{
+  ['Seminare','Werkstatt','Abrechnung','Tools'].forEach(name=>{
     const bereich=el('bereich'+name);
     if(!bereich||bereich.querySelector('.zurueckStart'))return;
     const b=document.createElement('button');
@@ -5318,21 +5269,7 @@ function navBinden(){
      frühere Direktbind lief, bevor die tabbar im DOM existierte — Klicks blieben tot. */
   document.addEventListener('click',e=>{
     const nav=e.target.closest('[data-nav]');
-    if(nav){
-      const z=nav.dataset.nav;
-      if(z==='__mehr'){const o=el('mehrOverlay');if(o)o.classList.add('auf');return}
-      bereichWechseln(z);return;
-    }
-    const navm=e.target.closest('[data-navmehr]');
-    if(navm){
-      const z=navm.dataset.navmehr;
-      const o=el('mehrOverlay');if(o)o.classList.remove('auf');
-      if(z==='__neuereise'){bereichWechseln('seminare');setTimeout(()=>openForm(null),60);return}
-      bereichWechseln(z);return;
-    }
-    /* Klick auf den dunklen Rand des Mehr-Menues schliesst es */
-    const ov=el('mehrOverlay');
-    if(ov&&e.target===ov)ov.classList.remove('auf');
+    if(nav){ bereichWechseln(nav.dataset.nav); return; }
   });
 }
 async function kShotParse(file){
@@ -7480,7 +7417,6 @@ el('btnVpGen').addEventListener('click',vpGenerieren);
 el('btnVpCopyClaude').addEventListener('click',()=>{navigator.clipboard&&navigator.clipboard.writeText(el('vpText').value);window.open('https://claude.ai','_blank','noopener');toast('Prompt kopiert')});
 el('btnVpCopyGemini').addEventListener('click',()=>{navigator.clipboard&&navigator.clipboard.writeText(el('vpText').value);window.open('https://gemini.google.com','_blank','noopener');toast('Prompt kopiert')});
 el('btnWsAufgabenReload').addEventListener('click',()=>{taskListen=null;renderWerkstattAufgaben()});
-el('tabKalender').addEventListener('click',()=>bereichWechseln('kalender'));
 el('btnKalReload').addEventListener('click',kalenderLaden);
 el('btnKalNeu').addEventListener('click',()=>{
   el('kalFormCard').style.display='block';
@@ -7497,7 +7433,6 @@ el('btnKalSpeichern').addEventListener('click',kalTerminAnlegen);
 el('btnKalAbbrechen').addEventListener('click',()=>{el('kalFormCard').style.display='none'});
 el('kGanztag').addEventListener('change',()=>{el('kZeitWrap').style.display=el('kGanztag').value==='ja'?'none':'grid'});
 el('tabSeminare').addEventListener('click',()=>bereichWechseln('seminare'));
-el('tabReiseplanung').addEventListener('click',()=>bereichWechseln('reiseplanung'));
 el('tabWerkstatt').addEventListener('click',()=>bereichWechseln('werkstatt'));
 el('tabAbrechnung').addEventListener('click',()=>bereichWechseln('abrechnung'));
 el('tabTools').addEventListener('click',()=>bereichWechseln('tools'));
@@ -7622,17 +7557,8 @@ load().then(async()=>{
   <button data-nav="seminare"><span class="ic">🎓</span>Seminare</button>
   <button data-nav="werkstatt"><span class="ic">🔧</span>Werkstatt</button>
   <button data-nav="abrechnung"><span class="ic">📊</span>Abrechnung</button>
-  <button data-nav="__mehr"><span class="ic">⋯</span>Mehr</button>
+  <button data-nav="tools"><span class="ic">⚙️</span>Einstellungen</button>
 </nav>
-
-<!-- Mehr-Menü -->
-<div class="mehrOverlay" id="mehrOverlay">
-  <div class="mehrSheet">
-    <h3>Weitere Bereiche</h3>
-    <button data-navmehr="kalender"><span class="ic">📅</span>Kalender</button>
-    <button data-navmehr="tools"><span class="ic">⚙️</span>Einstellungen</button>
-  </div>
-</div>
 
 </body>
 </html>
