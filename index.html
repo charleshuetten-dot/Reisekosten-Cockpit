@@ -419,14 +419,47 @@ body{padding-bottom:64px}
 
 <div class="card vollbreite" id="kalenderHinweis" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
 <div class="spalte">
-<div class="card" id="cockpitCard">
-    <h2>Eingang aus Outlook <span id="cockpitBadge" class="chip offen" style="display:none"></span>
-      <span class="tools"><button class="minibtn haupt" id="btnCockpitLesen">Auswerten</button></span>
+<div class="card" id="eingangCard">
+    <h2>Eingang <span id="cockpitBadge" class="chip offen" style="display:none"></span>
+      <span class="tools">
+        <button class="minibtn" id="btnEingangReload">Aktualisieren</button>
+        <button class="minibtn haupt" id="btnCockpitLesen">Alle auswerten</button>
+      </span>
     </h2>
-    <div class="hint">Mail in Outlook in den Ordner „Dozenten Cockpit" ziehen. <b>Auswerten</b> lässt Claude die Art bestimmen; nach Übernehmen oder Verwerfen wandert die Mail nach „Dozenten Cockpit/Erledigt". Leerer Ordner heißt: alles verarbeitet.</div>
-    <div id="cockpitListe" style="margin-top:8px"></div>
+    <div class="hint">Vier Wege herein: Mail in den Outlook-Ordner „Dozenten Cockpit" ziehen oder ihr die Kategorie „Seminarauftrag" geben, unterwegs per „Hey Google, erinnere mich …" sprechen, hier eine Datei einwerfen oder tippen. Auflisten kostet nichts — <b>Auswerten</b> je Zeile lässt Claude lesen, rund 1,5 Cent.</div>
+    <textarea id="inboxText" rows="2" placeholder="z. B. Folien für die Allianz-Schulung im August aktualisieren" style="width:100%;margin-top:8px"></textarea>
+    <div id="ibDrop" class="dropzone" style="margin-top:8px">
+      Mail, Screenshot oder PDF hierher ziehen oder mit <b>Strg + V</b> einfügen.
+      <input type="file" id="ibDropFile" accept=".eml,.msg,.png,.jpg,.jpeg,.pdf" style="display:none">
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button type="button" class="minibtn" id="btnInboxDikt">🎤 Diktieren</button>
+      <button type="button" class="minibtn haupt" id="btnInboxSortieren">Einordnen</button>
+      <button type="button" class="minibtn" id="btnInboxLeeren">Leeren</button>
+    </div>
+    <div id="inboxVorschau" style="display:none;margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px">
+      <div class="f"><label>Aufgabe</label><input type="text" id="ibTitel"></div>
+      <div class="grid2">
+        <div class="f"><label>Bereich / Liste</label><select id="ibKat"></select></div>
+        <div class="f"><label>Fällig</label><input type="date" id="ibFaellig"></div>
+      </div>
+      <div class="f"><label>Details</label><textarea id="ibNotiz" rows="2"></textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button type="button" class="minibtn" id="btnInboxAnlegen">In Aufgaben anlegen</button>
+        <button type="button" class="minibtn" id="btnInboxVerwerfen">Verwerfen</button>
+      </div>
+    </div>
+    <div class="hint" id="inboxStatus"></div>
+    <div id="cockpitListe" style="margin-top:10px"></div>
     <div class="hint" id="cockpitStatus"></div>
+    <div id="gtaskWrap" style="display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:8px">
+      <div class="hint">Vom Handy diktiert — per „Hey Google, erinnere mich …" gesprochen. Liste wählen, in Microsoft To Do übernehmen.</div>
+      <div id="gtaskListe" style="margin-top:8px"></div>
+      <div class="hint" id="gtaskStatus"></div>
+    </div>
   </div>
+</div>
+<div class="spalte">
 <details class="card" id="taskCard" open>
     <summary><h2 style="display:inline">Aufgaben</h2>
       <span class="tools"><button class="minibtn" id="btnTaskReload">Aktualisieren</button><button class="minibtn haupt" id="btnTaskNeu">+ Aufgabe</button></span>
@@ -451,44 +484,6 @@ body{padding-bottom:64px}
     <div id="taskFilter" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
     <div id="taskBoard" style="margin-top:8px"></div>
   </details>
-</div>
-<div class="spalte">
-<details class="card" id="inboxCard">
-    <summary><h2 style="display:inline">Kurz notieren</h2>
-      <span class="tools"><button class="minibtn" id="btnInboxDikt">🎤 Diktieren</button></span>
-    </summary>
-    <div class="hint">Gedanke, Aufgabe, Idee — sprechen oder tippen. Claude ordnet zu und legt sie in deinen Optima-Aufgaben ab.</div>
-    <textarea id="inboxText" rows="2" placeholder="z. B. Folien für die Allianz-Schulung im August aktualisieren" style="width:100%;margin-top:8px"></textarea>
-    <div id="ibDrop" class="dropzone" style="margin-top:8px">
-      Alles hierher: Mail, Screenshot, PDF — ziehen oder mit <b>Strg + V</b> einfügen. Claude erkennt, ob es Aufgabe, Seminarauftrag, Liefer-Auftrag, Termin oder IHK-Abrechnung ist.
-      <input type="file" id="ibDropFile" accept=".eml,.msg,.png,.jpg,.jpeg,.pdf" style="display:none">
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-      <button type="button" class="minibtn haupt" id="btnInboxSortieren">Sortieren</button>
-      <button type="button" class="minibtn" id="btnInboxLeeren">Leeren</button>
-    </div>
-    <div id="inboxVorschau" style="display:none;margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px">
-      <div class="f"><label>Aufgabe</label><input type="text" id="ibTitel"></div>
-      <div class="grid2">
-        <div class="f"><label>Bereich / Liste</label><select id="ibKat"></select></div>
-        <div class="f"><label>Fällig</label><input type="date" id="ibFaellig"></div>
-      </div>
-      <div class="f"><label>Details</label><textarea id="ibNotiz" rows="2"></textarea></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-        <button type="button" class="minibtn" id="btnInboxAnlegen">In Aufgaben anlegen</button>
-        <button type="button" class="minibtn" id="btnInboxVerwerfen">Verwerfen</button>
-      </div>
-    </div>
-    <div class="hint" id="inboxStatus"></div>
-  </details>
-<div class="card" id="gtaskCard" style="display:none;border-color:#4285f4">
-    <h2>Vom Handy diktiert
-      <span class="tools"><button class="minibtn" id="btnGtaskReload">Prüfen</button></span>
-    </h2>
-    <div class="hint">Per „Hey Google, erinnere mich …" gesprochene Aufgaben. Prüfen, Liste wählen, in Microsoft To Do übernehmen.</div>
-    <div id="gtaskListe" style="margin-top:8px"></div>
-    <div class="hint" id="gtaskStatus"></div>
-  </div>
 </div>
 </div>
 
@@ -576,13 +571,6 @@ body{padding-bottom:64px}
   </div>
 
 
-<div class="card" id="mailCard">
-    <h2>Seminaraufträge aus Outlook
-      <span class="tools"><button class="minibtn" id="btnMailCheck">Mails prüfen</button></span>
-    </h2>
-    <div class="hint">Markierte Mails aus Outlook<button type="button" class="hilfe" data-tip="Drei Wege: Kategorie &quot;Seminarauftrag&quot; vergeben (Mail bleibt wo sie ist — empfohlen), F&auml;hnchen setzen, oder in den Outlook-Ordner &quot;Seminaraufträge&quot; legen." aria-label="Erklärung">?</button></div>
-    <div id="mailList" style="margin-top:8px"></div>
-  </div>
 
 <details class="card" id="dictCard">
     <summary>Neue Reise per Diktat</summary>
@@ -630,14 +618,6 @@ body{padding-bottom:64px}
     <div id="meetList" style="margin-top:8px"></div>
   </details>
 
-<div class="card" id="abCard">
-    <h2>Auftragsbestätigung</h2>
-    <div id="abDrop" class="dropzone">
-      <div id="abDropText">Auftragsbestätigung (PDF/Foto) hierher ziehen oder tippen — Auftragsnummer, Honorar und Termine werden automatisch übernommen</div>
-      <input type="file" id="abFile" accept=".pdf,.png,.jpg,.jpeg" style="display:none">
-    </div>
-    <div class="hint" id="abStatus"></div>
-  </div>
 
 <div class="card" id="planVorschau" style="display:none">
     <h2>Erkannter Auftrag</h2>
@@ -669,16 +649,16 @@ body{padding-bottom:64px}
 <div class="wrap" id="bereichWerkstatt" style="display:none">
 
 <div class="card vollbreite" id="jobCard">
-    <h2>Liefer-Aufträge
+    <h2>Arbeitsaufträge
       <span class="tools"><button class="minibtn haupt" id="btnJobNeu">+ Auftrag</button></span>
     </h2>
-    <div class="hint">Aufträge ohne Seminartermin — WBT erstellen, WBT lektorieren, Klausuren korrigieren. Deadline statt Datum, Status von offen bis abgerechnet.</div>
+    <div class="hint">Arbeit ohne Seminartermin — WBT erstellen, WBT lektorieren, Klausuren korrigieren. Deadline statt Datum, Status von offen bis abgerechnet.</div>
     <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 2px 4px;-webkit-overflow-scrolling:touch" id="jobFilter"></div>
     <div id="jobListe" style="margin-top:4px"></div>
   </div>
 
 <div class="card vollbreite" id="jobFormCard" style="display:none">
-    <h2 id="jobFormTitel">Neuer Liefer-Auftrag</h2>
+    <h2 id="jobFormTitel">Neuer Arbeitsauftrag</h2>
     <div class="grid2">
       <div class="f"><label>Auftraggeber</label><select id="jAg" class="ag-select"></select></div>
       <div class="f"><label>Art</label>
@@ -1021,7 +1001,7 @@ body{padding-bottom:64px}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
       <button class="minibtn rot" id="btnNeuAufsetzen">Bewegungsdaten neu aufsetzen</button>
-      <button type="button" class="hilfe" data-tip="Zieht zuerst eine JSON-Sicherung und löscht dann Reisen, Liefer-Aufträge, Rechnungen und Meetings. Auftraggeber-Stammdaten, Tool-Stack, gelernte Kategorien und alle Verbindungen bleiben erhalten." aria-label="Erklärung">?</button>
+      <button type="button" class="hilfe" data-tip="Zieht zuerst eine JSON-Sicherung und löscht dann Reisen, Arbeitsaufträge, Rechnungen und Meetings. Auftraggeber-Stammdaten, Tool-Stack, gelernte Kategorien und alle Verbindungen bleiben erhalten." aria-label="Erklärung">?</button>
     </div>
     <div class="hint" id="envHint"></div>
   </details>
@@ -1161,7 +1141,7 @@ body{padding-bottom:64px}
       <button type="button" class="minibtn" data-quick="aufgabe" style="text-align:left;padding:12px 14px">✅ &nbsp;Aufgabe notieren</button>
       <button type="button" class="minibtn" data-quick="memo" style="text-align:left;padding:12px 14px">🎤 &nbsp;Memo zum Seminar</button>
       <button type="button" class="minibtn" data-quick="reise" style="text-align:left;padding:12px 14px">🚗 &nbsp;Neue Reise erfassen</button>
-      <button type="button" class="minibtn" data-quick="job" style="text-align:left;padding:12px 14px">📦 &nbsp;Liefer-Auftrag anlegen</button>
+      <button type="button" class="minibtn" data-quick="job" style="text-align:left;padding:12px 14px">📦 &nbsp;Arbeitsauftrag anlegen</button>
     </div>
     <button type="button" class="minibtn" id="btnQuickZu" style="margin-top:12px;width:100%">Abbrechen</button>
   </div>
@@ -1790,44 +1770,6 @@ function openFormPrefill(p){
   el('rechnungWrap').open=true; formTeilSetzen('abrechnen');
   if(p.zielAdresse||p.ziel){autoKmAusAdresse(p.zielAdresse||p.ziel)}
   calcPreview();
-}
-async function abParseFile(file){
-  const status=el('abStatus');
-  if(!/pdf|png|jpe?g/i.test(file.type)&&!/\.(pdf|png|jpe?g)$/i.test(file.name)){status.textContent='Bitte PDF, PNG oder JPG hochladen.';return}
-  status.innerHTML='<span class="spin"></span>Lese Auftragsbestätigung …';
-  try{
-    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
-    const isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name);
-    const resp=await fetch(claudeEndpoint(),{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,
-        messages:[{role:"user",content:[
-          {type:isPdf?"document":"image",source:{type:"base64",media_type:isPdf?"application/pdf":file.type,data:b64}},
-          {type:"text",text:"Das ist eine Auftragsbestätigung/Dozentenvereinbarung für eine Seminar-/Dozententätigkeit. Extrahiere die Angaben und antworte AUSSCHLIESSLICH mit einem JSON-Objekt, ohne Markdown, ohne Erklärung, in genau diesem Format: {\"auftragsnummer\":\"\",\"auftraggeber\":\"\",\"ziel\":\"Stadt des Veranstaltungsortes\",\"zielAdresse\":\"Name oder Adresse der Räumlichkeit, so wortwörtlich wie im Dokument\",\"zweck\":\"kurze Bezeichnung der Maßnahme/des Seminars\",\"von\":\"YYYY-MM-DD (erster Termin/Tag)\",\"bis\":\"YYYY-MM-DD (letzter Termin/Tag)\",\"honorarEinheit\":\"tag|block|stunde|pauschal\",\"honorarProTermin\":0,\"anzahlTermine\":1,\"honorarGesamt\":0,\"ustBefreit\":false}. honorarEinheit sagt, WORAUF sich der Satz bezieht: \"tag\" bei einem Tagessatz, \"block\" bei Abrechnung je Seminarblock (mehrere Blöcke können auf denselben Tag fallen), \"stunde\" bei Stundensatz, \"pauschal\" wenn nur ein Gesamtbetrag ohne Satz genannt ist. honorarProTermin ist der Satz je Einheit, anzahlTermine die Anzahl der Einheiten. honorarGesamt ist honorarProTermin multipliziert mit anzahlTermine, außer im Dokument steht bereits ein expliziter Gesamtbetrag. Wenn ein Feld nicht auffindbar ist: leer lassen bzw. 0. Nichts erfinden."}
-        ]}]
-      })
-    });
-    const data=await resp.json();
-    if(data.error)throw new Error(data.error.message||'API-Fehler');
-    const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
-    const clean=text.replace(/```json|```/g,'').trim();
-    const start=clean.indexOf('{'),end=clean.lastIndexOf('}');
-    if(start<0)throw new Error('Keine Daten erkannt');
-    const p=JSON.parse(clean.slice(start,end+1));
-    status.textContent='Erkannt — bitte prüfen und speichern.';
-    openFormPrefill(p);
-    /* Auto-Ablage in OneDrive, falls Outlook verbunden */
-    if(msAccount){
-      try{
-        const jahr=(p.von||heuteISO()).slice(0,4);
-        const name=((p.auftragsnummer||'Auftrag')+'_'+(p.auftraggeber||'').split(' ')[0]).replace(/[\\/:*?"<>|#%]/g,'')+(isPdf?'.pdf':'.jpg');
-        await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(b64,isPdf?'application/pdf':file.type),isPdf?'application/pdf':file.type);
-        status.textContent='Erkannt und in OneDrive abgelegt (Dozentur/Aufträge/'+jahr+'/'+name+') — bitte prüfen und speichern.';
-      }catch(e){/* Ablage optional */}
-    }
-  }catch(err){
-    status.textContent='Auslesen fehlgeschlagen: '+err.message+'. Bitte Daten manuell eintragen.';
-  }
 }
 /* Bahnbeleg auslesen. Er bucht selbst und traegt den Preis bisher von Hand nach —
    das ist die Stelle, an der sich ein Zahlendreher einschleicht. Ein Claude-Aufruf
@@ -3027,7 +2969,6 @@ async function flaggeEinsortieren(id){
   const warFlagge=istFlaggenListe(t._listName);
   inboxAusFlagge={id:t.id, listId:t._listId, istFlagge:warFlagge};
   bereichWechseln('start');
-  const c=el('inboxCard'); if(c)c.open=true;
   try{ await taskListenHolen(); }catch(e){}
   const listen=(taskListen||[]).map(l=>l.name).filter(n=>n&&!istFlaggenListe(n));
   /* Aufgaben aus der Standardliste tragen die Kategorie noch — die ist der beste
@@ -3039,7 +2980,7 @@ async function flaggeEinsortieren(id){
   inboxVorschlag={prio:t.importance||'normal'};
   el('inboxVorschau').style.display='block';
   el('inboxStatus').textContent=warFlagge?'Aus einer gekennzeichneten Mail — Titel anpassen, Liste wählen, anlegen. Die Kennzeichnung wird danach entfernt.':'Aus „'+(t._listName||'Aufgaben')+'“ — Liste wählen und anlegen. Die alte Aufgabe wird danach abgehakt.';
-  el('inboxCard').scrollIntoView({behavior:'smooth',block:'center'});
+  el('eingangCard').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function taskRowHtml(t){
   const due=t.dueDateTime&&t.dueDateTime.dateTime?t.dueDateTime.dateTime.slice(0,10):'';
@@ -3109,7 +3050,7 @@ async function taskAnlegen(){
   }catch(e){toast('Anlegen fehlgeschlagen')}
 }
 
-/* ---------- Liefer-Aufträge (Welle 1) ----------
+/* ---------- Arbeitsauftraege (frueher „Liefer-Auftraege") ----------
    Zweiter Auftrags-Typ neben den Reisen: Aufträge OHNE Seminartermin — WBT erstellen,
    WBT lektorieren, Klausuren korrigieren. Bewusst ein eigener Objekttyp (state.jobs)
    statt in state.trips, damit kein Auftrag 20 leere Reisefelder mitschleppt.
@@ -3156,7 +3097,7 @@ function jobBerechnen(){
 function jobFormOeffnen(id){
   jobEditId=id||null;
   const j=id?jobsListe().find(x=>x.id===id):null;
-  el('jobFormTitel').textContent=j?'Liefer-Auftrag bearbeiten':'Neuer Liefer-Auftrag';
+  el('jobFormTitel').textContent=j?'Arbeitsauftrag bearbeiten':'Neuer Arbeitsauftrag';
   el('jAg').value=j?j.ag||'':'';
   el('jArt').value=j?j.art||'wbt-lektorat':'wbt-lektorat';
   el('jTitel').value=j?j.titel||'':'';
@@ -3192,12 +3133,12 @@ async function jobSpeichern(){
   }
   sheetZu(); jobEditId=null;
   await save(); renderJobs();
-  toast('Liefer-Auftrag gespeichert');
-  await cockpitAbschliessen('lieferauftrag');
+  toast('Arbeitsauftrag gespeichert');
+  await eingangAbschliessen('arbeitsauftrag');
 }
 async function jobLoeschen(){
   if(!jobEditId)return;
-  if(!confirm('Diesen Liefer-Auftrag wirklich löschen?'))return;
+  if(!confirm('Diesen Arbeitsauftrag wirklich löschen?'))return;
   const liste=jobsListe();
   const i=liste.findIndex(x=>x.id===jobEditId);
   if(i>=0)liste.splice(i,1);
@@ -3255,7 +3196,7 @@ function renderJobs(){
   const gefiltert=liste.filter(j=>jobFilterAktiv==='alle'||(j.status||'offen')===jobFilterAktiv)
     .sort((a,b)=>(a.deadline||'9999').localeCompare(b.deadline||'9999'));
   if(!gefiltert.length){
-    box.innerHTML='<div class="hint">'+(liste.length?'Keine Aufträge in diesem Status.':'Noch keine Liefer-Aufträge erfasst — leg den ersten über „+ Auftrag" an.')+'</div>';
+    box.innerHTML='<div class="hint">'+(liste.length?'Keine Aufträge in diesem Status.':'Noch keine Arbeitsaufträge erfasst — leg den ersten über „+ Auftrag" an.')+'</div>';
     return;
   }
   box.innerHTML=gefiltert.map(j=>{
@@ -3350,55 +3291,23 @@ function renderHeuteZeile(){
      sonst nirgends auftaucht: Arbeitsauftraege mit naher Frist. */
   const jobs=(state.jobs||[]).filter(j=>(j.status||'offen')!=='abgerechnet' && j.deadline);
   const eilig=jobs.filter(j=>jobTageBisDeadline(j)!==null && jobTageBisDeadline(j)<=7);
-  if(eilig.length)teile.push('<span style="color:var(--rot)">'+eilig.length+' Liefer-Auftrag/Aufträge fällig</span>');
+  if(eilig.length)teile.push('<span style="color:var(--rot)">'+eilig.length+(eilig.length===1?' Arbeitsauftrag fällig':' Arbeitsaufträge fällig')+'</span>');
 
   box.innerHTML=teile.join(' &nbsp;·&nbsp; ');
 }
 
-/* ---------- Redesign-Punkt 2: universeller Eingang ----------
-   Ergänzt die bestehenden Wege, ersetzt sie NICHT — die spezialisierten Auslesungen
-   (Bahnbuchung, Auftragsbestätigung) sind treffsicherer als ein Allzweck-Erkenner. */
+/* Getippte oder diktierte Notiz — dieselbe Strecke wie Mail und Datei.
+   Frueher hatte der Schnellerfassen-Dialog einen eigenen, dritten Prompt mit
+   einer dritten Typliste; das Ergebnis hing davon ab, wo er getippt hatte. */
 async function quickEinordnen(){
   const txt=(el('quickText').value||'').trim();
   const st=el('quickStatus');
   if(!txt){st.textContent='Bitte etwas eintippen.';return}
   st.innerHTML='<span class="spin"></span>Claude ordnet ein \u2026';
   try{
-    const resp=await fetch(claudeEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:400,
-        messages:[{role:'user',content:
-          'Ordne die folgende Notiz eines selbstständigen Seminardozenten ein. Heute ist '+heuteISO()+'.\n'+
-          'Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\n'+
-          '{"art":"aufgabe|reise|auftrag","titel":"kurz","auftraggeber":"","datum":"YYYY-MM-DD oder leer","ort":"","notiz":""}\n'+
-          'art=reise nur bei einem Seminar/Termin mit Datum. art=auftrag bei einer Arbeit mit Abgabefrist ohne Termin '+
-          '(WBT erstellen/lektorieren, Klausuren korrigieren). Sonst art=aufgabe.\n\nNotiz:\n'+txt}]})});
-    if(!resp.ok)throw new Error('Claude '+resp.status);
-    const d=await resp.json();
-    const roh=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('').replace(/```json|```/g,'').trim();
-    const p=JSON.parse(roh.slice(roh.indexOf('{'),roh.lastIndexOf('}')+1));
+    const v=await eingangDeuten({type:'text',text:'Notiz:\n'+txt});
     quickSchliessen(); el('quickText').value=''; st.textContent='';
-    if(p.art==='reise'){
-      bereichWechseln('seminare'); openForm(null);
-      if(p.datum)el('fVon').value=p.datum;
-      if(p.ort)el('fZiel').value=p.ort;
-      if(p.titel)el('fZweck').value=p.titel;
-      toast('Als Reise erkannt \u2014 bitte prüfen');
-    }else if(p.art==='auftrag'){
-      bereichWechseln('werkstatt'); jobFormOeffnen(null);
-      el('jTitel').value=p.titel||''; if(p.datum)el('jDeadline').value=p.datum;
-      el('jNotiz').value=p.notiz||'';
-      toast('Als Liefer-Auftrag erkannt \u2014 Abrechnung ergänzen');
-    }else{
-      bereichWechseln('start');
-      const c=el('inboxCard'); if(c)c.open=true;
-      try{ if(msAccount)await taskListenHolen(); }catch(e){}
-      el('ibKat').innerHTML=inboxListenOptionen((taskListen||[]).map(l=>l.name).filter(Boolean), p.liste||'');
-      el('ibTitel').value=p.titel||txt.slice(0,80);
-      el('ibNotiz').value=p.notiz||'';
-      if(p.datum)el('ibFaellig').value=p.datum;
-      el('inboxVorschau').style.display='block';
-      toast('Als Aufgabe erkannt \u2014 prüfen und anlegen');
-    }
+    await eingangAufnehmen({quelle:'Notiz',betreff:txt.slice(0,80),vorschlaege:v});
   }catch(e){ st.textContent='Einordnen fehlgeschlagen: '+e.message; }
 }
 
@@ -3413,52 +3322,6 @@ function quickWahl(was){
   if(was==='memo'){ bereichWechseln('start'); const b=el('btnTbDikt')||el('btnInboxDikt'); if(b){b.scrollIntoView({behavior:'smooth',block:'center'}); b.click();} return; }
   if(was==='reise'){ bereichWechseln('seminare'); openForm(null); return; }
   if(was==='job'){ bereichWechseln('werkstatt'); jobFormOeffnen(null); return; }
-}
-
-/* Aufgabe aus einer gezogenen Datei — gleiche Mechanik wie die Termin-Zone im
-   Kalender, nur mit Aufgaben-Schema. Fuellt die bestehende Vorschau-Maske. */
-async function ibDropParse(file){
-  const st=el('inboxStatus');
-  const istMail=/\.(eml|msg)$/i.test(file.name)||/message\/rfc822/i.test(file.type);
-  const istBildPdf=/png|jpe?g|pdf/i.test(file.type)||/\.(png|jpe?g|pdf)$/i.test(file.name);
-  if(!istMail&&!istBildPdf){st.textContent='Bitte ein Bild (PNG/JPG), PDF oder eine E-Mail-Datei (.eml/.msg) waehlen.';return}
-  st.innerHTML='<span class="spin"></span>Claude liest die Aufgabe \u2026';
-  try{
-    let quelle;
-    if(istMail){
-      let text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsText(file)});
-      text=(text||'').replace(/=\r?\n/g,'').slice(0,12000);
-      quelle={type:'text',text:'E-Mail-Datei (Rohtext):\n\n'+text};
-    }else{
-      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
-      const isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name);
-      quelle=isPdf?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
-                  :{type:'image',source:{type:'base64',media_type:(/png/i.test(file.type)?'image/png':'image/jpeg'),data:b64}};
-    }
-    /* Listennamen mitgeben, damit Claude direkt in die richtige Liste einsortiert —
-       genau sein Wunsch "am liebsten direkt in der richtigen Liste". */
-    try{ if(msAccount)await taskListenHolen(); }catch(e){/* ohne Listen geht es auch */}
-    const listen=(taskListen||[]).map(l=>l.name).filter(Boolean);
-    const resp=await fetch(claudeEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:500,
-        messages:[{role:'user',content:[quelle,{type:'text',text:
-          'Daraus soll EINE Aufgabe fuer einen selbststaendigen Seminardozenten werden. Heute ist '+heuteISO()+'.\n'+
-          (listen.length?('Waehle als bereich genau einen aus dieser Liste: '+listen.join(' | ')+'.\n'):'')+
-          'Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\n'+
-          '{"titel":"kurz und handlungsorientiert","bereich":"","faellig":"YYYY-MM-DD oder leer","prio":"low|normal|high","notiz":"Kontext, Ansprechpartner, Link"}\n'+
-          'Regeln: titel beginnt mit einem Verb. faellig nur wenn eine Frist erkennbar ist. Erfinde nichts.'}]}]})});
-    if(!resp.ok)throw new Error('Claude '+resp.status);
-    const d=await resp.json();
-    const roh=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('').replace(/```json|```/g,'').trim();
-    const p=JSON.parse(roh.slice(roh.indexOf('{'),roh.lastIndexOf('}')+1));
-    inboxVorschlag={prio:p.prio||'normal'};
-    el('ibTitel').value=p.titel||'';
-    el('ibNotiz').value=p.notiz||'';
-    el('ibFaellig').value=p.faellig||'';
-    el('ibKat').innerHTML=inboxListenOptionen(listen,p.bereich||'');
-    el('inboxVorschau').style.display='block';
-    st.textContent='Vorschlag aus \u201e'+file.name+'\u201c \u2014 pruefen und anlegen.';
-  }catch(e){ st.textContent='Konnte die Datei nicht auswerten: '+e.message; }
 }
 
 /* Anreise + Seminartage + Abreise aus einer GESPEICHERTEN Reise in Outlook anlegen.
@@ -3527,123 +3390,200 @@ async function bestaetigungEntwerfen(){
   }catch(e){toast('Entwurf fehlgeschlagen')}
 }
 
-/* ---------- Universelle Ablage-Weiche ----------
-   Eine Zone für alles: Claude bestimmt in EINEM Durchgang die Art und liefert
-   gleich die passenden Felder, danach wird an die richtige Stelle geleitet.
-   Die spezialisierten Zonen bleiben als Abkürzung — wer schon in der IHK-Karte
-   steht, braucht keine Erkennung. Router plus Spezialisten, nicht ein Allerlei
-   statt der Spezialisten. */
-async function universalDrop(file, statusEl){
+/* ---------- Eine Eingangsstrecke: ein Prompt, ein Vorschlagsdialog ----------
+   Frueher liefen drei fast wortgleiche Prompts nebeneinander — Outlook-Ordner,
+   Ablageflaeche und „Seminarauftraege aus Outlook". Sie kannten unterschiedliche
+   Typlisten, das Ergebnis haing also davon ab, wo etwas eingeworfen wurde.
+   Jetzt entscheidet ein Prompt, gleichgueltig woher der Text kommt.
+   Auflisten ist gratis (nur Graph), erst das Auswerten je Zeile kostet:
+   rund 1,5 Cent je Mail (Sonnet 4.6, 3 $ Eingabe / 15 $ Ausgabe je Mio. Token). */
+const EINGANG_ARTEN=[['reise','Seminarauftrag'],['arbeitsauftrag','Arbeitsauftrag'],
+  ['termin','Termin'],['aufgabe','Aufgabe'],['ihk','IHK-Abrechnung'],['bahn','Bahnbuchung']];
+const EINGANG_FELDNAMEN={auftraggeber:'Auftraggeber',gesellschaft:'Gesellschaft',kategorie:'Kategorie',
+  auftragsnummer:'Auftragsnummer',zweck:'Seminarbezeichnung',von:'Erster Tag',bis:'Letzter Tag',
+  beginn:'Beginn',ende:'Ende',ziel:'Ort',zielAdresse:'Adresse',honorarEinheit:'Honorarart',
+  honorarProTermin:'Satz je Einheit',anzahlTermine:'Anzahl Einheiten',honorarGesamt:'Honorar gesamt',
+  ustBefreit:'USt-befreit',online:'Online',jobArt:'Art der Arbeit',titel:'Titel',deadline:'Abgabe',
+  umfang:'Umfang',notiz:'Notiz',datum:'Datum',ort:'Ort',faellig:'Fällig',prio:'Priorität',
+  bereich:'Liste',vorgang:'Vorgang',beleg:'Beleg',betrag:'Betrag',ausschuss:'Ausschuss',
+  status:'Status',buchungsnummer:'Buchungsnummer',preisGesamt:'Preis gesamt'};
+function eingangArtName(a){const t=EINGANG_ARTEN.find(x=>x[0]===a);return t?t[1]:a}
+function eingangFeldName(f){return EINGANG_FELDNAMEN[f]||f}
+
+function eingangPrompt(listen){
+  return 'Das hat ein selbstständiger Seminardozent (Finanz-, Versicherungs- und Immobilienbranche, zugleich IHK-Prüfer) in seinen Eingang gelegt — als Mail, Datei, Screenshot oder Notiz. Heute ist '+heuteISO()+'.\n\n'+
+    'Sein Geschäftsmodell: Eine Bildungsakademie (der AUFTRAGGEBER) wird von einer Versicherung oder Bank (der GESELLSCHAFT) mit einem Seminar beauftragt und bucht ihn als Dozenten. Abgerechnet wird immer mit der Akademie, nie mit der Gesellschaft — auch wenn die Einladung direkt von der Gesellschaft kommt oder die Gesellschaft im Betreff steht.\n'+
+    'AUFTRAGGEBER ist genau einer aus: '+AUFTRAGGEBER.join(' | ')+'. Ist keiner erkennbar, Feld leer lassen — rate NICHT den Absender.\n'+
+    'GESELLSCHAFT ist das Unternehmen, für dessen Leute das Seminar stattfindet (z. B. '+GESELLSCHAFTEN.filter(g=>g!=='Allgemein').join(', ')+' oder eine andere). Steht keine fest: Allgemein.\n'+
+    'KATEGORIE ist das Fachthema, genau eines aus: '+KATEGORIEN.join(' | ')+'.\n\n'+
+    'Bestimme, was daraus folgt — meist genau eine Sache, höchstens drei. Mehrere nur, wenn wirklich mehreres folgt (etwa ein Seminartermin UND eine Zuarbeit mit eigener Frist). Reine Bestätigungen ohne Handlung: leere Liste.\n\n'+
+    'Arten:\n'+
+    '- "reise": Seminarauftrag oder Auftragsbestätigung mit Datum, Präsenz oder Online\n'+
+    '- "arbeitsauftrag": Arbeit mit Abgabefrist ohne Seminartermin — WBT erstellen oder lektorieren, Klausuren korrigieren, Unterlagen erstellen\n'+
+    '- "termin": Termin ohne Auftragsbezug, etwa eine Besprechung\n'+
+    '- "aufgabe": alles andere, woraus sich eine To-do ergibt\n'+
+    '- "ihk": Prüferentschädigung aus dem IHK-Portal (tibros)\n'+
+    '- "bahn": Buchungsbestätigung der Deutschen Bahn\n\n'+
+    'Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\n'+
+    '{"vorschlaege":[{"art":"…","kurz":"eine Zeile, was daraus folgt","unsicher":["feldname"],"felder":{…}}]}\n'+
+    '"unsicher" nennt höchstens drei Feldnamen, deren Wert du geraten oder erschlossen hast, weil er nicht ausdrücklich dastand — das wichtigste zuerst. Was wörtlich im Text steht, gehört NICHT hinein.\n\n'+
+    'Feldschema je Art:\n'+
+    'reise: {"auftraggeber":"","gesellschaft":"","kategorie":"","auftragsnummer":"","zweck":"kurze Seminarbezeichnung","von":"YYYY-MM-DD","bis":"YYYY-MM-DD","beginn":"HH:MM","ende":"HH:MM","ziel":"Stadt","zielAdresse":"Name oder Adresse der Räumlichkeit wörtlich","honorarEinheit":"tag|block|stunde|pauschal","honorarProTermin":0,"anzahlTermine":1,"honorarGesamt":0,"ustBefreit":false,"online":false}\n'+
+    'arbeitsauftrag: {"auftraggeber":"","auftragsnummer":"","jobArt":"wbt-erstellen|wbt-lektorat|klausuren|unterlagen|sonstiges","titel":"kurze Bezeichnung der Leistung","deadline":"YYYY-MM-DD","umfang":"z. B. 5 Module, 12 Klausuren, 45 WBT-Minuten","notiz":"Rückgabeweg oder Ansprechpartner"}\n'+
+    'termin: {"titel":"","datum":"YYYY-MM-DD","von":"09:00","bis":"17:00","ort":"","notiz":""}\n'+
+    'aufgabe: {"titel":"handlungsorientiert, beginnt mit einem Verb","bereich":"","faellig":"YYYY-MM-DD","prio":"low|normal|high","notiz":""}\n'+
+    'ihk: {"vorgang":"","beleg":"","datum":"YYYY-MM-DD","betrag":0,"ausschuss":"","art":"","status":"erfasst|gesendet"}\n'+
+    'bahn: {"buchungsnummer":"","preisGesamt":0,"fahrten":[{"datum":"YYYY-MM-DD","abfahrt":"HH:MM","ankunft":"HH:MM","von":"Startbahnhof","nach":"Zielbahnhof","zug":"z. B. ICE 599"}]}\n\n'+
+    (listen&&listen.length?('Für aufgabe.bereich genau einen Wert aus: '+listen.join(' | ')+'.\n'):'')+
+    'Bei "reise" gehören in von/bis nur die reinen Seminartage, ohne An- und Abreise. honorarEinheit sagt, worauf sich der Satz bezieht: tag bei Tagessatz, block je Seminarblock, stunde bei Stundensatz, pauschal wenn nur ein Gesamtbetrag genannt ist. Bei "bahn" je Richtung GENAU EINE Fahrt, Umstiege zusammengefasst (erste Abfahrt, letzte Ankunft, Zugnummern per Komma). Erfinde nichts, unbekannte Felder leer oder 0.';
+}
+
+/* Nimmt Text, Bild oder PDF und liefert die Vorschlaege. Der einzige Ort, an dem
+   der Eingang Claude aufruft — jede weitere Kopie waere eine zweite Wahrheit. */
+async function eingangDeuten(quelle,kopf){
+  let listen=[];
+  try{ if(msAccount){await taskListenHolen(); listen=(taskListen||[]).map(l=>l.name).filter(Boolean);} }catch(e){}
+  const inhalt=[];
+  inhalt.push((quelle&&quelle.type)?quelle:{type:'text',text:String(quelle||'')});
+  inhalt.push({type:'text',text:(kopf?kopf+'\n\n':'')+eingangPrompt(listen)});
+  const resp=await fetch(claudeEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1400,messages:[{role:'user',content:inhalt}]})});
+  if(!resp.ok)throw new Error('Claude '+resp.status);
+  const d=await resp.json();
+  if(d.error)throw new Error(d.error.message||'API-Fehler');
+  const roh=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('').replace(/```json|```/g,'').trim();
+  const a=roh.indexOf('{'), b=roh.lastIndexOf('}');
+  if(a<0)throw new Error('Keine Daten erkannt');
+  const p=JSON.parse(roh.slice(a,b+1));
+  return (p.vorschlaege||[]).filter(v=>v&&v.art).slice(0,3).map(v=>({
+    /* „Liefer-Auftrag" ist als Wort weg; ein aelteres Modellwort faellt trotzdem
+       nicht auf den Boden. */
+    art:(v.art==='lieferauftrag'||v.art==='unterlagen')?'arbeitsauftrag':v.art,
+    kurz:v.kurz||'', felder:Object.assign({},v.felder||{}),
+    unsicher:(Array.isArray(v.unsicher)?v.unsicher:[]).filter(x=>typeof x==='string').slice(0,3)
+  }));
+}
+
+/* Konfliktpruefung ist Kalender-, nicht KI-Arbeit: ein calendarView ueber den Tag,
+   die Ueberschneidung wird lokal gerechnet. Kostet nichts und ist verlaesslicher
+   als eine Modellantwort. Angezeigt wird sie, blockieren tut sie nicht. */
+function eingangTermine(v){
+  const f=v.felder||{};
+  if(v.art==='termin'&&f.datum)return [{datum:f.datum,von:f.von||'09:00',bis:f.bis||'17:00'}];
+  if(v.art==='reise'&&f.von){
+    const out=[]; let d=f.von; const bis=(f.bis&&f.bis>=f.von)?f.bis:f.von;
+    while(d<=bis&&out.length<10){out.push({datum:d,von:f.beginn||'09:00',bis:f.ende||'17:00'});d=tagVersetzt(d,1)}
+    return out;
+  }
+  return [];
+}
+async function eingangKonfliktPruefen(v){
+  v.konflikt='';
+  const t=eingangTermine(v); if(!t.length||!msAccount)return;
+  try{
+    await pruefeKonflikte(t);
+    v.konflikt=t.filter(x=>x.konflikt).map(x=>dfmt(x.datum)+': '+x.konflikt).slice(0,3).join(' · ');
+  }catch(e){/* ohne Kalender kein Konflikt, aber auch keine Fehlermeldung */}
+}
+
+async function eingangDatei(file, statusEl){
   const st=statusEl||el('inboxStatus');
   const istMail=/\.(eml|msg)$/i.test(file.name)||/message\/rfc822/i.test(file.type);
   const istBildPdf=/png|jpe?g|pdf/i.test(file.type)||/\.(png|jpe?g|pdf)$/i.test(file.name);
   if(!istMail&&!istBildPdf){st.textContent='Bitte ein Bild, ein PDF oder eine E-Mail-Datei.';return}
   st.innerHTML='<span class="spin"></span>Claude schaut sich das an \u2026';
   try{
-    let quelle;
+    let quelle, b64Datei='', mimeDatei='';
     if(istMail){
       let text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsText(file)});
       quelle={type:'text',text:'E-Mail-Datei (Rohtext):\n\n'+(text||'').replace(/=\r?\n/g,'').slice(0,12000)};
     }else{
-      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
+      b64Datei=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)});
       const isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name);
-      quelle=isPdf?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
-                  :{type:'image',source:{type:'base64',media_type:(/png/i.test(file.type)?'image/png':'image/jpeg'),data:b64}};
+      mimeDatei=isPdf?'application/pdf':(/png/i.test(file.type)||/\.png$/i.test(file.name)?'image/png':'image/jpeg');
+      quelle={type:isPdf?'document':'image',source:{type:'base64',media_type:mimeDatei,data:b64Datei}};
     }
-    try{ if(msAccount)await taskListenHolen(); }catch(e){}
-    const listen=(taskListen||[]).map(l=>l.name).filter(Boolean);
-    const resp=await fetch(claudeEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:900,
-        messages:[{role:'user',content:[quelle,{type:'text',text:
-          'Das hat ein selbstständiger Seminardozent (Finanz- und Versicherungsbranche, auch IHK-Prüfer) in seine Ablage geworfen. '+
-          'Heute ist '+heuteISO()+'. Bestimme ZUERST die Art, dann liefere genau das passende Schema.\n\n'+
-          'Arten:\n'+
-          '- "ihk": Screenshot aus dem IHK-Portal (tibros) zur Prüferentschädigung\n'+
-          '- "reise": Seminarauftrag oder Auftragsbestätigung mit Datum und Ort\n'+
-          '- "lieferauftrag": Arbeitsauftrag mit Abgabefrist ohne Seminartermin (WBT erstellen/lektorieren, Klausuren korrigieren)\n'+
-          '- "termin": ein Termin ohne Auftragsbezug (Besprechung, privat)\n'+
-          '- "aufgabe": alles andere, woraus sich eine To-do ergibt\n\n'+
-          'Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\n'+
-          '{"art":"…",\n'+
-          ' "ihk":{"vorgang":"","beleg":"","datum":"YYYY-MM-DD","betrag":0,"ausschuss":"","art":"","status":"erfasst|gesendet"},\n'+
-          ' "reise":{"auftraggeber":"","zweck":"","von":"YYYY-MM-DD","bis":"","ort":"","honorar":0,"auftragsnummer":""},\n'+
-          ' "lieferauftrag":{"auftraggeber":"","titel":"","deadline":"","umfang":"","notiz":""},\n'+
-          ' "termin":{"titel":"","datum":"YYYY-MM-DD","von":"09:00","bis":"17:00","ort":"","notiz":""},\n'+
-          ' "aufgabe":{"titel":"handlungsorientiert, beginnt mit einem Verb","bereich":"","faellig":"","prio":"low|normal|high","notiz":""}}\n'+
-          (listen.length?('Für aufgabe.bereich genau einen Wert aus: '+listen.join(' | ')+'.\n'):'')+
-          'Nur den Block zur erkannten Art füllen, die übrigen weglassen. Erfinde nichts.'}]}]})});
-    if(!resp.ok)throw new Error('Claude '+resp.status);
-    const d=await resp.json();
-    const roh=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('').replace(/```json|```/g,'').trim();
-    const p=JSON.parse(roh.slice(roh.indexOf('{'),roh.lastIndexOf('}')+1));
-    await universalWeiterleiten(p, st);
+    const v=await eingangDeuten(quelle);
+    st.textContent='';
+    /* Datei mitfuehren: eine erkannte Auftragsbestaetigung wandert beim Uebernehmen
+       nach OneDrive, so wie es frueher abParseFile getan hat. */
+    await eingangAufnehmen({quelle:'Datei · '+file.name,vorschlaege:v,
+      datei:{name:file.name,b64:b64Datei,mime:mimeDatei}});
   }catch(e){ st.textContent='Konnte die Datei nicht auswerten: '+e.message; }
 }
 
-async function universalWeiterleiten(p, st){
-  /* IHK-Abrechnung */
-  if(p.art==='ihk'&&p.ihk){
-    const e=p.ihk, liste=ihkAbrListe();
-    const da=liste.find(x=>x.vorgang&&e.vorgang&&String(x.vorgang)===String(e.vorgang));
-    if(da)Object.assign(da,{beleg:e.beleg||da.beleg,datum:e.datum||da.datum,betrag:+e.betrag||da.betrag,
-      ausschuss:e.ausschuss||da.ausschuss,art:e.art||da.art,status:e.status||da.status});
-    else liste.push({id:uid(),vorgang:e.vorgang||'',beleg:e.beleg||'',datum:e.datum||'',
-      betrag:+e.betrag||0,ausschuss:e.ausschuss||'',art:e.art||'',status:e.status||'erfasst'});
+/* Ein Ziel je Art. Ausser bei der IHK-Abrechnung wird hier noch nichts gespeichert —
+   der Vorschlag fuellt nur das Formular, gespeichert wird dort. */
+async function eingangWeiterleiten(v, st, eintrag){
+  const f=v.felder||{};
+  const melde=t=>{toast(t); if(st)st.textContent=''};
+  if(v.art==='ihk'){
+    const liste=ihkAbrListe();
+    const da=liste.find(x=>x.vorgang&&f.vorgang&&String(x.vorgang)===String(f.vorgang));
+    if(da)Object.assign(da,{beleg:f.beleg||da.beleg,datum:f.datum||da.datum,betrag:+f.betrag||da.betrag,
+      ausschuss:f.ausschuss||da.ausschuss,art:f.art||da.art,status:f.status||da.status});
+    else liste.push({id:uid(),vorgang:f.vorgang||'',beleg:f.beleg||'',datum:f.datum||'',
+      betrag:+f.betrag||0,ausschuss:f.ausschuss||'',art:f.art||'',status:f.status||'erfasst'});
     await save(); bereichWechseln('abrechnung'); renderIhkAbr();
-    toast('Als IHK-Abrechnung erkannt'); st.textContent='';
-    await cockpitAbschliessen('ihk');
+    melde('IHK-Abrechnung übernommen');
+    await eingangAbschliessen('ihk');
     return;
   }
-  /* Seminarauftrag */
-  if(p.art==='reise'&&p.reise){
-    const r=p.reise;
-    bereichWechseln('seminare'); openForm(null);
-    if(r.auftraggeber&&AUFTRAGGEBER.includes(r.auftraggeber))el('fAg').value=r.auftraggeber;
-    if(r.zweck)el('fZweck').value=r.zweck;
-    if(r.von)el('fVon').value=r.von;
-    if(r.bis)el('fBis').value=r.bis;
-    if(r.ort)el('fZiel').value=r.ort;
-    if(r.honorar)el('fHonorar').value=r.honorar;
-    if(r.auftragsnummer)el('fAuftragsnr').value=r.auftragsnummer;
-    toast('Als Seminarauftrag erkannt \u2014 bitte pr\u00fcfen'); st.textContent='';
+  if(v.art==='reise'){
+    bereichWechseln('seminare');
+    openFormPrefill(f);
+    /* Auftragsbestaetigung als Datei: gleich in die Auftragsablage des Jahres */
+    if(eintrag&&eintrag.datei&&eintrag.datei.b64&&msAccount){
+      try{
+        const jahr=(f.von||heuteISO()).slice(0,4);
+        const name=((f.auftragsnummer||'Auftrag')+'_'+(f.auftraggeber||'').split(' ')[0]).replace(/[\\/:*?"<>|#%]/g,'')+(eintrag.datei.mime==='application/pdf'?'.pdf':'.jpg');
+        await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(eintrag.datei.b64,eintrag.datei.mime),eintrag.datei.mime);
+        toast('In OneDrive abgelegt: Aufträge/'+jahr+'/'+name);
+      }catch(e){/* Ablage optional */}
+    }
+    melde('Seminarauftrag übernommen — bitte prüfen');
     return;
   }
-  /* Liefer-Auftrag */
-  if(p.art==='lieferauftrag'&&p.lieferauftrag){
-    const j=p.lieferauftrag;
+  if(v.art==='arbeitsauftrag'){
     bereichWechseln('werkstatt'); jobFormOeffnen(null);
-    if(j.auftraggeber&&AUFTRAGGEBER.includes(j.auftraggeber))el('jAg').value=j.auftraggeber;
-    el('jTitel').value=j.titel||''; el('jDeadline').value=j.deadline||'';
-    el('jUmfang').value=j.umfang||''; el('jNotiz').value=j.notiz||'';
-    toast('Als Liefer-Auftrag erkannt \u2014 Abrechnung erg\u00e4nzen'); st.textContent='';
+    if(f.auftraggeber&&AUFTRAGGEBER.includes(f.auftraggeber))el('jAg').value=f.auftraggeber;
+    if(f.jobArt&&JOB_ARTEN[f.jobArt])el('jArt').value=f.jobArt;
+    el('jTitel').value=f.titel||'';
+    if(el('jAuftragsnr'))el('jAuftragsnr').value=f.auftragsnummer||'';
+    el('jDeadline').value=f.deadline||'';
+    el('jUmfang').value=f.umfang||''; el('jNotiz').value=f.notiz||'';
+    /* In der Oberflaeche steht die Taetigkeit, nie die Gattung */
+    melde((JOB_ARTEN[f.jobArt]||'Arbeitsauftrag')+' übernommen — Abrechnung ergänzen');
     return;
   }
-  /* Termin */
-  if(p.art==='termin'&&p.termin){
-    const t=p.termin;
-    bereichWechseln('kalender');
+  if(v.art==='termin'){
+    bereichWechseln('seminare');
     sheetAuf('kalFormCard');
     kalZieleLaden();   /* ohne Kalenderziele wüsste der Termin nicht, wohin */
-    if(el('kTitel'))el('kTitel').value=t.titel||'';
-    if(el('kDatum'))el('kDatum').value=t.datum||'';
-    if(el('kVon'))el('kVon').value=t.von||'09:00';
-    if(el('kBis'))el('kBis').value=t.bis||'17:00';
-    if(el('kOrt'))el('kOrt').value=t.ort||'';
-    if(el('kNotiz'))el('kNotiz').value=t.notiz||'';
-    toast('Als Termin erkannt \u2014 bitte pr\u00fcfen'); st.textContent='';
+    if(el('kTitel'))el('kTitel').value=f.titel||'';
+    if(el('kDatum'))el('kDatum').value=f.datum||'';
+    if(el('kVon'))el('kVon').value=f.von||'09:00';
+    if(el('kBis'))el('kBis').value=f.bis||'17:00';
+    if(el('kOrt'))el('kOrt').value=f.ort||'';
+    if(el('kNotiz'))el('kNotiz').value=f.notiz||'';
+    melde('Termin übernommen — bitte prüfen');
+    return;
+  }
+  if(v.art==='bahn'){
+    bereichWechseln('seminare');
+    bahnZeigen(f);
+    melde('Bahnbuchung erkannt — Reise zuordnen');
     return;
   }
   /* Rückfall: Aufgabe */
-  const a=p.aufgabe||{};
   bereichWechseln('start');
-  const c=el('inboxCard'); if(c)c.open=true;
-  inboxVorschlag={prio:a.prio||'normal'};
-  el('ibKat').innerHTML=inboxListenOptionen((taskListen||[]).map(l=>l.name).filter(Boolean), a.bereich||'');
-  el('ibTitel').value=a.titel||'';
-  el('ibNotiz').value=a.notiz||'';
-  el('ibFaellig').value=a.faellig||'';
+  inboxVorschlag={prio:f.prio||'normal'};
+  el('ibKat').innerHTML=inboxListenOptionen((taskListen||[]).map(l=>l.name).filter(Boolean), f.bereich||'');
+  el('ibTitel').value=f.titel||'';
+  el('ibNotiz').value=f.notiz||'';
+  el('ibFaellig').value=f.faellig||'';
   el('inboxVorschau').style.display='block';
-  el('inboxStatus').textContent='Als Aufgabe erkannt \u2014 pr\u00fcfen und anlegen.';
+  el('inboxStatus').textContent='Als Aufgabe übernommen — prüfen und anlegen.';
 }
 
 /* ---------- IHK-Prüferentschädigung ----------
@@ -4431,16 +4371,21 @@ async function graph(path,opts){
   return r.status===204?null:r.json();
 }
 
-/* ---------- Eingang: Outlook-Ordner „Dozenten Cockpit" ----------
-   Ein Ordner für alles — die Art bestimmt Claude, nicht der Ordner.
-   Der Erledigt-Zustand steckt in Outlook (Verschieben in den Unterordner), nicht in
-   der App: gemerkte IDs würden jede Mail bei jedem Durchlauf erneut kosten und am
-   zweiten Gerät noch einmal auftauchen. Leerer Ordner = alles verarbeitet.
-   Zählen ist gratis (nur Graph), erst „Auswerten" ruft Claude auf. */
+/* ---------- Eingang: eine Liste, vier Quellen ----------
+   Outlook-Ordner „Dozenten Cockpit", Outlook-Kategorie „Seminarauftrag",
+   per Handy diktierte Google-Tasks und die Ablageflaeche in der Karte.
+   Auflisten laeuft ueber Graph und kostet nichts — ausgewertet wird je Zeile
+   auf Knopfdruck, damit nicht zehn Mails bezahlt werden, wenn drei gemeint sind.
+   Der Erledigt-Zustand steckt in Outlook (Verschieben in den Unterordner), nicht
+   in der App: gemerkte IDs wuerden jede Mail bei jedem Durchlauf erneut kosten
+   und am zweiten Geraet noch einmal auftauchen. Leerer Ordner = alles erledigt.
+   Das Faehnchen ist als Quelle bewusst raus — gekennzeichnete Mails stehen
+   bereits in der Aufgabenkarte unter „Gekennzeichnete E-Mail". */
 const COCKPIT_ORDNER='dozenten cockpit';
 const COCKPIT_ERLEDIGT='erledigt';
-const COCKPIT_ARTEN=[['reise','Seminarauftrag'],['lieferauftrag','Liefer-Auftrag'],['termin','Termin'],['aufgabe','Aufgabe'],['ihk','IHK-Abrechnung']];
-let cockpitOrdner=null, cockpitEintraege=[], cockpitWartet=null;
+const EINGANG_KATEGORIE='Seminarauftrag';
+const EINGANG_PREIS='rund 1,5 Cent';
+let cockpitOrdner=null, eingangEintraege=[], eingangWartet=null;
 
 /* Bewusst OHNE $filter: Umlaute und Leerzeichen im Ordnernamen brechen die
    Graph-Filtersuche. Ordnerliste holen und in JS vergleichen — gesucht wird auf
@@ -4461,153 +4406,206 @@ async function cockpitOrdnerHolen(neu){
   return cockpitOrdner;
 }
 
-async function cockpitZaehlen(){
+/* Nur zaehlen: zwei Graph-Abfragen, kein Modellaufruf, keine Kosten. */
+async function eingangZaehlen(){
   const b=el('cockpitBadge'); if(!b)return;
   if(!msAccount){b.style.display='none';return}
+  let n=0, hinweis='';
   try{
     const o=await cockpitOrdnerHolen(true);
-    if(!o){b.style.display='none';el('cockpitStatus').textContent='Ordner „Dozenten Cockpit" nicht gefunden — er muss auf oberster Ebene oder direkt unter dem Posteingang liegen.';return}
-    cockpitAnzahl=o.anzahl||0; kpiStart();
-    b.textContent=o.anzahl?(o.anzahl+' wartend'):'leer';
-    b.className='chip '+(o.anzahl?'offen':'abgerechnet');
-    b.style.display='inline-block';
-    el('cockpitStatus').textContent=o.erledigtId?'':'Unterordner „Erledigt" fehlt — bearbeitete Mails bleiben sonst liegen.';
-  }catch(e){b.style.display='none'}
+    if(o)n+=o.anzahl||0;
+    else hinweis='Ordner „Dozenten Cockpit" nicht gefunden — er muss auf oberster Ebene oder direkt unter dem Posteingang liegen.';
+    if(o&&!o.erledigtId)hinweis='Unterordner „Erledigt" fehlt — bearbeitete Mails bleiben sonst liegen.';
+  }catch(e){}
+  try{
+    const d=await graph('/me/messages?$filter='+encodeURIComponent("categories/any(c:c eq '"+EINGANG_KATEGORIE+"')")+'&$top=25&$select=id');
+    n+=(d.value||[]).length;
+  }catch(e){}
+  cockpitAnzahl=n; kpiStart();
+  b.textContent=n?(n+' wartend'):'leer';
+  b.className='chip '+(n?'offen':'abgerechnet');
+  b.style.display='inline-block';
+  if(el('cockpitStatus'))el('cockpitStatus').textContent=hinweis;
 }
 
-async function cockpitAuswerten(){
-  const box=el('cockpitListe'), st=el('cockpitStatus'), knopf=el('btnCockpitLesen');
-  if(!msAccount){st.textContent='Erst Outlook verbinden (Einstellungen).';return}
-  /* Jeder Lauf kostet je Mail einen Sonnet-Aufruf. Ein zweiter Klick waehrend des
-     Laufs wuerde alles noch einmal bezahlen. */
-  if(knopf&&knopf.disabled)return;
-  if(knopf)knopf.disabled=true;
-  st.textContent=''; box.innerHTML='<div class="hint"><span class="spin"></span>Ordner wird gelesen …</div>';
+/* Auflisten kostet nichts: Betreff, Absender und Datum kommen aus Graph. */
+async function eingangMailsLaden(){
+  const box=el('cockpitListe'), st=el('cockpitStatus');
+  if(!msAccount){if(st)st.textContent='Erst Outlook verbinden (Einstellungen).';return}
+  box.innerHTML='<div class="hint"><span class="spin"></span>Eingang wird gelesen …</div>';
+  const felder='?$top=15&$select=id,subject,from,receivedDateTime&$orderby=receivedDateTime desc';
+  const gefunden=[];
   try{
     const o=await cockpitOrdnerHolen(true);
-    if(!o){box.innerHTML='<div class="hint">Ordner „Dozenten Cockpit" nicht gefunden.</div>';return}
-    const d=await graph('/me/mailFolders/'+encodeURIComponent(o.id)+'/messages?$top=10&$select=id,subject,from,receivedDateTime,body&$orderby=receivedDateTime desc');
-    const mails=d.value||[];
-    if(!mails.length){box.innerHTML='<div class="hint">Ordner ist leer — alles verarbeitet.</div>';cockpitZaehlen();return}
-    try{ await taskListenHolen(); }catch(e){}
-    const listen=(taskListen||[]).map(l=>l.name).filter(Boolean);
-    cockpitEintraege=[];
-    for(let i=0;i<mails.length;i++){
-      box.innerHTML='<div class="hint"><span class="spin"></span>Claude liest Mail '+(i+1)+' von '+mails.length+' …</div>';
-      const m=mails[i];
-      const v=await cockpitMailDeuten(m,listen);
-      cockpitEintraege.push({id:m.id,betreff:m.subject||'(kein Betreff)',
-        von:(m.from&&m.from.emailAddress&&m.from.emailAddress.address)||'',vorschlaege:v});
+    if(o){
+      const d=await graph('/me/mailFolders/'+encodeURIComponent(o.id)+'/messages'+felder);
+      (d.value||[]).forEach(m=>gefunden.push({m:m,quelle:'Ordner'}));
     }
-    cockpitRendern();
-  }catch(e){box.innerHTML='<div class="hint">Fehler: '+esc(e.message)+'</div>'}
-  finally{if(knopf)knopf.disabled=false}
-}
-
-/* Ein Aufruf je Mail. Der Text wird auf 6.000 Zeichen gekürzt — das Wesentliche steht
-   bei Auftragsmails oben, Signatur und Zitathistorie kosten nur. */
-async function cockpitMailDeuten(m,listen){
-  const text=(m.body&&m.body.content||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').slice(0,6000);
+  }catch(e){}
   try{
-    const resp=await fetch(claudeEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:900,
-        messages:[{role:'user',content:
-          'E-Mail an einen selbstständigen Seminardozenten (Finanz- und Versicherungsbranche, auch IHK-Prüfer). Heute ist '+heuteISO()+'.\n'+
-          'Betreff: '+(m.subject||'')+'\nVon: '+((m.from&&m.from.emailAddress&&m.from.emailAddress.address)||'')+'\nText: '+text+'\n\n'+
-          'Bestimme, was daraus folgt — meist genau eine Sache, höchstens drei. Mehrere nur, wenn wirklich mehreres folgt (z. B. ein Seminartermin UND eine Zuarbeit mit eigener Frist). Reine Bestätigungen ohne Handlung: leere Liste.\n'+
-          'Arten:\n'+
-          '- "ihk": Prüferentschädigung aus dem IHK-Portal (tibros)\n'+
-          '- "reise": Seminarauftrag oder Auftragsbestätigung mit Datum und Ort\n'+
-          '- "lieferauftrag": Arbeitsauftrag mit Abgabefrist ohne Seminartermin (WBT erstellen/lektorieren, Klausuren korrigieren)\n'+
-          '- "termin": Termin ohne Auftragsbezug (Besprechung)\n'+
-          '- "aufgabe": alles andere, woraus sich eine To-do ergibt\n\n'+
-          'Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\n'+
-          '{"vorschlaege":[{"art":"…","kurz":"eine Zeile, was daraus folgt","felder":{…}}]}\n'+
-          'Feldschema je Art:\n'+
-          'ihk: {"vorgang":"","beleg":"","datum":"YYYY-MM-DD","betrag":0,"ausschuss":"","art":"","status":"erfasst|gesendet"}\n'+
-          'reise: {"auftraggeber":"","zweck":"","von":"YYYY-MM-DD","bis":"","ort":"","honorar":0,"auftragsnummer":""}\n'+
-          'lieferauftrag: {"auftraggeber":"","titel":"","deadline":"","umfang":"","notiz":""}\n'+
-          'termin: {"titel":"","datum":"YYYY-MM-DD","von":"09:00","bis":"17:00","ort":"","notiz":""}\n'+
-          'aufgabe: {"titel":"handlungsorientiert, beginnt mit einem Verb","bereich":"","faellig":"","prio":"low|normal|high","notiz":""}\n'+
-          'AUFTRAGGEBER ist genau einer aus: '+AUFTRAGGEBER.join(' | ')+'. Ist keiner erkennbar, Feld leer lassen — rate NICHT den Absender.\n'+
-          (listen&&listen.length?('Für aufgabe.bereich genau einen Wert aus: '+listen.join(' | ')+'.\n'):'')+
-          'Erfinde nichts, unbekannte Felder leer oder 0.'}]})});
-    if(!resp.ok)throw new Error('Claude '+resp.status);
-    const d=await resp.json();
-    const roh=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('').replace(/```json|```/g,'').trim();
-    const p=JSON.parse(roh.slice(roh.indexOf('{'),roh.lastIndexOf('}')+1));
-    return (p.vorschlaege||[]).filter(v=>v&&v.art).slice(0,3);
-  }catch(e){return []}
-}
-
-function cockpitRendern(){
-  const box=el('cockpitListe');
-  if(!cockpitEintraege.length){box.innerHTML='<div class="hint">Ordner ist leer — alles verarbeitet.</div>';return}
-  box.innerHTML=cockpitEintraege.map((e,i)=>{
-    const offen=e.vorschlaege.filter(v=>!v.uebergeben).length;
-    const inhalt=(e.vorschlaege.length?e.vorschlaege.map((v,j)=>
-      '<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">'+
-      '<select class="ckArt" data-i="'+i+'" data-j="'+j+'"'+(v.uebergeben?' disabled':'')+'>'+
-      COCKPIT_ARTEN.map(a=>'<option value="'+a[0]+'"'+(a[0]===v.art?' selected':'')+'>'+a[1]+'</option>').join('')+'</select>'+
-      '<div class="hint" style="margin-top:4px">'+esc(v.kurz||'')+'</div>'+
-      (v.erledigt?'<div class="hint" style="margin-top:6px">\u2713 gespeichert</div>'
-        :v.uebergeben?'<div class="hint" style="margin-top:6px">\u2192 im Formular offen — nach dem Speichern dort wandert die Mail von selbst nach „Erledigt".</div>'
-        :'<div style="display:flex;gap:8px;margin-top:6px">'+
-         '<button class="minibtn haupt" data-ck="ok" data-i="'+i+'" data-j="'+j+'">Übernehmen</button>'+
-         '<button class="minibtn" data-ck="weg" data-i="'+i+'" data-j="'+j+'">Verwerfen</button></div>')+
-      '</div>').join('')
-      :'<div class="hint" style="margin-top:6px">Nichts erkannt.</div>')+
-      /* Zwei offene Vorschlaege fuellen nacheinander dasselbe Formular - der zweite
-         wuerde den ersten ueberschreiben, wenn dazwischen nicht gespeichert wird. */
-      (offen>1?'<div class="hint" style="margin-top:6px">Mehreres erkannt — nacheinander übernehmen und jeweils speichern.</div>':'')+
-      '<div style="margin-top:8px"><button class="minibtn" data-ck="fertig" data-i="'+i+'" data-j="-1">Mail nach Erledigt</button></div>';
-    return '<div class="mailrow" style="display:block"><div><b>'+esc(e.betreff)+'</b></div>'+
-      '<div class="mfrom">'+esc(e.von)+'</div>'+inhalt+'</div>';
-  }).join('');
-  box.querySelectorAll('select.ckArt').forEach(s=>s.addEventListener('change',()=>{
-    const e=cockpitEintraege[+s.dataset.i]; if(e&&e.vorschlaege[+s.dataset.j])e.vorschlaege[+s.dataset.j].art=s.value;
+    const d=await graph('/me/messages?$filter='+encodeURIComponent("categories/any(c:c eq '"+EINGANG_KATEGORIE+"')")+'&$top=15&$select=id,subject,from,receivedDateTime');
+    (d.value||[]).forEach(m=>{if(!gefunden.some(x=>x.m.id===m.id))gefunden.push({m:m,quelle:'Kategorie'})});
+  }catch(e){}
+  /* Zeilen, die schon ausgewertet oder von Hand eingeworfen wurden, bleiben stehen —
+     sonst waere die bezahlte Auswertung mit dem Aktualisieren weg. */
+  const behalten=eingangEintraege.filter(e=>!e.mailId||e.vorschlaege);
+  gefunden.sort((a,b)=>((a.m.receivedDateTime||'')<(b.m.receivedDateTime||''))?1:-1);
+  const neu=gefunden.filter(g=>!behalten.some(e=>e.mailId===g.m.id)).map(g=>({
+    id:uid(), mailId:g.m.id, quelle:'Outlook · '+g.quelle,
+    betreff:g.m.subject||'(kein Betreff)',
+    von:(g.m.from&&g.m.from.emailAddress&&g.m.from.emailAddress.address)||'',
+    datum:(g.m.receivedDateTime||'').slice(0,10), vorschlaege:null
   }));
-  box.querySelectorAll('button[data-ck]').forEach(b=>b.addEventListener('click',()=>cockpitAktion(b.dataset.ck,+b.dataset.i,+b.dataset.j)));
+  eingangEintraege=behalten.concat(neu);
+  eingangRendern(); eingangZaehlen();
 }
 
-/* Übernehmen füllt über universalWeiterleiten nur das jeweilige Formular — außer bei
-   der IHK-Abrechnung wird dort noch nichts gespeichert. Die Mail darf deshalb NICHT
-   schon beim Übernehmen wandern: sonst wäre sie aus dem Ordner verschwunden, während
-   das Formular noch ungespeichert ist, und ein Abbruch verlöre den Vorgang lautlos.
-   Sie wandert erst, wenn er selbst „Mail nach Erledigt" drückt. */
-/* Wird von jedem Zielformular nach erfolgreichem Speichern gerufen. Erst wenn zu
-   einer Mail kein Vorschlag mehr offen ist, wandert sie nach „Erledigt" — bei einer
-   Mail mit Termin UND Aufgabe also nach dem zweiten Speichern. */
-async function cockpitAbschliessen(art){
-  const w=cockpitWartet; if(!w||w.art!==art)return;
-  cockpitWartet=null;
-  const i=cockpitEintraege.findIndex(x=>x.id===w.mailId);
-  if(i<0)return;
-  const e=cockpitEintraege[i];
-  const v=e.vorschlaege[w.j]; if(v)v.erledigt=true;
-  if(e.vorschlaege.some(x=>!x.erledigt)){cockpitRendern();return}
-  cockpitEintraege.splice(i,1);
-  try{await cockpitVerschieben(e.id);toast('Mail nach „Erledigt" verschoben')}
-  catch(err){toast('Mail konnte nicht verschoben werden')}
-  cockpitRendern(); cockpitZaehlen();
+/* Ab hier kostet es Geld: ein Sonnet-Aufruf je Zeile. */
+async function eingangMailAuswerten(i){
+  const e=eingangEintraege[i]; if(!e||!e.mailId||e.laeuft)return;
+  e.laeuft=true; eingangRendern();
+  try{
+    const m=await graph('/me/messages/'+encodeURIComponent(e.mailId)+'?$select=subject,body,from,receivedDateTime');
+    const text=(m.body&&m.body.content||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').slice(0,6000);
+    const kopf='E-Mail.\nBetreff: '+(m.subject||'')+'\nVon: '+((m.from&&m.from.emailAddress&&m.from.emailAddress.address)||'')+'\nText: '+text;
+    e.vorschlaege=await eingangDeuten({type:'text',text:kopf});
+    for(const v of e.vorschlaege)await eingangKonfliktPruefen(v);
+  }catch(err){ e.fehler=err.message; }
+  e.laeuft=false; eingangRendern();
 }
-async function cockpitAktion(was,i,j){
-  const e=cockpitEintraege[i]; if(!e)return;
+
+async function eingangAlleAuswerten(){
+  const offen=eingangEintraege.map((e,i)=>i).filter(i=>eingangEintraege[i].mailId&&!eingangEintraege[i].vorschlaege);
+  if(!offen.length){ if(el('cockpitStatus'))el('cockpitStatus').textContent='Nichts Unausgewertetes im Eingang.'; return; }
+  if(!confirm(offen.length+' Zeilen auswerten? Das kostet je Zeile '+EINGANG_PREIS+'.'))return;
+  for(const i of offen)await eingangMailAuswerten(i);
+}
+
+/* Datei, Screenshot oder getippte Notiz landen in derselben Liste wie die Mails. */
+async function eingangAufnehmen(e){
+  e.id=e.id||uid();
+  e.betreff=e.betreff||(e.vorschlaege&&e.vorschlaege[0]?eingangZeile(e.vorschlaege[0]):'Eingeworfen');
+  for(const v of (e.vorschlaege||[]))await eingangKonfliktPruefen(v);
+  eingangEintraege.unshift(e);
+  bereichWechseln('start');
+  eingangRendern();
+}
+
+/* In der Oberflaeche steht die Taetigkeit, nie die Gattung. */
+function eingangZeile(v){
+  const f=v.felder||{};
+  if(v.art==='reise')return (f.zweck||'Seminar')+(f.auftraggeber?' für '+f.auftraggeber:'')+(f.von?', '+dfmt(f.von):'')+(f.ziel?' in '+f.ziel:'');
+  if(v.art==='arbeitsauftrag')return (JOB_ARTEN[f.jobArt]||'Arbeitsauftrag')+(f.titel?' — '+f.titel:'')+(f.auftraggeber?' für '+f.auftraggeber:'')+(f.deadline?', Abgabe '+dfmt(f.deadline):'');
+  if(v.art==='termin')return (f.titel||'Termin')+(f.datum?', '+dfmt(f.datum):'')+(f.von?' '+f.von:'');
+  if(v.art==='aufgabe')return f.titel||v.kurz||'Aufgabe';
+  if(v.art==='ihk')return 'IHK-Abrechnung'+(f.vorgang?' '+f.vorgang:'')+(f.betrag?' · '+eur(+f.betrag):'');
+  if(v.art==='bahn'){const fa=(f.fahrten||[])[0]||{};return 'Bahnfahrt'+(fa.von?' '+fa.von+' → '+fa.nach:'')+(fa.datum?', '+dfmt(fa.datum):'')}
+  return v.kurz||eingangArtName(v.art);
+}
+
+function eingangFelderBlock(v){
+  const f=v.felder||{}, uns=v.unsicher||[];
+  const zeilen=Object.keys(f).filter(k=>uns.indexOf(k)<0)
+    .filter(k=>f[k]!==''&&f[k]!==null&&f[k]!==undefined&&f[k]!==0&&f[k]!==false&&!Array.isArray(f[k]))
+    .map(k=>'<div class="hint">'+esc(eingangFeldName(k))+': '+esc(String(f[k]))+'</div>').join('');
+  if(!zeilen)return '';
+  return '<details style="margin-top:6px"><summary class="hint" style="cursor:pointer">Was sicher dasteht</summary>'+zeilen+'</details>';
+}
+
+function eingangRendern(){
+  const box=el('cockpitListe'); if(!box)return;
+  if(!eingangEintraege.length){box.innerHTML='<div class="hint">Eingang ist leer — alles verarbeitet.</div>';return}
+  box.innerHTML=eingangEintraege.map((e,i)=>{
+    let inhalt='';
+    if(e.laeuft)inhalt='<div class="hint" style="margin-top:6px"><span class="spin"></span>Claude liest …</div>';
+    else if(e.fehler)inhalt='<div class="hint" style="margin-top:6px;color:var(--rot)">'+esc(e.fehler)+'</div>'+
+      '<div style="margin-top:6px"><button class="minibtn" data-ein="lesen" data-i="'+i+'" data-j="-1">Noch einmal</button></div>';
+    else if(e.vorschlaege===null)inhalt='<div style="margin-top:6px"><button class="minibtn haupt" data-ein="lesen" data-i="'+i+'" data-j="-1">Auswerten</button>'+
+      '<span class="hint" style="margin-left:8px">'+EINGANG_PREIS+'</span></div>';
+    else if(!e.vorschlaege.length)inhalt='<div class="hint" style="margin-top:6px">Nichts zu tun erkannt.</div>';
+    else inhalt=e.vorschlaege.map((v,j)=>{
+      const uns=(v.unsicher||[]).map(k=>
+        '<div class="f" style="margin-top:6px"><label>'+esc(eingangFeldName(k))+' <span style="color:var(--warn-text)">— geraten, bitte prüfen</span></label>'+
+        '<input type="text" class="einFeld" data-i="'+i+'" data-j="'+j+'" data-feld="'+esc(k)+'" value="'+esc(String((v.felder||{})[k]==null?'':(v.felder||{})[k]))+'"></div>').join('');
+      const knoepfe=v.erledigt?'<div class="hint" style="margin-top:6px">✓ übernommen</div>'
+        :v.uebergeben?'<div class="hint" style="margin-top:6px">→ im Formular offen — nach dem Speichern dort wandert die Mail von selbst nach „Erledigt".</div>'
+        :'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">'+
+          '<button class="minibtn haupt" data-ein="ok" data-i="'+i+'" data-j="'+j+'">Übernehmen</button>'+
+          ((v.art==='arbeitsauftrag'&&(v.felder||{}).jobArt==='unterlagen')?'<button class="minibtn" data-ein="werkstatt" data-i="'+i+'" data-j="'+j+'">In die Werkstatt</button>':'')+
+          '<button class="minibtn" data-ein="weg" data-i="'+i+'" data-j="'+j+'">Verwerfen</button></div>';
+      return '<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">'+
+        '<select class="einArt" data-i="'+i+'" data-j="'+j+'"'+(v.uebergeben||v.erledigt?' disabled':'')+'>'+
+        EINGANG_ARTEN.map(a=>'<option value="'+a[0]+'"'+(a[0]===v.art?' selected':'')+'>'+a[1]+'</option>').join('')+'</select>'+
+        '<div style="margin-top:4px"><b>'+esc(eingangZeile(v))+'</b></div>'+
+        (v.kurz?'<div class="hint">'+esc(v.kurz)+'</div>':'')+
+        (v.konflikt?'<div class="hint" style="margin-top:6px;color:var(--warn-text)">Kalender belegt — '+esc(v.konflikt)+'</div>':'')+
+        uns+eingangFelderBlock(v)+knoepfe+'</div>';
+    }).join('')+
+      /* Zwei offene Vorschlaege fuellen nacheinander dasselbe Formular — der zweite
+         wuerde den ersten ueberschreiben, wenn dazwischen nicht gespeichert wird. */
+      (e.vorschlaege.filter(v=>!v.uebergeben&&!v.erledigt).length>1
+        ?'<div class="hint" style="margin-top:6px">Mehreres erkannt — nacheinander übernehmen und jeweils speichern.</div>':'');
+    const schluss=e.mailId
+      ?'<div style="margin-top:8px"><button class="minibtn" data-ein="fertig" data-i="'+i+'" data-j="-1">Mail nach Erledigt</button></div>'
+      :'<div style="margin-top:8px"><button class="minibtn" data-ein="fertig" data-i="'+i+'" data-j="-1">Zeile schließen</button></div>';
+    return '<div class="mailrow" style="display:block"><div><b>'+esc(e.betreff)+'</b></div>'+
+      '<div class="mfrom">'+esc(e.quelle||'')+(e.von?' · '+esc(e.von):'')+(e.datum?' · '+dfmt(e.datum):'')+'</div>'+
+      inhalt+schluss+'</div>';
+  }).join('');
+  box.querySelectorAll('select.einArt').forEach(s=>s.addEventListener('change',()=>{
+    const e=eingangEintraege[+s.dataset.i]; if(e&&e.vorschlaege&&e.vorschlaege[+s.dataset.j])e.vorschlaege[+s.dataset.j].art=s.value;
+  }));
+  box.querySelectorAll('input.einFeld').forEach(f=>f.addEventListener('input',()=>{
+    const e=eingangEintraege[+f.dataset.i]; const v=e&&e.vorschlaege&&e.vorschlaege[+f.dataset.j];
+    if(v)v.felder[f.dataset.feld]=f.value;
+  }));
+  box.querySelectorAll('button[data-ein]').forEach(b=>b.addEventListener('click',()=>eingangAktion(b.dataset.ein,+b.dataset.i,+b.dataset.j)));
+}
+
+async function eingangAktion(was,i,j){
+  const e=eingangEintraege[i]; if(!e)return;
+  if(was==='lesen'){ e.fehler=null; await eingangMailAuswerten(i); return }
   if(was==='fertig'){
-    cockpitEintraege.splice(i,1);
-    await cockpitVerschieben(e.id);
-    cockpitRendern(); cockpitZaehlen();
+    eingangEintraege.splice(i,1);
+    if(e.mailId)await cockpitVerschieben(e.mailId);
+    eingangRendern(); eingangZaehlen();
     return;
   }
-  const v=e.vorschlaege[j]; if(!v)return;
-  if(was==='weg'){e.vorschlaege.splice(j,1);cockpitRendern();return}
-  v.uebergeben=true;
+  const v=e.vorschlaege&&e.vorschlaege[j]; if(!v)return;
+  if(was==='weg'){e.vorschlaege.splice(j,1);eingangRendern();return}
+  if(was==='werkstatt'){
+    const f=v.felder||{};
+    bereichWechseln('werkstatt');
+    if(el('werkstattCard'))el('werkstattCard').open=true;
+    if(el('wsAuftrag'))el('wsAuftrag').value=(f.titel?f.titel+' — ':'')+(f.umfang||f.notiz||'');
+    toast('Werkstatt vorbefüllt');
+    return;
+  }
   /* Merken, worauf wir warten: sobald im Zielformular gespeichert wurde, wandert
-     die Mail von selbst nach Erledigt. Sonst muesste er dafuer erst zurueck zur Startseite. */
-  cockpitWartet={mailId:e.id,art:v.art,j:j};
-  cockpitRendern();
-  const p={art:v.art}; p[v.art]=v.felder||{};
-  await universalWeiterleiten(p, el('cockpitStatus'));
+     die Mail von selbst nach Erledigt. Sonst muesste er dafuer erst zurueck. */
+  v.uebergeben=true;
+  eingangWartet={eintragId:e.id,art:v.art,j:j};
+  eingangRendern();
+  await eingangWeiterleiten(v, el('cockpitStatus'), e);
+}
+
+/* Wird von jedem Zielformular nach erfolgreichem Speichern gerufen. Erst wenn zu
+   einem Eintrag kein Vorschlag mehr offen ist, wandert die Mail nach „Erledigt" —
+   bei einer Mail mit Termin UND Aufgabe also nach dem zweiten Speichern. */
+async function eingangAbschliessen(art){
+  const w=eingangWartet; if(!w||w.art!==art)return;
+  eingangWartet=null;
+  const i=eingangEintraege.findIndex(x=>x.id===w.eintragId);
+  if(i<0)return;
+  const e=eingangEintraege[i];
+  const v=e.vorschlaege&&e.vorschlaege[w.j]; if(v)v.erledigt=true;
+  if((e.vorschlaege||[]).some(x=>!x.erledigt)){eingangRendern();return}
+  eingangEintraege.splice(i,1);
+  if(e.mailId){
+    try{await cockpitVerschieben(e.mailId);toast('Mail nach „Erledigt" verschoben')}
+    catch(err){toast('Mail konnte nicht verschoben werden')}
+  }
+  eingangRendern(); eingangZaehlen();
 }
 
 async function cockpitVerschieben(id){
@@ -4617,134 +4615,6 @@ async function cockpitVerschieben(id){
     await graph('/me/messages/'+encodeURIComponent(id)+'/move',{method:'POST',
       body:JSON.stringify({destinationId:o.erledigtId})});
   }catch(e){toast('Verschieben fehlgeschlagen: '+e.message)}
-}
-
-/* Markierte Mails + Ordner "Seminaraufträge" prüfen */
-async function mailsPruefen(){
-  const box=el('mailList');
-  box.innerHTML='<div class="hint"><span class="spin"></span>Lade Mails …</div>';
-  try{
-    let mails=[], ordnerGefunden=false;
-    /* 1) Fester Ordner "Seminaraufträge" — kein Flag nötig.
-       Bewusst OHNE $filter-Suche: der Umlaut im Ordnernamen bricht die Graph-Filtersuche
-       (Microsofts eigene Werkzeuge finden den Ordner damit nicht). Stattdessen Ordnerliste
-       holen und in JS vergleichen — das ist unempfindlich gegen Encoding-Eigenheiten.
-       Gesucht wird auf Wurzelebene UND unterhalb des Posteingangs. */
-    try{
-      const ordnerSuche=async(pfad)=>{
-        try{
-          const r=await graph(pfad+'?$top=100&$select=id,displayName');
-          return (r.value||[]).find(f=>(f.displayName||'').trim().toLowerCase()==='seminaraufträge');
-        }catch(e){return null}
-      };
-      let ordner=await ordnerSuche('/me/mailFolders');
-      if(!ordner)ordner=await ordnerSuche('/me/mailFolders/inbox/childFolders');
-      if(ordner&&ordner.id){
-        ordnerGefunden=true;
-        const d=await graph("/me/mailFolders/"+encodeURIComponent(ordner.id)+"/messages?$top=15&$select=id,subject,from,receivedDateTime&$orderby=receivedDateTime desc");
-        mails=mails.concat(d.value||[]);
-      }
-    }catch(e){/* Ordner optional */}
-    /* 2) Mails mit der Kategorie "Seminarauftrag" — Mail bleibt an ihrem Platz */
-    try{
-      const d3=await graph("/me/messages?$filter="+encodeURIComponent("categories/any(c:c eq 'Seminarauftrag')")+"&$top=15&$select=id,subject,from,receivedDateTime");
-      (d3.value||[]).forEach(m=>{if(!mails.some(x=>x.id===m.id))mails.push(m)});
-    }catch(e){/* Kategorie-Suche optional */}
-    /* 3) Zusätzlich geflaggte Mails aus dem restlichen Postfach */
-    try{
-      const d2=await graph("/me/messages?$filter="+encodeURIComponent("flag/flagStatus eq 'flagged'")+"&$top=15&$select=id,subject,from,receivedDateTime");
-      (d2.value||[]).forEach(m=>{if(!mails.some(x=>x.id===m.id))mails.push(m)});
-    }catch(e){/* Flag-Suche optional */}
-    mails.sort((a,b)=>(a.receivedDateTime||'')<(b.receivedDateTime||'')?1:-1);
-    if(!mails.length){
-      box.innerHTML='<div class="hint">Nichts gefunden — weder Mails im Ordner „Seminaraufträge"'+(ordnerGefunden?'':' (Ordner existiert noch nicht)')+', noch mit Kategorie „Seminarauftrag", noch markiert.</div>';
-      return;
-    }
-    box.innerHTML=mails.map(m=>'<div class="mailrow"><div><div>'+esc(m.subject||'(kein Betreff)')+'</div><div class="mfrom">'+esc((m.from&&m.from.emailAddress&&m.from.emailAddress.address)||'')+' · '+dfmt((m.receivedDateTime||'').slice(0,10))+'</div></div><button class="minibtn" data-mid="'+m.id+'">Auslesen</button></div>').join('');
-    box.querySelectorAll('button[data-mid]').forEach(b=>b.addEventListener('click',()=>mailAuslesen(b.dataset.mid,b)));
-  }catch(err){box.innerHTML='<div class="hint">Fehler: '+esc(err.message)+'</div>'}
-}
-async function mailAuslesen(mid,btn){
-  if(btn){btn.disabled=true;btn.textContent='Liest …'}
-  const st=el('planStatus');
-  try{
-    const m=await graph('/me/messages/'+encodeURIComponent(mid)+'?$select=subject,body,from,receivedDateTime');
-    const bodyText=(m.body&&m.body.content||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,6000);
-    const resp=await fetch(claudeEndpoint(),{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,
-        messages:[{role:"user",content:"Das ist eine E-Mail an einen selbstständigen Seminardozenten. Betreff: "+(m.subject||'')+"\nText: "+bodyText+"\n\nWICHTIG — sein Geschäftsmodell: Eine Bildungsakademie (sein AUFTRAGGEBER) wird von einer Versicherung/Bank (der GESELLSCHAFT) mit einem Seminar beauftragt und bucht ihn als Dozenten. Er rechnet immer mit der Akademie ab, nie mit der Gesellschaft — auch wenn die Einladung direkt von der Gesellschaft kommt oder die Gesellschaft im Betreff steht.\nAUFTRAGGEBER ist immer genau einer aus dieser Liste: "+AUFTRAGGEBER.join(' | ')+". Ist keiner davon erkennbar, lass das Feld leer — rate NICHT den Absender.\nGESELLSCHAFT ist das Unternehmen, für dessen Mitarbeiter/Vermittler das Seminar stattfindet (z.B. "+GESELLSCHAFTEN.filter(g=>g!=='Allgemein').join(', ')+" oder eine andere). Steht keine fest, gib 'Allgemein' an.\nKATEGORIE ist das Fachthema, genau eines aus: "+KATEGORIEN.join(' | ')+".\n\nBestimme zuerst die Art: 'reise' = Seminarauftrag/Termin (Präsenz oder Online), 'lieferauftrag' = Arbeitsauftrag MIT Abgabefrist und ohne Seminartermin (WBT erstellen/konzipieren, WBT lektorieren/korrigieren, Klausuren korrigieren), 'unterlagen' = Auftrag zur Erstellung/Aktualisierung eigener Seminarunterlagen ohne Frist und ohne Seminartermin, 'bahn' = Buchungsbestätigung der Deutschen Bahn für eine Zugfahrt. Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\nBei 'reise': {\"art\":\"reise\",\"auftragsnummer\":\"\",\"auftraggeber\":\"\",\"gesellschaft\":\"\",\"kategorie\":\"\",\"ziel\":\"Stadt\",\"zielAdresse\":\"Name/Adresse der Räumlichkeit wörtlich\",\"zweck\":\"kurze Seminarbezeichnung\",\"von\":\"YYYY-MM-DD\",\"bis\":\"YYYY-MM-DD\",\"beginn\":\"HH:MM oder leer\",\"ende\":\"HH:MM oder leer\",\"honorarEinheit\":\"tag|block|stunde|pauschal\",\"honorarProTermin\":0,\"anzahlTermine\":1,\"honorarGesamt\":0,\"ustBefreit\":false,\"online\":false}\nBei 'lieferauftrag': {\"art\":\"lieferauftrag\",\"auftraggeber\":\"\",\"auftragsnummer\":\"\",\"jobArt\":\"wbt-erstellen|wbt-lektorat|klausuren|unterlagen|sonstiges\",\"titel\":\"kurze Bezeichnung der Leistung\",\"deadline\":\"YYYY-MM-DD oder leer\",\"umfang\":\"z.B. 5 Module, 12 Klausuren, 45 WBT-Minuten\",\"notiz\":\"Rückgabeweg/Ansprechpartner falls genannt\"}\nBei 'unterlagen': {\"art\":\"unterlagen\",\"auftraggeber\":\"\",\"gesellschaft\":\"\",\"kategorie\":\"\",\"thema\":\"Kurs/Klausur-Bezeichnung\",\"auftrag\":\"kurze Beschreibung was zu tun ist\"}\nBei 'bahn': {\"art\":\"bahn\",\"buchungsnummer\":\"Auftragsnummer der Bahn\",\"preisGesamt\":0,\"fahrten\":[{\"datum\":\"YYYY-MM-DD\",\"abfahrt\":\"HH:MM\",\"ankunft\":\"HH:MM\",\"von\":\"Startbahnhof\",\"nach\":\"Zielbahnhof\",\"zug\":\"z.B. ICE 599\"}]}\nBei 'bahn' WICHTIG: preisGesamt ist der Gesamtpreis der Buchung in Euro (alle Fahrten zusammen, wie in der Mail ausgewiesen). Gib pro Richtung GENAU EINE Fahrt an — fasse Umstiege zusammen zur Gesamtfahrt (erste Abfahrt, letzte Ankunft, bei mehreren Zügen alle Zugnummern durch Komma getrennt). Eine Hin- und Rückfahrt ergibt also zwei Einträge, eine einfache Fahrt einen.\nBei 'von'/'bis' NUR die reinen Seminartage, ohne An-/Abreise. honorarEinheit sagt, worauf sich der Satz bezieht: tag bei Tagessatz, block je Seminarblock, stunde bei Stundensatz, pauschal wenn nur ein Gesamtbetrag genannt ist. Unbekannte Felder leer/0. Nichts erfinden."}]
-      })
-    });
-    const data=await resp.json();
-    if(data.error)throw new Error(data.error.message||'API-Fehler');
-    const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
-    const clean=text.replace(/```json|```/g,'').trim();
-    const s=clean.indexOf('{'),e=clean.lastIndexOf('}');
-    if(s<0)throw new Error('Keine Daten erkannt');
-    const p=JSON.parse(clean.slice(s,e+1));
-    if(p.art==='unterlagen'){
-      const bekannt=[...el('wsAg').options].some(o=>o.value===p.auftraggeber||o.text===p.auftraggeber);
-      if(bekannt){el('wsAg').value=p.auftraggeber;el('wsAgFrei').style.display='none'}
-      else{el('wsAg').value='__frei';el('wsAgFrei').style.display='block';el('wsAgFrei').value=p.auftraggeber||''}
-      syncWsAg();
-      if(wsIstDihk()){el('wsDihkThema').value=p.thema||''}
-      el('wsAuftrag').value=(p.thema?'Thema: '+p.thema+' — ':'')+(p.auftrag||'');
-      bereichWechseln('werkstatt');
-      el('werkstattCard').open=true;
-      el('werkstattCard').scrollIntoView({behavior:'smooth'});
-      toast('Als Unterlagen-Auftrag erkannt — Werkstatt vorausgefüllt'+(wsIstDihk()?'':' (Kategorie/Gesellschaft bitte prüfen)'));
-      if(btn){btn.disabled=false;btn.textContent='Auslesen'}
-      return;
-    }
-    /* Liefer-Auftrag: direkt ins Werkstatt-Formular vorbefüllen, damit er nur noch
-       Abrechnungsmodus und Satz ergänzen muss. */
-    if(p.art==='lieferauftrag'){
-      bereichWechseln('werkstatt');
-      jobFormOeffnen(null);
-      if(p.auftraggeber&&AUFTRAGGEBER.includes(p.auftraggeber))el('jAg').value=p.auftraggeber;
-      if(p.jobArt&&JOB_ARTEN[p.jobArt])el('jArt').value=p.jobArt;
-      el('jTitel').value=p.titel||'';
-      el('jAuftragsnr').value=p.auftragsnummer||'';
-      el('jDeadline').value=p.deadline||'';
-      el('jUmfang').value=p.umfang||'';
-      el('jNotiz').value=p.notiz||'';
-      toast('Liefer-Auftrag erkannt — Abrechnung ergänzen und speichern');
-      if(btn){btn.disabled=false;btn.textContent='Auslesen'}
-      return;
-    }
-    if(p.art==='bahn'){
-      bahnZeigen(p);
-      /* Ticket-PDF gleich mit ablegen */
-      try{
-        const at=await graph('/me/messages/'+encodeURIComponent(mid)+'/attachments?$select=name,contentType,contentBytes&$top=5');
-        const jahr=((p.fahrten&&p.fahrten[0]&&p.fahrten[0].datum)||heuteISO()).slice(0,4);
-        for(const a of (at.value||[])){
-          if(a.contentBytes&&/pdf/i.test(a.contentType||a.name)){
-            const name=('Bahn_'+(p.buchungsnummer||jahr)+'_'+(a.name||'ticket.pdf')).replace(/[\\/:*?"<>|#%]/g,'');
-            await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(a.contentBytes,'application/pdf'),'application/pdf');
-            el('bahnStatus').textContent='Ticket abgelegt: Aufträge/'+jahr+'/'+name;
-          }
-        }
-      }catch(e){/* Ablage optional */}
-      if(btn){btn.disabled=false;btn.textContent='Auslesen'}
-      return;
-    }
-    planZeigen(p);
-    /* PDF-Anhänge der Mail automatisch ablegen */
-    try{
-      const at=await graph('/me/messages/'+encodeURIComponent(mid)+'/attachments?$select=name,contentType,contentBytes&$top=5');
-      const jahr=(p.von||heuteISO()).slice(0,4);
-      for(const a of (at.value||[])){
-        if(a.contentBytes&&/pdf/i.test(a.contentType||a.name)){
-          const name=((p.auftragsnummer||'Auftrag')+'_'+(a.name||'anhang.pdf')).replace(/[\\/:*?"<>|#%]/g,'');
-          await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(a.contentBytes,'application/pdf'),'application/pdf');
-          el('planStatus').textContent='Anhang in OneDrive abgelegt: Aufträge/'+jahr+'/'+name;
-        }
-      }
-    }catch(e){/* Ablage optional */}
-  }catch(err){st.textContent='Auslesen fehlgeschlagen: '+err.message}
-  if(btn){btn.disabled=false;btn.textContent='Auslesen'}
 }
 
 /* ---- Bahnbuchung aus der DB-Bestätigungsmail ---- */
@@ -4819,6 +4689,7 @@ async function bahnUebernehmen(){
   render();
   st.textContent='Übernommen: '+eur(t.bahn)+' als Bahnkosten, Buchung abgehakt'+(angepasst?' · '+angepasst+' Outlook-Termin(e) auf die echten Zeiten gesetzt':'');
   toast('Bahnbuchung übernommen');
+  await eingangAbschliessen('bahn');
   setTimeout(()=>{el('bahnCard').style.display='none';bahnBuchung=null},2500);
 }
 
@@ -5269,7 +5140,7 @@ async function kalTerminAnlegen(){
         ort:el('kOrt').value.trim(), notiz:el('kNotiz').value.trim()
       });
       st.textContent='✓ Termin im Google-Kalender angelegt.';
-      await cockpitAbschliessen('termin');
+      await eingangAbschliessen('termin');
       el('kTitel').value='';el('kOrt').value='';el('kNotiz').value='';
       setTimeout(()=>{sheetZu();kalenderLaden()},800);
       toast('Termin angelegt');
@@ -5293,7 +5164,7 @@ async function kalTerminAnlegen(){
     }
     await graph('/me/events',{method:'POST',body:JSON.stringify(body)});
     st.textContent='✓ Termin in Outlook angelegt.';
-    await cockpitAbschliessen('termin');
+    await eingangAbschliessen('termin');
     el('kTitel').value='';el('kOrt').value='';el('kNotiz').value='';
     setTimeout(()=>{sheetZu();kalenderLaden()},800);
     toast('Termin angelegt');
@@ -6001,7 +5872,7 @@ async function gtaskHolen(){
   return alle;
 }
 async function renderGtasks(silent){
-  const card=el('gtaskCard');if(!card)return;
+  const card=el('gtaskWrap');if(!card)return;
   if(!gdConfigured()||!gdToken){card.style.display='none';return}
   try{
     gtaskCache=await gtaskHolen();
@@ -6047,12 +5918,12 @@ async function renderGtasks(silent){
         row.remove();
         el('gtaskStatus').textContent='Übernommen nach „'+((ziel&&ziel.name)||'Aufgaben')+'".';
         taskBoardLaden();
-        if(!el('gtaskListe').querySelector('[data-gt]'))el('gtaskCard').style.display='none';
+        if(!el('gtaskListe').querySelector('[data-gt]'))el('gtaskWrap').style.display='none';
       }catch(e){el('gtaskStatus').textContent='Fehler: '+e.message;row.querySelector('.gtUeber').disabled=false}
     });
     row.querySelector('.gtSkip').addEventListener('click',()=>{
       row.remove();
-      if(!el('gtaskListe').querySelector('[data-gt]'))el('gtaskCard').style.display='none';
+      if(!el('gtaskListe').querySelector('[data-gt]'))el('gtaskWrap').style.display='none';
     });
   });
 }
@@ -6087,23 +5958,19 @@ async function inboxSortieren(){
   let listen=[];
   try{ if(msAccount) listen=(await taskListenHolen()).map(l=>l.name).filter(Boolean); }catch(e){}
   try{
-    const resp=await fetch(claudeEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,
-        messages:[{role:'user',content:
-          'Charles H\u00fctten ist Eigent\u00fcmer der Optima, f\u00fchrt die SCC Service Center GmbH und arbeitet als Seminardozent (Finanzberatung, Versicherung, Immobilienmakler, Kommunikation). Er h\u00e4lt unterwegs einen Gedanken fest. Mach daraus eine Aufgabe.\n\n'+
-          'Heute ist '+heuteISO()+'.\n'+
-          'Seine Auftraggeber als Dozent: '+AUFTRAGGEBER.join(', ')+'.\n'+
-          'Gesellschaften, f\u00fcr die er unterrichtet: '+GESELLSCHAFTEN.join(', ')+'.\n'+
-          (listen.length
-            ? 'Seine Aufgabenlisten: '+listen.join(' | ')+'.\nW\u00e4hle in "liste" GENAU EINEN dieser Namen, unver\u00e4ndert abgeschrieben \u2014 den, der am besten passt. Geht es um ein Seminar oder einen Auftraggeber, nimm dessen Liste. Passt keine, lass "liste" leer.\n\n'
-            : 'Lass "liste" leer.\n\n')+
-          'Regeln: titel ist kurz und handlungsorientiert (max 60 Zeichen, beginnt mit einem Verb wenn es eine Aufgabe ist). notiz enth\u00e4lt Details nur, wenn im Text welche stehen \u2014 erfinde nichts dazu. faellig nur, wenn der Text ein Datum oder eine Frist nennt (auch relativ wie "bis Freitag", "n\u00e4chste Woche"), sonst leer. prio ist "high" nur bei ausdr\u00fccklicher Dringlichkeit, "low" bei einer blossen Idee, sonst "normal".\n\n'+
-          'Antworte AUSSCHLIESSLICH mit JSON, ohne Markdown:\n'+
-          '{"titel":"","notiz":"","liste":"","faellig":"","prio":"normal"}\n\n'+
-          'Sein Text:\n'+roh}]})});
-    const data=await resp.json();
-    let txt=(data.content||[]).filter(x=>x.type==='text').map(x=>x.text).join('').replace(/```json|```/g,'').trim();
-    const p=JSON.parse(txt);
+    /* Derselbe Prompt wie fuer Mail und Datei. Kommt etwas anderes als eine
+       Aufgabe heraus — ein Seminarauftrag etwa —, geht es in die Eingangsliste
+       statt in die Aufgabenmaske. */
+    const vs=await eingangDeuten({type:'text',text:'Notiz:\n'+roh});
+    const auf=vs.find(v=>v.art==='aufgabe');
+    if(!auf){
+      st.textContent='';
+      el('inboxText').value='';
+      await eingangAufnehmen({quelle:'Notiz',betreff:roh.slice(0,80),vorschlaege:vs});
+      return;
+    }
+    const p={titel:auf.felder.titel||'',notiz:auf.felder.notiz||'',liste:auf.felder.bereich||'',
+      faellig:auf.felder.faellig||'',prio:auf.felder.prio||'normal'};
     inboxVorschlag=p;
     /* Erstwort schlaegt Kontext: Hat er die Liste vorangestellt, gewinnt sie. */
     const ew=listeAusErstwort(roh);
@@ -6165,7 +6032,7 @@ async function inboxAnlegen(){
     st.textContent='\u2713 Angelegt in \u201e'+((ziel&&ziel.name)||'Aufgaben')+'\u201c'+(el('ibFaellig').value?' \u00b7 f\u00e4llig '+dfmt(el('ibFaellig').value):'')+(quelleWeg?(warFlagge?' \u00b7 Kennzeichnung entfernt':' \u00b7 alte Aufgabe abgehakt'):'');
     toast('Aufgabe angelegt');
     taskBoardLaden();
-    await cockpitAbschliessen('aufgabe');
+    await eingangAbschliessen('aufgabe');
   }catch(e){st.textContent='Anlegen fehlgeschlagen: '+e.message}
 }
 
@@ -7118,7 +6985,7 @@ el('btnSave').addEventListener('click',async()=>{
   await save();closeForm();
   ui.q=perVon(t.von);ui.jahr=+t.von.slice(0,4);render();
   toast('Reise gespeichert');
-  await cockpitAbschliessen('reise');
+  await eingangAbschliessen('reise');
 });
 el('btnDelete').addEventListener('click',async()=>{
   state.trips=state.trips.filter(x=>x.id!==editId);
@@ -7150,7 +7017,6 @@ function zeigeKontakt(){
 el('fAg').addEventListener('change',()=>{el('fAgFrei').style.display=el('fAg').value==='__frei'?'block':'none';zeigeKontakt();kgMemoApply(el('fAg').value,'fKategorie','fGesellschaft','fGesellschaftFrei');ihkModusAnwenden()});
 el('fGesellschaft').addEventListener('change',()=>{el('fGesellschaftFrei').style.display=el('fGesellschaft').value==='__frei'?'block':'none'});
 el('segAuto').addEventListener('click',()=>{verkehrsmittel='auto';syncVm();calcPreview()});
-el('btnGtaskReload').addEventListener('click',()=>renderGtasks(false));
 el('btnInboxDikt').addEventListener('click',inboxDiktToggle);
 el('btnInboxSortieren').addEventListener('click',inboxSortieren);
 el('btnInboxLeeren').addEventListener('click',()=>{el('inboxText').value='';el('inboxVorschau').style.display='none';el('inboxStatus').textContent='';inboxVorschlag=null});
@@ -7256,9 +7122,6 @@ el('btnCsv').addEventListener('click',csvExport);
 el('btnPrint').addEventListener('click',druck);
 el('btnClose').addEventListener('click',quartalAbschliessen);
 
-/* Auftragsbestätigung: Drag & Drop / Klick */
-el('abDrop').addEventListener('click',()=>el('abFile').click());
-el('abFile').addEventListener('change',()=>{if(el('abFile').files[0])abParseFile(el('abFile').files[0]);el('abFile').value=''});
 /* Bahnbeleg im Reise-Formular: Klick, Ziehen, Ablegen */
 (function(){
   const z=el('bahnBelegDrop'),f=el('bahnBelegFile'); if(!z||!f)return;
@@ -7285,9 +7148,6 @@ el('btnMonatVor').addEventListener('click',()=>monatVerschieben(1));
   ['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove('over')}));
   z.addEventListener('drop',e=>{ const d=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(d)datevDropParse(d); });
 })();
-['dragover','dragenter'].forEach(ev=>el('abDrop').addEventListener(ev,e=>{e.preventDefault();el('abDrop').classList.add('over')}));
-['dragleave','drop'].forEach(ev=>el('abDrop').addEventListener(ev,e=>{e.preventDefault();el('abDrop').classList.remove('over')}));
-el('abDrop').addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)abParseFile(f)});
 
 /* Zielort: Vorschläge aus Stammzielen + Adresssuche */
 el('fZiel').addEventListener('input',()=>{
@@ -7356,7 +7216,7 @@ el('btnBackup').addEventListener('click',()=>{
 const NEU_LEEREN=['trips','jobs','rechnungen','meetings','memos','ihkAbr','tagebuch'];
 el('btnNeuAufsetzen').addEventListener('click',async()=>{
   const zaehl=NEU_LEEREN.map(k=>Array.isArray(state[k])?state[k].length:0).reduce((a,b)=>a+b,0);
-  if(!confirm('Sicherung wird heruntergeladen, danach werden '+zaehl+' Datensätze gelöscht:\nReisen, Liefer-Aufträge, Rechnungen, Meetings, Memos, Tagebuch.\n\nEinstellungen, Auftraggeber und Tool-Stack bleiben. Fortfahren?'))return;
+  if(!confirm('Sicherung wird heruntergeladen, danach werden '+zaehl+' Datensätze gelöscht:\nReisen, Arbeitsaufträge, Rechnungen, Meetings, Memos, Tagebuch.\n\nEinstellungen, Auftraggeber und Tool-Stack bleiben. Fortfahren?'))return;
   const blob=new Blob([JSON.stringify(state,null,1)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='Cockpit_vor_Neustart_'+heuteISO()+'.json';a.click();
@@ -7440,7 +7300,7 @@ function kpiStart(){
 document.addEventListener('click',e=>{
   const k=e.target.closest('[data-kpi]'); if(!k)return;
   const z=k.dataset.kpi;
-  if(z==='eingang'){const c=el('cockpitCard'); if(c)c.scrollIntoView({behavior:'smooth',block:'start'})}
+  if(z==='eingang'){const c=el('eingangCard'); if(c)c.scrollIntoView({behavior:'smooth',block:'start'})}
   if(z==='aufgaben'){const c=el('taskCard'); if(c){c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'})}}
   if(z==='nach')bereichWechseln('abrechnung','nachCard');
   if(z==='rechnungen')bereichWechseln('abrechnung','offenCard');
@@ -7451,7 +7311,7 @@ document.addEventListener('click',e=>{
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v77';
+const APP_VERSION='v80';
 const APP_STAND='3. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
@@ -7537,9 +7397,7 @@ document.addEventListener('paste',e=>{
     }
     /* Aufgabe: Startseite offen */
     if(el('bereichStart')&&el('bereichStart').style.display!=='none'){
-      const b=bild.getAsFile(); if(b){e.preventDefault();
-        const c=el('inboxCard'); if(c)c.open=true;
-        universalDrop(b); return}
+      const b=bild.getAsFile(); if(b){e.preventDefault(); eingangDatei(b); return}
     }
   }
   const karte=el('kalFormCard');
@@ -7586,7 +7444,7 @@ el('tabAbrechnung').addEventListener('click',()=>bereichWechseln('abrechnung'));
 el('tabTools').addEventListener('click',()=>bereichWechseln('tools'));
 el('btnToolNeu').addEventListener('click',()=>toolFormOeffnen(null));
 
-/* Liefer-Aufträge */
+/* Arbeitsauftraege */
 el('btnJobNeu').addEventListener('click',()=>jobFormOeffnen(null));
 
 /* Welle 3: Schnellerfassen, Drop-Zone, Termine, Bestaetigung */
@@ -7627,10 +7485,10 @@ el('btnBestaetigung').addEventListener('click',bestaetigungEntwerfen);
   const z=el('ibDrop'); if(!z)return;
   const f=el('ibDropFile');
   z.addEventListener('click',()=>f.click());
-  f.addEventListener('change',()=>{ if(f.files&&f.files[0])universalDrop(f.files[0]); f.value=''; });
+  f.addEventListener('change',()=>{ if(f.files&&f.files[0])eingangDatei(f.files[0]); f.value=''; });
   ['dragenter','dragover'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.add('over')}));
   ['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{e.preventDefault();z.classList.remove('over')}));
-  z.addEventListener('drop',e=>{ const d=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(d)universalDrop(d); });
+  z.addEventListener('drop',e=>{ const d=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(d)eingangDatei(d); });
 })();
 el('btnJobSpeichern').addEventListener('click',jobSpeichern);
 el('btnJobAbbrechen').addEventListener('click',()=>{sheetZu();jobEditId=null});
@@ -7651,8 +7509,8 @@ document.querySelectorAll('.quicknav button[data-jump]').forEach(b=>b.addEventLi
 }));
 el('btnMsConnect').addEventListener('click',msConnect);
 el('btnMsDisconnect').addEventListener('click',msDisconnect);
-el('btnMailCheck').addEventListener('click',mailsPruefen);
-el('btnCockpitLesen').addEventListener('click',cockpitAuswerten);
+el('btnEingangReload').addEventListener('click',()=>{eingangMailsLaden();renderGtasks(false)});
+el('btnCockpitLesen').addEventListener('click',eingangAlleAuswerten);
 el('btnTermineAnlegen').addEventListener('click',termineAnlegen);
 el('btnAlsReise').addEventListener('click',alsReise);
 
@@ -7674,7 +7532,9 @@ load().then(async()=>{
   if(gdToken){setTimeout(()=>gdPullMerge(),800)}
   let msTries=15;
   /* Beim Start nur zaehlen (reine Graph-Abfrage, kostenlos) — ausgewertet wird per Knopf. */
-  const msWait=()=>{if(msInit()){renderMsStatus();cockpitZaehlen()}else if(msTries-->0)setTimeout(msWait,300)};
+  /* Beim Start wird der Eingang aufgelistet, nicht ausgewertet — beides
+     nur Graph, also kostenlos. Gelesen wird erst je Zeile auf Knopfdruck. */
+  const msWait=()=>{if(msInit()){renderMsStatus();eingangMailsLaden()}else if(msTries-->0)setTimeout(msWait,300)};
   msWait();
   /* Geteilter Inhalt (Android-Share, experimentell — GET-basiert, nur Text/Link) */
   try{
@@ -7686,7 +7546,7 @@ load().then(async()=>{
          per Assistant nach Google Keep sprechen, spaeter von dort hierher teilen. */
       el('inboxText').value=geteilt;
       history.replaceState(null,'',location.pathname);
-      setTimeout(()=>{inboxSortieren();el('inboxCard').scrollIntoView({behavior:'smooth'})},300);
+      setTimeout(()=>{inboxSortieren();el('eingangCard').scrollIntoView({behavior:'smooth'})},300);
     }
   }catch(e){/* Share-Target optional */}
   bereichWechseln('start');
@@ -7694,7 +7554,7 @@ load().then(async()=>{
   try{
     if(new URLSearchParams(location.search).get('notiz')){
       history.replaceState(null,'',location.pathname);
-      setTimeout(()=>{el('inboxCard').scrollIntoView({behavior:'smooth'});inboxDiktToggle()},400);
+      setTimeout(()=>{el('eingangCard').scrollIntoView({behavior:'smooth'});inboxDiktToggle()},400);
     }
   }catch(e){/* Shortcut optional */}
 });
