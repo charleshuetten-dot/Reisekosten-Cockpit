@@ -19,6 +19,9 @@
   --line:#D9DFE7; --rot:#E2001A; --rot-dim:#FBE9EB; --ok:#1E7A46; --ok-dim:#E6F2EB;
   --warn:#B8860B; --warn-dim:#FBF3DF;
   --radius:10px;
+  /* Abstandsleiter aus dem cockpit-ui-Skill. Neue Bauteile nehmen ausschliesslich
+     diese Werte; Altbestand wird nachgezogen, wenn er ohnehin angefasst wird. */
+  --a1:4px; --a2:8px; --a3:12px; --a4:16px; --a5:24px; --a6:32px; --a7:48px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
@@ -120,6 +123,11 @@ header .wrap{padding:0 2px}
 .chip.arbeit{background:var(--warn-dim);color:var(--warn);border-color:var(--warn)}
 .chip.geliefert{background:#EAF1FA;color:#1F4E79;border-color:#1F4E79}
 .chip.abgerechnet{background:var(--ok-dim);color:var(--ok);border-color:var(--ok)}
+.chip.neutral{background:var(--bg);color:var(--grau);border-color:var(--line)}
+/* Vorschlagskarte des Kalender-Imports — dieselbe Bauform wie bei der
+   Outlook-Mail-Auswertung: erst prüfen, dann erfassen. */
+.vkarte{border:1px solid var(--line);border-radius:var(--radius);padding:var(--a3);margin-top:var(--a3)}
+.vkarte .vkopf{display:flex;gap:var(--a2);align-items:baseline;justify-content:space-between;margin-bottom:var(--a2)}
 /* ---------- Ladezustand als Skelett statt Text (Redesign-Punkt 3) ----------
    "Wird geprüft …" ist eine System-Innerei. Ein ruhig pulsierender Platzhalter
    sagt dasselbe, ohne den Nutzer mit dem Innenleben zu behelligen. */
@@ -195,6 +203,19 @@ header .wrap{padding:0 2px}
 .segment{display:flex;border:1.5px solid var(--line);border-radius:8px;overflow:hidden}
 .segment button{flex:1;padding:9px;border:none;background:#fff;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:600;text-transform:uppercase;color:var(--grau);cursor:pointer}
 .segment button.on{background:var(--ink);color:#fff}
+/* Das Reise-Formular hat zwei Teile: was vor der Reise entschieden wird und was
+   danach abgerechnet wird. Nur einer ist sichtbar — sonst steht beim Erfassen
+   einer neuen Reise die halbe Abrechnung im Weg. */
+#formTabs{margin-bottom:var(--a3)}
+.formteil{display:none}
+.formteil.on{display:block}
+/* Einheitliche Klappe fuer die Abschnitte im Sheet — ersetzt die frueher an jeder
+   summary-Zeile wiederholten Inline-Stile. */
+.abschnitt>summary{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer;padding:var(--a1) 0;list-style:none}
+.abschnitt>summary::-webkit-details-marker{display:none}
+.abschnitt>summary::after{content:'+';float:right;color:var(--grau)}
+.abschnitt[open]>summary::after{content:'\2212'}
+.abschnitt{border-top:1px solid var(--line);padding-top:var(--a2)}
 .stepper{display:flex;align-items:center;gap:0;border:1.5px solid var(--line);border-radius:8px;overflow:hidden}
 .stepper button{width:38px;padding:7px 0;border:none;background:#fff;font-size:18px;cursor:pointer;color:var(--ink)}
 .stepper span{flex:1;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:600}
@@ -1150,24 +1171,49 @@ body{padding-bottom:64px}
   <div class="sheet">
     <h2 id="formTitle">Reise erfassen</h2>
     <div id="lockNote" class="hint" style="display:none;margin:0 0 10px;color:var(--rot)">Diese Reise ist abgerechnet und gesperrt. Zum Ändern erst entsperren.</div>
-    <div class="f"><label>Reisetyp</label>
-      <div class="segment">
-        <button type="button" id="segDozent">Dozentenreise</button>
-        <button type="button" id="segIhk">IHK-Prüfung</button>
+    <div class="segment" id="formTabs">
+      <button type="button" id="segTeilPlanen">Planen und buchen</button>
+      <button type="button" id="segTeilAbrechnen">Abrechnen</button>
+    </div>
+
+    <div class="formteil on" id="teilPlanen">
+    <div class="grid2">
+      <div class="f"><label>Reisetyp</label>
+        <div class="segment">
+          <button type="button" id="segDozent">Dozentenreise</button>
+          <button type="button" id="segIhk">IHK-Prüfung</button>
+        </div>
+      </div>
+      <div class="f" id="fModusWrap"><label>Format</label>
+        <div class="segment">
+          <button type="button" id="segPraesenz">Präsenz</button>
+          <button type="button" id="segOnline">Online</button>
+        </div>
       </div>
     </div>
     <div class="f" id="fIhkWrap" style="display:none"><label>Notiz (optional, z. B. IHK-Vorgangsnummer)</label><input type="text" id="fIhkEntsch" placeholder="wird ausschließlich im IHK-Portal abgerechnet"></div>
-    <div class="f" id="fModusWrap"><label>Format</label>
-      <div class="segment">
-        <button type="button" id="segPraesenz">Präsenz</button>
-        <button type="button" id="segOnline">Online</button>
-      </div>
-    </div>
     <div class="f"><label>Auftraggeber</label>
       <select id="fAg" class="ag-select"></select>
       <input type="text" id="fAgFrei" placeholder="Name des Auftraggebers" style="display:none;margin-top:6px">
       <div class="hint" id="kontaktBox" style="margin-top:6px"></div>
     </div>
+    <div class="grid2">
+      <div class="f"><label>Seminar von</label><input type="date" id="fVon"></div>
+      <div class="f"><label>Seminar bis</label><input type="date" id="fBis"></div>
+    </div>
+    <div class="grid2" id="fReiseTageWrap">
+      <div class="f"><label>Anreise (nur bei Vorabend)</label><input type="date" id="fAnreise"></div>
+      <div class="f"><label>Abreise (nur bei Folgetag)</label><input type="date" id="fAbreise"></div>
+    </div>
+    <div class="hint" id="reiseSpanneHint" style="margin:calc(-1 * var(--a1)) 0 var(--a3)"></div>
+    <div class="f suggwrap"><label>Zielort</label><input type="text" id="fZiel" placeholder="Ort oder Adresse eingeben …" autocomplete="off">
+      <div class="sugg" id="zielSugg" style="display:none"></div>
+      <div style="display:flex;gap:var(--a2);align-items:center;margin-top:var(--a2);flex-wrap:wrap">
+        <button type="button" class="minibtn" id="btnZielKm">📍 km aus Adresse berechnen</button>
+        <div class="hint" id="routeHint" style="margin:0"></div>
+      </div>
+    </div>
+    <div class="f"><label>Anlass</label><input type="text" id="fZweck" placeholder="z. B. Seminar Marketing Grundlagen"></div>
     <div class="grid2" id="fKatWrap">
       <div class="f"><label>Kategorie</label>
         <select id="fKategorie" class="kat-select"></select>
@@ -1177,48 +1223,6 @@ body{padding-bottom:64px}
         <input type="text" id="fGesellschaftFrei" placeholder="Name" style="display:none;margin-top:6px">
       </div>
     </div>
-    <div class="f suggwrap"><label>Zielort</label><input type="text" id="fZiel" placeholder="Ort oder Adresse eingeben …" autocomplete="off">
-      <div class="sugg" id="zielSugg" style="display:none"></div>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
-        <button type="button" class="minibtn" id="btnZielKm">📍 km aus Adresse berechnen</button>
-        <div class="hint" id="routeHint" style="margin:0"></div>
-      </div>
-    </div>
-    <div class="f"><label>Anlass</label><input type="text" id="fZweck" placeholder="z. B. Seminar Marketing Grundlagen"></div>
-    <div class="grid2">
-      <div class="f"><label>Seminar von</label><input type="date" id="fVon"></div>
-      <div class="f"><label>Seminar bis</label><input type="date" id="fBis"></div>
-    </div>
-    <div class="grid2" id="fReiseTageWrap">
-      <div class="f"><label>Anreise (nur bei Vorabend)</label><input type="date" id="fAnreise"></div>
-      <div class="f"><label>Abreise (nur bei Folgetag)</label><input type="date" id="fAbreise"></div>
-    </div>
-    <div class="hint" id="reiseSpanneHint" style="margin:-4px 0 10px"></div>
-    <div class="check" id="fMitternachtWrap" style="display:none"><input type="checkbox" id="fMitternacht"><label for="fMitternacht">Ohne Übernachtung — Rückkehr erst nach Mitternacht</label></div>
-    <div class="check" id="f8hWrap" style="display:none"><input type="checkbox" id="f8h" checked><label for="f8h">Eintägig, mehr als 8 h abwesend</label></div>
-
-    <div class="f" id="bewertungWrap"><label>Eigene Bewertung des Seminars</label>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <div class="segment" id="bewSeg">
-          <button type="button" data-bew="1">1</button><button type="button" data-bew="2">2</button>
-          <button type="button" data-bew="3">3</button><button type="button" data-bew="4">4</button>
-          <button type="button" data-bew="5">5</button>
-        </div>
-        <button type="button" class="minibtn klein" id="btnBewLeeren" >zurücksetzen</button>
-      </div>
-      <input type="text" id="fBewNotiz" placeholder="Kurz: was lief gut, was ändere ich beim nächsten Mal?" style="margin-top:6px">
-    </div>
-
-    <details class="f" id="mahlzeitenWrap"><summary style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer;padding:4px 0">Gestellte Mahlzeiten <span id="mahlBadge"></span></summary>
-      <div class="grid3" style="margin-top:6px">
-        <div><div class="hint" style="margin:0 0 3px">Frühstück</div><div class="stepper"><button type="button" data-m="fr" data-d="-1">−</button><span id="mFr">0</span><button type="button" data-m="fr" data-d="1">+</button></div></div>
-        <div><div class="hint" style="margin:0 0 3px">Mittag</div><div class="stepper"><button type="button" data-m="mi" data-d="-1">−</button><span id="mMi">0</span><button type="button" data-m="mi" data-d="1">+</button></div></div>
-        <div><div class="hint" style="margin:0 0 3px">Abend</div><div class="stepper"><button type="button" data-m="ab" data-d="-1">−</button><span id="mAb">0</span><button type="button" data-m="ab" data-d="1">+</button></div></div>
-      </div>
-      <label class="check" style="display:flex;margin-top:9px"><input type="checkbox" id="fHotelFr"><span style="margin-left:6px">Hotel mit Frühstück — Frühstück automatisch = Anzahl Übernachtungen</span></label>
-      <div class="hint" id="frHint" style="margin-top:5px"></div>
-    </details>
-
     <div class="f" id="fVmWrap"><label>Verkehrsmittel</label>
       <div class="segment">
         <button type="button" id="segAuto">Auto</button>
@@ -1237,7 +1241,36 @@ body{padding-bottom:64px}
       <div class="hint" id="bahnVergleichBox"></div>
     </div>
 
-    <details class="f" id="belegWrap"><summary style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer;padding:4px 0">Belege / Nebenkosten <span id="belegBadge"></span></summary>
+    <details class="f abschnitt" id="statusWrap"><summary>Buchungsstatus <span id="statusBadge"></span></summary>
+      <div style="margin-top:var(--a2);display:grid;gap:var(--a1)">
+        <label class="check" id="stBahnRow" style="display:flex"><input type="checkbox" id="stBahn"><span style="margin-left:6px">Bahn/Fahrt gebucht</span></label>
+        <label class="check" id="stHotelRow" style="display:flex"><input type="checkbox" id="stHotel"><span style="margin-left:6px">Hotel bestätigt (bucht Auftraggeber)</span></label>
+        <label class="check" style="display:flex"><input type="checkbox" id="stTermine"><span style="margin-left:6px">Outlook-Termine angelegt</span></label>
+        <label class="check" style="display:flex"><input type="checkbox" id="stUnterlagen"><span style="margin-left:6px">Unterlagen vorbereitet</span></label>
+      </div>
+      <div style="display:flex;gap:var(--a2);flex-wrap:wrap;margin-top:var(--a2)">
+        <button type="button" class="minibtn" id="btnBahnLink">Auf bahn.de suchen</button>
+        <button type="button" class="minibtn" id="btnReiseTermine" title="Anreise, Seminartage und Abreise in Outlook anlegen">Termine anlegen</button>
+        <button type="button" class="minibtn" id="btnBestaetigung" title="Bestaetigungsmail als Outlook-Entwurf">Bestätigung entwerfen</button>
+      </div>
+    </details>
+    </div>
+
+    <div class="formteil" id="teilAbrechnen">
+    <div class="check" id="fMitternachtWrap" style="display:none"><input type="checkbox" id="fMitternacht"><label for="fMitternacht">Ohne Übernachtung — Rückkehr erst nach Mitternacht</label></div>
+    <div class="check" id="f8hWrap" style="display:none"><input type="checkbox" id="f8h" checked><label for="f8h">Eintägig, mehr als 8 h abwesend</label></div>
+
+    <details class="f abschnitt" id="mahlzeitenWrap"><summary>Gestellte Mahlzeiten <span id="mahlBadge"></span></summary>
+      <div class="grid3" style="margin-top:var(--a2)">
+        <div><div class="hint" style="margin:0 0 3px">Frühstück</div><div class="stepper"><button type="button" data-m="fr" data-d="-1">−</button><span id="mFr">0</span><button type="button" data-m="fr" data-d="1">+</button></div></div>
+        <div><div class="hint" style="margin:0 0 3px">Mittag</div><div class="stepper"><button type="button" data-m="mi" data-d="-1">−</button><span id="mMi">0</span><button type="button" data-m="mi" data-d="1">+</button></div></div>
+        <div><div class="hint" style="margin:0 0 3px">Abend</div><div class="stepper"><button type="button" data-m="ab" data-d="-1">−</button><span id="mAb">0</span><button type="button" data-m="ab" data-d="1">+</button></div></div>
+      </div>
+      <label class="check" style="display:flex;margin-top:var(--a2)"><input type="checkbox" id="fHotelFr"><span style="margin-left:6px">Hotel mit Frühstück — Frühstück automatisch = Anzahl Übernachtungen</span></label>
+      <div class="hint" id="frHint" style="margin-top:var(--a1)"></div>
+    </details>
+
+    <details class="f abschnitt" id="belegWrap"><summary>Belege / Nebenkosten <span id="belegBadge"></span></summary>
       <div class="belege" style="margin-top:6px">
         <div id="belegList"></div>
         <div class="belegadd">
@@ -1249,9 +1282,9 @@ body{padding-bottom:64px}
       </div>
     </details>
 
-    <details class="f" id="rechnungWrap"><summary style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer;padding:4px 0">Rechnung an Auftraggeber <span id="rechnungBadge"></span></summary>
-      <div style="margin-top:8px">
-        <div class="hint" style="margin-bottom:8px">Separater Vorgang: was die SCC dem Auftraggeber in Rechnung stellt (nicht deine interne Erstattung oben).</div>
+    <details class="f abschnitt" id="rechnungWrap"><summary>Rechnung an Auftraggeber <span id="rechnungBadge"></span></summary>
+      <div style="margin-top:var(--a2)">
+        <div class="hint" style="margin-bottom:var(--a2)">Separater Vorgang: was die SCC dem Auftraggeber in Rechnung stellt, nicht deine interne Erstattung.</div>
         <div class="grid2">
           <div class="f"><label>Auftragsnummer</label><input type="text" id="fAuftragsnr" placeholder="z. B. AB-2026-0417"></div>
           <div class="f"><label>Abrechnungseinheit</label>
@@ -1277,30 +1310,29 @@ body{padding-bottom:64px}
       </div>
     </details>
 
-    <details class="f" id="statusWrap"><summary style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer;padding:4px 0">Buchungsstatus <span id="statusBadge"></span></summary>
-      <div style="margin-top:6px;display:grid;gap:5px">
-        <label class="check" id="stBahnRow" style="display:flex"><input type="checkbox" id="stBahn"><span style="margin-left:6px">Bahn/Fahrt gebucht</span></label>
-        <label class="check" id="stHotelRow" style="display:flex"><input type="checkbox" id="stHotel"><span style="margin-left:6px">Hotel bestätigt (bucht Auftraggeber)</span></label>
-        <label class="check" style="display:flex"><input type="checkbox" id="stTermine"><span style="margin-left:6px">Outlook-Termine angelegt</span></label>
-        <label class="check" style="display:flex"><input type="checkbox" id="stUnterlagen"><span style="margin-left:6px">Unterlagen vorbereitet</span></label>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-        <button type="button" class="minibtn" id="btnBahnLink">Auf bahn.de suchen</button>
-        <button type="button" class="minibtn" id="btnReiseTermine" title="Anreise, Seminartage und Abreise in Outlook anlegen">Termine anlegen</button>
-        <button type="button" class="minibtn" id="btnBestaetigung" title="Bestaetigungsmail als Outlook-Entwurf">Bestätigung entwerfen</button>
-      </div>
-    </details>
-
-    <details class="f" id="memoWrap" style="display:none"><summary style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer;padding:4px 0">Seminar-Memo <span id="memoBadge"></span></summary>
-      <div style="margin-top:6px">
+    <details class="f abschnitt" id="memoWrap" style="display:none"><summary>Seminar-Memo <span id="memoBadge"></span></summary>
+      <div style="margin-top:var(--a2)">
         <textarea id="memoText" rows="5" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 14px/1.45 'IBM Plex Sans',sans-serif" placeholder="Diktieren oder tippen: Was lief gut, was ändern, offene Fragen, To-dos …"></textarea>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <div style="display:flex;gap:var(--a2);flex-wrap:wrap;margin-top:var(--a2)">
           <button type="button" class="minibtn" id="btnMemoRec">🎙 Diktat starten</button>
           <button type="button" class="minibtn" id="btnMemoSave">Strukturieren &amp; in OneDrive ablegen</button>
         </div>
         <div class="hint" id="memoStatus"></div>
       </div>
     </details>
+
+    <div class="f" id="bewertungWrap" style="display:none"><label>Eigene Bewertung des Seminars</label>
+      <div style="display:flex;gap:var(--a2);align-items:center;flex-wrap:wrap">
+        <div class="segment" id="bewSeg">
+          <button type="button" data-bew="1">1</button><button type="button" data-bew="2">2</button>
+          <button type="button" data-bew="3">3</button><button type="button" data-bew="4">4</button>
+          <button type="button" data-bew="5">5</button>
+        </div>
+        <button type="button" class="minibtn klein" id="btnBewLeeren">zurücksetzen</button>
+      </div>
+      <input type="text" id="fBewNotiz" placeholder="Kurz: was lief gut, was ändere ich beim nächsten Mal?" style="margin-top:var(--a2)">
+    </div>
+    </div>
 
     <div class="calc" id="calcBox"></div>
 
@@ -1318,14 +1350,18 @@ body{padding-bottom:64px}
 <div class="modal" id="importModal">
   <div class="sheet">
     <h2>Kalender-Import</h2>
-    <p style="font-size:14px;color:var(--grau);margin-bottom:10px">Durchsucht deinen verbundenen Outlook-Kalender nach Seminar- und Reiseterminen und legt daraus Reise-Entwürfe an, die du prüfst und speicherst. Der Google-Familienkalender wird dabei nicht gelesen.</p>
-    <div class="grid2">
-      <div class="f"><label>Von</label><input type="date" id="iVon"></div>
-      <div class="f"><label>Bis</label><input type="date" id="iBis"></div>
+    <div id="iSuche">
+      <p style="font-size:14px;color:var(--grau);margin-bottom:var(--a3)">Durchsucht deinen verbundenen Outlook-Kalender nach Seminar- und Reiseterminen. Jeder Fund kommt als Vorschlag, den du prüfst — erfasst wird nur, was du bestätigst. Der Google-Familienkalender wird dabei nicht gelesen.</p>
+      <div class="grid2">
+        <div class="f"><label>Von</label><input type="date" id="iVon"></div>
+        <div class="f"><label>Bis</label><input type="date" id="iBis"></div>
+      </div>
     </div>
     <div id="iStatus" class="hint"></div>
+    <div id="iVorschlaege"></div>
     <div class="btnrow">
       <button class="ghost" id="iCancel">Schließen</button>
+      <button class="ghost" id="iNeu" style="display:none">Neu suchen</button>
       <button class="primary" id="iStart">Kalender durchsuchen</button>
     </div>
   </div>
@@ -1352,6 +1388,20 @@ function monatLabelText(ym){
   return new Date(j,m-1,1).toLocaleDateString('de-DE',{month:'long',year:'numeric'});
 }
 let editId=null, verkehrsmittel='auto', mahl={fr:0,mi:0,ab:0}, belege=[], unlocked=false, rechnungModus='einzel', reiseTyp='dozent', reiseModus='praesenz';
+/* Das Formular hat zwei Teile. Beim Erfassen steht immer "Planen und buchen" vorn:
+   Auftraggeber, Termin und Ziel sollen ohne Scrollen erreichbar sein. Die
+   Abrechnung kommt Wochen spaeter und braucht den Platz oben nicht. */
+let formTeil='planen';
+function syncFormTeil(){
+  el('segTeilPlanen').classList.toggle('on',formTeil==='planen');
+  el('segTeilAbrechnen').classList.toggle('on',formTeil==='abrechnen');
+  el('teilPlanen').classList.toggle('on',formTeil==='planen');
+  el('teilAbrechnen').classList.toggle('on',formTeil==='abrechnen');
+}
+function formTeilSetzen(teil){
+  formTeil=teil; syncFormTeil();
+  const s=document.querySelector('#modal .sheet'); if(s)s.scrollTop=0;
+}
 function syncTyp(){
   el('segDozent').classList.toggle('on',reiseTyp==='dozent');
   el('segIhk').classList.toggle('on',reiseTyp==='ihk');
@@ -1622,6 +1672,10 @@ function openForm(id){
   el('stBahn').checked=!!st.bahn; el('stHotel').checked=!!st.hotel; el('stTermine').checked=!!st.termine; el('stUnterlagen').checked=!!st.unterlagen;
   el('statusWrap').open=false;
   el('memoWrap').style.display=t?'block':'none'; el('memoWrap').open=false;
+  /* Bewertung und Memo sind Nachbereitung — bei einer neuen Reise gibt es dazu
+     noch nichts zu sagen. */
+  el('bewertungWrap').style.display=t?'block':'none';
+  formTeil='planen'; syncFormTeil();
   el('memoText').value=''; el('memoStatus').textContent='';
   el('fAuftragsnr').value=t?t.auftragsnr||'':''; el('fHonorar').value=t&&t.honorar?t.honorar:'';
   if(el('fHonEinheit'))el('fHonEinheit').value=(t&&t.honEinheit)||'tag';
@@ -1691,7 +1745,7 @@ function openFormPrefill(p){
     prefillInBestand(bestand,p);
     save();
     openForm(bestand.id);
-    el('rechnungWrap').open=true;
+    el('rechnungWrap').open=true; formTeilSetzen('abrechnen');
     toast('Zur vorhandenen Reise vom '+dfmt(bestand.von)+' ergänzt');
     calcPreview(); rechnungCalcPreview();
     return;
@@ -1726,7 +1780,7 @@ function openFormPrefill(p){
   if(el('fHonAnzahl'))el('fHonAnzahl').value=p.anzahlTermine||'';
   honorarSync('summe');
   rechnungModus='einzel';syncRechnungModus();
-  el('rechnungWrap').open=true;
+  el('rechnungWrap').open=true; formTeilSetzen('abrechnen');
   if(p.zielAdresse||p.ziel){autoKmAusAdresse(p.zielAdresse||p.ziel)}
   calcPreview();
 }
@@ -1822,7 +1876,9 @@ function setLock(locked){
   el('btnUnlock').style.display=locked?'block':'none';
   el('btnSave').disabled=locked;
   el('btnDelete').style.display=locked?'none':(editId?'block':'none');
-  document.querySelectorAll('#modal input,#modal select,.stepper button,#bAdd,.segment button').forEach(n=>n.disabled=locked);
+  /* Der Umschalter zwischen "Planen und buchen" und "Abrechnen" bleibt bedienbar:
+     eine abgerechnete Reise soll man weiter ansehen koennen, nur nicht aendern. */
+  document.querySelectorAll('#modal input,#modal select,.stepper button,#bAdd,.segment:not(#formTabs) button').forEach(n=>n.disabled=locked);
 }
 function closeForm(){el('modal').classList.remove('open')}
 function syncVm(){
@@ -6444,7 +6500,8 @@ function renderNachbereitung(){
     await save();renderNachbereitung();
   }));
   el('nachListe').querySelectorAll('[data-nopen]').forEach(b=>b.addEventListener('click',()=>{
-    bereichWechseln('abrechnung');openForm(b.dataset.nopen);
+    /* Aus der Nachbereitung geht es um Verpflegung und Belege — direkt in den Abrechnen-Teil. */
+    bereichWechseln('abrechnung');openForm(b.dataset.nopen);formTeilSetzen('abrechnen');
   }));
   el('nachListe').querySelectorAll('[data-nok]').forEach(b=>b.addEventListener('click',async()=>{
     const t=state.trips.find(x=>String(x.id)===String(b.dataset.nok));if(!t)return;
@@ -6819,15 +6876,118 @@ async function autoKalenderCheck(){
         '<span>🔔 '+neue.length+' Seminartermin(e) im Kalender gefunden, die noch nicht im Cockpit sind.</span>'+
         '<button type="button" class="minibtn" id="btnAutoImport">Jetzt übernehmen</button></div>';
       el('btnAutoImport').addEventListener('click',()=>{
-        el('iVon').value=von;el('iBis').value=bis;el('iStatus').textContent='';el('importModal').classList.add('open');
+        el('iVon').value=von;el('iBis').value=bis;importZuruecksetzen();el('importModal').classList.add('open');
       });
     }else{box.style.display='none'}
   }catch(e){box.style.display='none'}
 }
+/* ---------- Kalender-Import als Pruefschritt ----------
+   Frueher legte der Import direkt Reise-Entwuerfe an. Ein falsch erkannter
+   Auftraggeber oder ein Anreisetag, der als Seminartag gezaehlt wurde, stand
+   damit ungeprueft in den Daten und wanderte in die Abrechnung. Jetzt gilt
+   derselbe Weg wie bei der Outlook-Mail-Auswertung: Claude schlaegt vor, er
+   bestaetigt oder verwirft. Kosten bleiben gleich — ein Claude-Aufruf je Suche. */
+let kalVorschlaege=[];
+function kalSpanneText(p){
+  const beginn=p.anreise||p.von, ende=p.abreise||p.bis||p.von;
+  if(!p.von)return 'Ohne Seminartag — kann so nicht erfasst werden.';
+  if(p.online)return 'Online — keine An-/Abreise, keine Verpflegungspauschale.';
+  const tage=semTage({von:p.von,bis:p.bis||p.von});
+  const n=(beginn&&ende&&ende>beginn)?Math.round((new Date(ende)-new Date(beginn))/86400000):0;
+  const teile=[tage+' Seminartag(e)'];
+  teile.push(n>0?('Reise '+dfmt(beginn)+' bis '+dfmt(ende)+', '+n+' Übernachtung(en)'):'Eintägig, keine Übernachtung');
+  if(p.anreise&&p.anreise>=p.von)teile.push('⚠ Anreise liegt nicht vor dem ersten Seminartag');
+  if(p.abreise&&p.abreise<=(p.bis||p.von))teile.push('⚠ Abreise liegt nicht nach dem letzten Seminartag');
+  return teile.join(' · ');
+}
+function renderKalVorschlaege(){
+  const box=el('iVorschlaege');
+  if(!kalVorschlaege.length){box.innerHTML='';return}
+  const agOpt=v=>AUFTRAGGEBER.map(a=>'<option'+(a===v?' selected':'')+'>'+esc(a)+'</option>').join('')+
+    (v&&!AUFTRAGGEBER.includes(v)?'<option selected>'+esc(v)+'</option>':'');
+  const katOpt=v=>KATEGORIEN.map(k=>'<option'+(k===v?' selected':'')+'>'+esc(k)+'</option>').join('');
+  box.innerHTML=kalVorschlaege.map(p=>{
+    const bestand=p.trefferId?state.trips.find(t=>t.id===p.trefferId):null;
+    const chip=bestand?'<span class="chip neutral">gehört zu Reise '+dfmt(bestand.von)+'</span>':'<span class="chip arbeit">neu</span>';
+    return '<div class="vkarte" data-vid="'+p.id+'">'+
+      '<div class="vkopf"><b>'+esc(p.zweck||'Ohne Titel')+'</b>'+chip+'</div>'+
+      '<div class="grid2">'+
+        '<div class="f"><label>Auftraggeber</label><select data-vf="ag">'+agOpt(p.ag)+'</select></div>'+
+        '<div class="f"><label>Kategorie</label><select data-vf="kategorie">'+katOpt(p.kategorie)+'</select></div>'+
+      '</div>'+
+      '<div class="grid2">'+
+        '<div class="f"><label>Seminar von</label><input type="date" data-vf="von" value="'+esc(p.von)+'"></div>'+
+        '<div class="f"><label>Seminar bis</label><input type="date" data-vf="bis" value="'+esc(p.bis||p.von)+'"></div>'+
+      '</div>'+
+      (p.online?'':'<div class="grid2">'+
+        '<div class="f"><label>Anreise (Vorabend)</label><input type="date" data-vf="anreise" value="'+esc(p.anreise||'')+'"></div>'+
+        '<div class="f"><label>Abreise (Folgetag)</label><input type="date" data-vf="abreise" value="'+esc(p.abreise||'')+'"></div>'+
+      '</div>')+
+      '<div class="f"><label>Ziel</label><input type="text" data-vf="ziel" value="'+esc(p.ziel||'')+'"'+(p.online?' disabled':'')+'></div>'+
+      '<div class="hint" data-vspanne>'+esc(kalSpanneText(p))+'</div>'+
+      (bestand?'<div class="hint">Der Zeitraum der vorhandenen Reise bleibt unverändert. Ergänzt werden nur leere Felder.</div>':'')+
+      '<div class="btnreihe">'+
+        '<button type="button" class="minibtn haupt" data-vok>'+(bestand?'Vorhandene Reise ergänzen':'Reise erfassen')+'</button>'+
+        '<button type="button" class="minibtn" data-vweg>Verwerfen</button>'+
+      '</div></div>';
+  }).join('');
+  box.querySelectorAll('.vkarte').forEach(k=>{
+    const p=kalVorschlaege.find(x=>x.id===k.dataset.vid); if(!p)return;
+    k.querySelectorAll('[data-vf]').forEach(f=>f.addEventListener('change',()=>{
+      p[f.dataset.vf]=f.value;
+      if(f.dataset.vf==='ag'||f.dataset.vf==='von'||f.dataset.vf==='bis'){
+        const tr=reiseTreffer({von:p.von,bis:p.bis||p.von,auftraggeber:p.ag||'',ziel:p.ziel||''});
+        p.trefferId=tr?tr.id:null; renderKalVorschlaege(); return;
+      }
+      const s=k.querySelector('[data-vspanne]'); if(s)s.textContent=kalSpanneText(p);
+    }));
+    k.querySelector('[data-vok]').addEventListener('click',()=>kalVorschlagUebernehmen(p.id));
+    k.querySelector('[data-vweg]').addEventListener('click',()=>{
+      kalVorschlaege=kalVorschlaege.filter(x=>x.id!==p.id); renderKalVorschlaege(); kalRestHinweis();
+    });
+  });
+}
+function kalRestHinweis(){
+  el('iStatus').textContent=kalVorschlaege.length?
+    kalVorschlaege.length+' Vorschlag/Vorschläge offen.':'Alle Vorschläge bearbeitet.';
+}
+async function kalVorschlagUebernehmen(id){
+  const p=kalVorschlaege.find(x=>x.id===id); if(!p)return;
+  if(!p.von){toast('Ohne Seminartag lässt sich nichts erfassen');return}
+  const bestand=p.trefferId?state.trips.find(t=>t.id===p.trefferId):null;
+  if(bestand){
+    /* Nur fuellen, was leer ist. Die vier Datumsfelder bleiben unangetastet —
+       eine stille Verlaengerung wuerde die Verpflegungspauschale veraendern. */
+    if(!bestand.zweck&&p.zweck)bestand.zweck=p.zweck;
+    if(!bestand.ziel&&p.ziel)bestand.ziel=p.ziel;
+    if(!bestand.zielAdresse&&p.adresse)bestand.zielAdresse=p.adresse;
+    if((!bestand.kategorie||bestand.kategorie==='Sonstiges')&&KATEGORIEN.includes(p.kategorie))bestand.kategorie=p.kategorie;
+    toast('Reise vom '+dfmt(bestand.von)+' ergänzt');
+  }else{
+    const ag=p.ag||'Sonstige';
+    const kat=KATEGORIEN.includes(p.kategorie)?p.kategorie:(((state.settings.kgMemo||{})[ag]||{}).kategorie||'Sonstiges');
+    const ges=((state.settings.kgMemo||{})[ag]||{}).gesellschaft||'Allgemein';
+    const t={id:uid(),ag,ziel:p.ziel||'',zweck:p.zweck||'',zielAdresse:p.adresse||'',
+      modus:p.online?'online':'praesenz',kategorie:kat,gesellschaft:ges,
+      von:p.von,bis:p.bis||p.von,anreise:p.online?'':(p.anreise||''),abreise:p.online?'':(p.abreise||''),
+      mitternacht:false,ueber8h:true,hotelFr:!p.online,mahl:{fr:0,mi:0,ab:0},
+      belege:[],vm:'auto',km:0,bahn:0,entwurf:true,abgerechnet:false};
+    if(!p.online)t.mahl.fr=naechte(t);
+    state.trips.push(t);
+    toast('Reise erfasst');
+  }
+  kalVorschlaege=kalVorschlaege.filter(x=>x.id!==id);
+  await save(); render(); renderKalVorschlaege(); kalRestHinweis();
+}
 async function importKalender(){
   const von=el('iVon').value, bis=el('iBis').value;
   const st=el('iStatus'); st.innerHTML='<span class="spin"></span>Durchsuche Kalender … das kann ~30 Sekunden dauern.';
+  kalVorschlaege=[]; renderKalVorschlaege();
   el('iStart').disabled=true;
+  /* Ein Satz Feldregeln fuer beide Wege, damit Anreise und Abreise nie als
+     Seminartag durchrutschen — die Seminartage sind die Honorargrundlage. */
+  const FELDER="Format je Eintrag: {\"ziel\":\"Stadt, leer bei Online\",\"zweck\":\"Titel\",\"adresse\":\"das Ort-/Standort-Feld wörtlich, sonst leer\",\"anreise\":\"YYYY-MM-DD oder leer\",\"von\":\"YYYY-MM-DD\",\"bis\":\"YYYY-MM-DD\",\"abreise\":\"YYYY-MM-DD oder leer\",\"auftraggeber\":\"falls erkennbar, sonst leer\",\"kategorie\":\"beste Vermutung aus "+KATEGORIEN.join(', ')+", sonst Sonstiges\",\"online\":true/false}. "+
+    "von und bis sind AUSSCHLIESSLICH die Seminartage. Ein Termin, dessen Titel mit 'Anreise' beginnt, füllt anreise; 'Abreise' oder 'Rückreise' füllt abreise. Schreibe einen An- oder Abreisetag niemals in von oder bis. Gibt es keinen eigenen An-/Abreisetermin, bleiben anreise und abreise leer. Fasse zusammengehörige Anreise-/Seminar-/Abreise-Termine zu EINEM Eintrag zusammen.";
   try{
     let payload;
     if(msAccount){
@@ -6836,10 +6996,14 @@ async function importKalender(){
       const evts=(d.value||[]).map(e=>({titel:e.subject||'',von:(e.start&&e.start.dateTime||'').slice(0,10),bis:(e.end&&e.end.dateTime||'').slice(0,10),ort:(e.location&&e.location.displayName)||'',online:!!e.isOnlineMeeting}));
       if(!evts.length){st.textContent='Keine Termine im Zeitraum gefunden.';el('iStart').disabled=false;return}
       payload={model:"claude-sonnet-4-6",max_tokens:1500,
-        messages:[{role:"user",content:"Hier meine Outlook-Termine als JSON: "+JSON.stringify(evts).slice(0,12000)+"\n\nFiltere die beruflichen Dienstreisen/Seminare heraus (Präsenz UND Online; Muster '<Auftraggeber> <Seminartitel>' bzw. 'Anreise/Abreise …'; Auftraggeber u.a. "+AUFTRAGGEBER.join(', ')+"). Ignoriere Privates, Fußball und alles andere ohne erkennbaren Auftraggeber-Bezug. Fasse Anreise/Seminar/Abreise zu EINER Reise zusammen. Ordne jedem Eintrag eine Kategorie aus dieser Liste zu: "+KATEGORIEN.join(', ')+" (beste Vermutung, sonst 'Sonstiges'). Antworte AUSSCHLIESSLICH mit einem JSON-Array: [{\"ziel\":\"Stadt oder leer bei Online\",\"zweck\":\"Titel\",\"adresse\":\"Ort-Feld wörtlich\",\"von\":\"YYYY-MM-DD\",\"bis\":\"YYYY-MM-DD\",\"auftraggeber\":\"…\",\"kategorie\":\"…\",\"online\":true/false}] oder []"}]};
+        messages:[{role:"user",content:"Hier meine Outlook-Termine als JSON: "+JSON.stringify(evts).slice(0,12000)+
+          "\n\nFiltere die beruflichen Dienstreisen/Seminare heraus (Präsenz UND Online; Muster '<Auftraggeber> <Seminartitel>' bzw. 'Anreise/Abreise …'; Auftraggeber u.a. "+AUFTRAGGEBER.join(', ')+
+          "). Ignoriere Privates, Fußball und alles andere ohne erkennbaren Auftraggeber-Bezug. Antworte AUSSCHLIESSLICH mit einem JSON-Array, ohne Markdown, ohne Erklärung. "+FELDER+" Wenn nichts gefunden: []"}]};
     }else{
-      payload={model:"claude-sonnet-4-6",max_tokens:1000,
-        messages:[{role:"user",content:"Durchsuche meinen Outlook-Kalender im Zeitraum "+von+" bis "+bis+" nach beruflichen Seminaren/Dienstreisen (Präsenz UND Online): Seminare, Schulungen, Prüfungen, Anreisen. Termine folgen meist dem Muster '<Auftraggeber> <Seminartitel>' bzw. 'Anreise/Abreise <Auftraggeber> <Seminartitel>' (Auftraggeber u.a. "+AUFTRAGGEBER.join(', ')+"). Ignoriere private Termine, Fußballtraining und Termine ohne erkennbaren Auftraggeber-Bezug. Antworte AUSSCHLIESSLICH mit einem JSON-Array, ohne Markdown, ohne Erklärung. Format je Eintrag: {\"ziel\":\"Stadt oder leer bei Online\",\"zweck\":\"Titel\",\"adresse\":\"das Ort/Standort-Feld des Termins WÖRTLICH und vollständig, sonst leer\",\"von\":\"YYYY-MM-DD\",\"bis\":\"YYYY-MM-DD\",\"auftraggeber\":\"falls erkennbar, sonst leer\",\"kategorie\":\"beste Vermutung aus "+KATEGORIEN.join(', ')+"\",\"online\":true/false}. Fasse zusammengehörige Anreise-/Seminar-/Abreise-Termine zu EINER Reise zusammen. Wenn nichts gefunden: []"}],
+      payload={model:"claude-sonnet-4-6",max_tokens:1500,
+        messages:[{role:"user",content:"Durchsuche meinen Outlook-Kalender im Zeitraum "+von+" bis "+bis+
+          " nach beruflichen Seminaren/Dienstreisen (Präsenz UND Online): Seminare, Schulungen, Prüfungen, Anreisen. Termine folgen meist dem Muster '<Auftraggeber> <Seminartitel>' bzw. 'Anreise/Abreise <Auftraggeber> <Seminartitel>' (Auftraggeber u.a. "+AUFTRAGGEBER.join(', ')+
+          "). Ignoriere private Termine, Fußballtraining und Termine ohne erkennbaren Auftraggeber-Bezug. Antworte AUSSCHLIESSLICH mit einem JSON-Array, ohne Markdown, ohne Erklärung. "+FELDER+" Wenn nichts gefunden: []"}],
         mcp_servers:[{type:"url",url:"https://microsoft365.mcp.claude.com/mcp",name:"microsoft-365"}]};
     }
     const resp=await fetch(claudeEndpoint(),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
@@ -6851,34 +7015,26 @@ async function importKalender(){
     if(start<0)throw new Error('Keine Termine erkannt');
     const arr=JSON.parse(clean.slice(start,end+1));
     if(!arr.length){st.textContent='Keine passenden Termine im Zeitraum gefunden.';el('iStart').disabled=false;return}
-    let neu=0, zugeordnet=0;
-    arr.forEach(e=>{
-      if(!e.von)return;
-      /* Frueher wurde nur uebersprungen, wenn Datum, Ziel UND Zweck exakt
-         uebereinstimmten. Ein Anreisetermin der Bahn oder ein zweiter Termin
-         desselben Seminars erzeugte deshalb eine zweite Reise. Jetzt gilt:
-         ueberlappender Zeitraum beim selben Auftraggeber ist derselbe Vorgang.
-         Der Zeitraum der vorhandenen Reise wird NICHT stillschweigend
-         erweitert — das wuerde die Verpflegungspauschale veraendern. */
-      if(reiseTreffer({von:e.von,bis:e.bis||e.von,auftraggeber:e.auftraggeber||'',ziel:e.ziel||''})){zugeordnet++;return}
-      const n=e.bis&&e.bis>e.von?Math.round((new Date(e.bis)-new Date(e.von))/86400000):0;
-      const ag=e.auftraggeber||'Sonstige';
-      const kat=e.kategorie&&KATEGORIEN.includes(e.kategorie)?e.kategorie:((state.settings.kgMemo||{})[ag]||{}).kategorie||'Sonstiges';
-      const ges=((state.settings.kgMemo||{})[ag]||{}).gesellschaft||'Allgemein';
-      state.trips.push({id:uid(),ag,ziel:e.ziel||'',zweck:e.zweck||'',
-        zielAdresse:e.adresse||'',modus:e.online?'online':'praesenz',kategorie:kat,gesellschaft:ges,
-        von:e.von,bis:e.bis||e.von,mitternacht:false,ueber8h:true,
-        mahl:{fr:n,mi:0,ab:0},belege:[],vm:'auto',km:0,bahn:0,entwurf:true,abgerechnet:false});
-      neu++;
+    kalVorschlaege=arr.filter(e=>e.von).map(e=>{
+      const p={id:uid(),ag:(e.auftraggeber||'').trim(),ziel:e.ziel||'',adresse:e.adresse||'',
+        zweck:e.zweck||'',anreise:e.anreise||'',von:e.von,bis:e.bis||e.von,abreise:e.abreise||'',
+        kategorie:KATEGORIEN.includes(e.kategorie)?e.kategorie:'Sonstiges',online:!!e.online};
+      const tr=reiseTreffer({von:p.von,bis:p.bis,auftraggeber:p.ag,ziel:p.ziel});
+      p.trefferId=tr?tr.id:null;
+      return p;
     });
-    await save(); render();
-    st.textContent=(neu?neu+' Reise-Entwürfe angelegt. Tippe sie in der Liste an, um Details zu prüfen.':'Keine neue Reise — alles war schon erfasst.')+
-      (zugeordnet?' '+zugeordnet+' Termin(e) gehören zu bereits erfassten Reisen und wurden übersprungen.':'');
-    toast(neu?neu+' Entwürfe importiert':'Nichts Neues');
+    if(!kalVorschlaege.length){st.textContent='Keine passenden Termine im Zeitraum gefunden.';el('iStart').disabled=false;return}
+    el('iSuche').style.display='none'; el('iStart').style.display='none'; el('iNeu').style.display='block';
+    renderKalVorschlaege(); kalRestHinweis();
   }catch(err){
     st.textContent='Import fehlgeschlagen: '+err.message+'. Prüfe unter Einstellungen, ob Outlook verbunden ist, und versuche es erneut.';
   }
   el('iStart').disabled=false;
+}
+function importZuruecksetzen(){
+  kalVorschlaege=[]; renderKalVorschlaege();
+  el('iSuche').style.display='block'; el('iStart').style.display='block'; el('iNeu').style.display='none';
+  el('iStatus').textContent='';
 }
 
 /* ---------- Events ---------- */
@@ -6887,6 +7043,8 @@ el('btnPerErinnerung').addEventListener('click',perErinnerungAnlegen);
 (function(){const s=el('jahr');const y=new Date().getFullYear();for(let j=y-1;j<=y+1;j++){const o=document.createElement('option');o.value=j;o.textContent=j;s.appendChild(o)}s.value=ui.jahr;
 s.addEventListener('change',()=>{ui.jahr=+s.value;render()})})();
 el('btnNew').addEventListener('click',()=>openForm(null));
+el('segTeilPlanen').addEventListener('click',()=>formTeilSetzen('planen'));
+el('segTeilAbrechnen').addEventListener('click',()=>formTeilSetzen('abrechnen'));
 el('btnCancel').addEventListener('click',closeForm);
 el('btnUnlock').addEventListener('click',()=>{unlocked=true;setLock(false);toast('Entsperrt — Änderungen beim Speichern wirksam')});
 el('btnSave').addEventListener('click',async()=>{
@@ -7238,11 +7396,14 @@ el('envHint').textContent=IN_CLAUDE
 el('btnImport').addEventListener('click',()=>{
   if(!IN_CLAUDE&&!msAccount){toast('Bitte zuerst im Bereich Start Outlook verbinden');bereichWechseln('start');return}
   const[v,b]=quartalsRange();el('iVon').value=v;el('iBis').value=b;
-  el('iStatus').textContent='';el('importModal').classList.add('open');
+  importZuruecksetzen();el('importModal').classList.add('open');
 });
-el('iCancel').addEventListener('click',()=>el('importModal').classList.remove('open'));
+/* Beim Schliessen bleiben keine halb bearbeiteten Vorschlaege stehen — sonst
+   sieht er beim naechsten Oeffnen eine Liste aus einer alten Suche. */
+el('iCancel').addEventListener('click',()=>{el('importModal').classList.remove('open');importZuruecksetzen()});
+el('iNeu').addEventListener('click',importZuruecksetzen);
 el('iStart').addEventListener('click',importKalender);
-[el('modal'),el('importModal')].forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+[el('modal'),el('importModal')].forEach(m=>m.addEventListener('click',e=>{if(e.target!==m)return;m.classList.remove('open');if(m.id==='importModal')importZuruecksetzen()}));
 
 /* Planung: Events */
 el('tabStart').addEventListener('click',()=>bereichWechseln('start'));
