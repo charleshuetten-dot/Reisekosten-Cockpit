@@ -95,6 +95,9 @@ header .wrap{padding:0 2px}
 .kpi .val{font-family:'IBM Plex Mono',monospace;font-size:var(--s-teil);font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
 .kpi.total{background:var(--ink);border-color:var(--ink);color:#fff}
 .kpi.total .lbl{color:var(--ink-hell)}
+/* Kennzahl als Knopf: sie springt in den Bereich, aus dem sie stammt. */
+button.kpi{width:100%;text-align:left;font:inherit;cursor:pointer;display:block}
+button.kpi:active{opacity:.85}
 
 .agrow{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:var(--s-text)}
 .agrow:last-child{border-bottom:none}
@@ -399,9 +402,19 @@ body{padding-bottom:64px}
 
 <div class="wrap spalten" id="bereichStart">
 
-<div class="card vollbreite" id="heuteCard" style="border-left:4px solid var(--rot)">
-    <div class="lbl-klein">Was ist heute dran?</div>
-    <div id="heuteZeile" style="margin-top:6px;font-size:15.5px;line-height:1.6"></div>
+<div class="kpis" id="startKpis">
+  <button type="button" class="kpi total" data-kpi="eingang"><div class="lbl">Eingang</div><div class="val" id="kpiEingang">–</div></button>
+  <button type="button" class="kpi total" data-kpi="aufgaben"><div class="lbl">Fällig</div><div class="val" id="kpiAufgaben">–</div></button>
+  <button type="button" class="kpi total" data-kpi="nach"><div class="lbl">Nachbereitung</div><div class="val" id="kpiNach">–</div></button>
+  <button type="button" class="kpi total" data-kpi="rechnungen"><div class="lbl">Rechnungen</div><div class="val" id="kpiRechnungen">–</div></button>
+</div>
+
+<div class="card vollbreite" id="heuteCard">
+    <h2>Nächste sieben Tage
+      <span class="tools"><button class="minibtn" id="btnWocheReload">Aktualisieren</button></span>
+    </h2>
+    <div id="wocheListe" style="margin-top:8px"></div>
+    <div id="heuteZeile" class="hint" style="margin-top:10px"></div>
   </div>
 
 <div class="card vollbreite" id="kalenderHinweis" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
@@ -468,19 +481,6 @@ body{padding-bottom:64px}
     </div>
     <div class="hint" id="inboxStatus"></div>
   </details>
-<div class="card" id="briefingCard" style="display:none">
-    <h2>Seminartagebuch</h2>
-    <div id="briefingBox"></div>
-    <details style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">
-      <summary style="cursor:pointer;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau)">Auswertung — Jahr, Auftraggeber, Reise, Bewertung</summary>
-      <div id="tbAuswertung" style="margin-top:10px"></div>
-    </details>
-  </div>
-<div class="card" id="nachCard" style="display:none;border-color:var(--warn)">
-    <h2>Nachbereitung</h2>
-    <div class="hint">Gelaufene Seminare — Verpflegung prüfen und abhaken. Danach sind sie abrechnungsfertig.</div>
-    <div id="nachListe" style="margin-top:8px"></div>
-  </div>
 <div class="card" id="gtaskCard" style="display:none;border-color:#4285f4">
     <h2>Vom Handy diktiert
       <span class="tools"><button class="minibtn" id="btnGtaskReload">Prüfen</button></span>
@@ -493,6 +493,16 @@ body{padding-bottom:64px}
 </div>
 
 <div class="wrap spalten" id="bereichSeminare" style="display:none">
+
+<!-- Seminartagebuch: gehoert zu den Seminaren -->
+<div class="card" id="briefingCard" style="display:none">
+    <h2>Seminartagebuch</h2>
+    <div id="briefingBox"></div>
+    <details style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau)">Auswertung — Jahr, Auftraggeber, Reise, Bewertung</summary>
+      <div id="tbAuswertung" style="margin-top:10px"></div>
+    </details>
+  </div>
 
 <!-- Kalender: keine eigene Ebene mehr, sondern Ansicht in Seminare -->
 
@@ -867,6 +877,13 @@ body{padding-bottom:64px}
 </div>
 
 <div class="wrap spalten" id="bereichAbrechnung" style="display:none">
+
+<!-- Nachbereitung: gehoert zur Abrechnung, nicht auf die Startseite -->
+<div class="card" id="nachCard" style="display:none;border-color:var(--warn)">
+    <h2>Nachbereitung</h2>
+    <div class="hint">Gelaufene Seminare — Verpflegung prüfen und abhaken. Danach sind sie abrechnungsfertig.</div>
+    <div id="nachListe" style="margin-top:8px"></div>
+  </div>
 
   <div class="quicknav">
     <button type="button" data-jump="agMonatCard">Auftraggeber</button>
@@ -2931,6 +2948,7 @@ async function taskBoardLaden(){
     if(taskFilter!=='alle' && !taskCache.some(t=>t._listName===taskFilter))taskFilter='alle';
     renderTaskFilter();
     renderTaskBoard();
+    kpiStart();
     if(el('taskForm')&&el('taskForm').style.display!=='none')tkListenFuellen();
   }catch(err){box.innerHTML='<div class="hint">Fehler: '+esc(err.message)+'</div>'}
 }
@@ -3276,44 +3294,63 @@ function renderJobs(){
 /* ---------- Redesign-Punkt 1: Entscheidungszeile "Was ist heute dran?" ----------
    Die Frage, mit der er die App öffnet. Beantwortet aus den vorhandenen Daten:
    was heute läuft, was nachzubereiten ist, was abzurechnen ist. */
+/* ---------- Naechste sieben Tage ----------
+   Fuehrend ist der Outlook-Kalender, weil dort auch steht, was nie eine Reise
+   im Cockpit wird (Prueferausschuss, Rueckruf, Privates). Ohne Verbindung
+   faellt die Liste auf die erfassten Reisen zurueck, damit die Karte offline
+   nicht leer bleibt. */
+async function wocheLaden(){
+  const box=el('wocheListe'); if(!box)return;
+  const a=new Date(), b=new Date(); b.setDate(b.getDate()+7);
+  const vonISO=ymd(a), bisISO=ymd(b);
+  if(!msAccount){wocheAusReisen(vonISO,bisISO);return}
+  box.innerHTML='<div class="hint"><span class="spin"></span>Lade Termine \u2026</div>';
+  try{
+    const d=await graph('/me/calendarView?startDateTime='+vonISO+'T00:00:00&endDateTime='+bisISO+'T23:59:59&$top=100&$select=subject,start,end,location,isAllDay,isOnlineMeeting&$orderby=start/dateTime');
+    const evts=(d.value||[]);
+    if(!evts.length){box.innerHTML='<div class="hint">Keine Termine in den nächsten sieben Tagen.</div>';return}
+    const tage={};
+    evts.forEach(e=>{
+      const tag=((e.start&&e.start.dateTime)||'').slice(0,10); if(!tag)return;
+      const zeit=e.isAllDay?'ganztägig':((e.start.dateTime||'').slice(11,16));
+      const ort=e.isOnlineMeeting?'online':((e.location&&e.location.displayName)||'');
+      (tage[tag]=tage[tag]||[]).push({zeit,titel:e.subject||'(ohne Titel)',ort});
+    });
+    box.innerHTML=wocheHtml(tage);
+  }catch(err){wocheAusReisen(vonISO,bisISO)}
+}
+function wocheAusReisen(vonISO,bisISO){
+  const box=el('wocheListe'); if(!box)return;
+  const tage={};
+  (state.trips||[]).filter(t=>t.von&&t.von>=vonISO&&t.von<=bisISO).forEach(t=>{
+    (tage[t.von]=tage[t.von]||[]).push({zeit:'',titel:t.zweck||t.ag||'Seminar',ort:t.online?'online':(t.ziel||'')});
+  });
+  box.innerHTML=Object.keys(tage).length
+    ? '<div class="hint" style="margin-bottom:6px">Ohne Outlook-Verbindung — aus den erfassten Reisen.</div>'+wocheHtml(tage)
+    : '<div class="hint">Keine Termine in den nächsten sieben Tagen.</div>';
+}
+function wocheHtml(tage){
+  const WT=['So','Mo','Di','Mi','Do','Fr','Sa'];
+  return Object.keys(tage).sort().map(tag=>{
+    const d=new Date(tag+'T12:00:00');
+    const kopf=WT[d.getDay()]+' '+dfmt(tag)+(tag===heuteISO()?' · heute':'');
+    const zeilen=tage[tag].map(x=>
+      '<div style="display:flex;gap:10px;padding:3px 0">'+
+      '<span class="mono" style="min-width:58px;color:var(--grau)">'+esc(x.zeit)+'</span>'+
+      '<span>'+esc(x.titel)+(x.ort?' <span style="color:var(--grau)">· '+esc(x.ort)+'</span>':'')+'</span></div>').join('');
+    return '<div style="margin-bottom:10px"><div class="lbl-klein">'+esc(kopf)+'</div>'+zeilen+'</div>';
+  }).join('');
+}
+
 function renderHeuteZeile(){
   const box=el('heuteZeile'); if(!box)return;
-  const heute=heuteISO();
-  const trips=(state.trips||[]).filter(t=>t.von);
   const teile=[];
-
-  /* 1) Läuft heute etwas? Sonst: was kommt als Nächstes? */
-  const laueft=trips.find(t=>t.von<=heute && (t.bis||t.von)>=heute);
-  const naechstes=trips.filter(t=>t.von>heute).sort((a,b)=>a.von.localeCompare(b.von))[0];
-  if(laueft){
-    teile.push('<b>Heute:</b> '+esc(laueft.zweck||laueft.ag||'Seminar')+(laueft.ziel?' · '+esc(laueft.ziel):''));
-  }else if(naechstes){
-    const tage=Math.round((new Date(naechstes.von)-new Date(heute))/86400000);
-    teile.push('<b>Als Nächstes:</b> '+dfmt(naechstes.von)+' · '+esc(naechstes.zweck||naechstes.ag||'Seminar')+
-      ' <span style="color:var(--grau)">(in '+tage+' T)</span>');
-  }else{
-    teile.push('<span style="color:var(--grau)">Kein Seminar in Sicht.</span>');
-  }
-
-  /* 2) Offene Nachbereitung — gelaufen, aber weder nachbereitet noch abgerechnet */
-  const grenze=new Date(); grenze.setDate(grenze.getDate()-21);
-  const nach=trips.filter(t=>t.typ!=='ihk' && (t.bis||t.von)<heute &&
-    (t.bis||t.von)>=ymd(grenze) && !t.nachbereitet && !t.abgerechnet);
-  if(nach.length)teile.push('<span style="color:var(--rot)">'+nach.length+' Reise(n) nachzubereiten</span>');
-
-  /* 3) Offene Liefer-Aufträge mit naher Deadline */
+  /* Nachbereitung und offene Abrechnung stehen seit dem Umbau in der
+     Kennzahlenleiste, die Termine in der Liste darueber. Hier bleibt nur, was
+     sonst nirgends auftaucht: Arbeitsauftraege mit naher Frist. */
   const jobs=(state.jobs||[]).filter(j=>(j.status||'offen')!=='abgerechnet' && j.deadline);
   const eilig=jobs.filter(j=>jobTageBisDeadline(j)!==null && jobTageBisDeadline(j)<=7);
   if(eilig.length)teile.push('<span style="color:var(--rot)">'+eilig.length+' Liefer-Auftrag/Aufträge fällig</span>');
-
-  /* 4) Abrechnung des laufenden Zeitraums */
-  try{
-    const offen=tripsImQuartal().filter(t=>t.typ!=='ihk' && !t.abgerechnet);
-    if(offen.length){
-      const summe=offen.reduce((x,t)=>x+berechne(t).summe,0);
-      if(summe>0)teile.push('Abrechnung '+perLabel()+': '+eur(summe)+' offen');
-    }
-  }catch(e){}
 
   box.innerHTML=teile.join(' &nbsp;·&nbsp; ');
 }
@@ -4430,6 +4467,7 @@ async function cockpitZaehlen(){
   try{
     const o=await cockpitOrdnerHolen(true);
     if(!o){b.style.display='none';el('cockpitStatus').textContent='Ordner „Dozenten Cockpit" nicht gefunden — er muss auf oberster Ebene oder direkt unter dem Posteingang liegen.';return}
+    cockpitAnzahl=o.anzahl||0; kpiStart();
     b.textContent=o.anzahl?(o.anzahl+' wartend'):'leer';
     b.className='chip '+(o.anzahl?'offen':'abgerechnet');
     b.style.display='inline-block';
@@ -5281,14 +5319,14 @@ function bereichWechseln(b,ziel){
   document.querySelectorAll('.tabbar button[data-nav]').forEach(btn=>{
     btn.classList.toggle('on', btn.dataset.nav===b);
   });
-  if(b==='start'){renderGtasks(true);renderNachbereitung();renderBriefing();taskBoardLaden();autoKalenderCheck()}
-  if(b==='seminare'){renderMsStatus();renderMeetings();renderReiseplanung();kalenderLaden();konfliktKalRender()}
+  if(b==='start'){renderGtasks(true);renderNachbereitung();renderBriefing();taskBoardLaden();autoKalenderCheck();kpiStart()}
+  if(b==='seminare'){renderMsStatus();renderMeetings();renderReiseplanung();kalenderLaden();konfliktKalRender();renderBriefing()}
   if(b==='tools'){versionAnzeigen()}
   if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderProjekte();renderWerkstattAufgaben()}
-  if(b==='abrechnung'){render()}
+  if(b==='abrechnung'){renderNachbereitung();render()}
   if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true)}
   if(b==='werkstatt')renderJobs();
-  if(b==='start'){renderTbAuswertung();renderHeuteZeile()}
+  if(b==='start'){renderTbAuswertung();renderHeuteZeile();wocheLaden()}
   /* FAB ist jetzt ueberall sichtbar — der Schnellerfassen-Knopf soll in jedem Bereich
      erreichbar sein. "+ Reise erfassen" und CSV blenden sich bereichsabhaengig aus. */
   document.querySelector('.fab').style.display='flex';
@@ -5474,6 +5512,7 @@ function renderOffeneRechnungen(){
     });
   });
   paare.sort((a,b)=>a.ym<b.ym?-1:(a.ym>b.ym?1:AUFTRAGGEBER.indexOf(a.ag)-AUFTRAGGEBER.indexOf(b.ag)));
+  offeneRechnungen=paare.length; kpiStart();
   el('offenCard').style.display=paare.length?'block':'none';
   if(el('offenCnt'))el('offenCnt').textContent=paare.length?paare.length:'';
   el('offenList').innerHTML=paare.map(x=>
@@ -6465,6 +6504,7 @@ function nachLuecken(t){
 function renderNachbereitung(){
   const card=el('nachCard');if(!card)return;
   const offen=nachOffen();
+  kpiStart();
   if(!offen.length){card.style.display='none';return}
   card.style.display='block';
   const zaehler=(t,k,label)=>{
@@ -7142,6 +7182,7 @@ el('mGesellschaft').addEventListener('change',()=>{
   const k=kursMemoGet(ag,ges);
   if(k)el('mKurs').value=k;
 });
+el('btnWocheReload').addEventListener('click',wocheLaden);
 el('btnTaskReload').addEventListener('click',()=>{taskListen=null;taskListId=null;taskBoardLaden()});
 el('btnTaskNeu').addEventListener('click',taskFormOeffnen);
 el('btnTaskSpeichern').addEventListener('click',taskAnlegen);
@@ -7376,12 +7417,41 @@ el('restoreFile').addEventListener('change',e=>{
 let installPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;el('btnInstall').style.display='inline-block'});
 /* Service Worker: App-Shell offline verfügbar (z. B. im Zug ohne Netz) */
+/* ---------- Kennzahlenleiste der Startseite ----------
+   Vier Zahlen, die einen Sprung wert sind. Jede wird von der Funktion gesetzt,
+   die den zugehoerigen Bestand ohnehin schon berechnet - hier wird nichts ein
+   zweites Mal gezaehlt. */
+let cockpitAnzahl=0, offeneRechnungen=0;
+function kpiStart(){
+  const setz=(id,wert)=>{const e=el(id); if(e)e.textContent=wert};
+  setz('kpiEingang',cockpitAnzahl||'0');
+  setz('kpiRechnungen',offeneRechnungen||'0');
+  try{ setz('kpiNach',nachOffen().length||'0') }catch(e){}
+  /* Faellig = heute oder ueberfaellig; ohne Datum zaehlt eine Aufgabe nicht mit,
+     sonst stuende dort dauerhaft die gesamte Liste. */
+  try{
+    const grenze=new Date(); grenze.setHours(23,59,59,999);
+    const f=(taskCache||[]).filter(t=>{
+      const d=t.dueDateTime&&t.dueDateTime.dateTime; return d && new Date(d)<=grenze;
+    }).length;
+    setz('kpiAufgaben',f||'0');
+  }catch(e){}
+}
+document.addEventListener('click',e=>{
+  const k=e.target.closest('[data-kpi]'); if(!k)return;
+  const z=k.dataset.kpi;
+  if(z==='eingang'){const c=el('cockpitCard'); if(c)c.scrollIntoView({behavior:'smooth',block:'start'})}
+  if(z==='aufgaben'){const c=el('taskCard'); if(c){c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'})}}
+  if(z==='nach')bereichWechseln('abrechnung','nachCard');
+  if(z==='rechnungen')bereichWechseln('abrechnung','offenCard');
+});
+
 /* ---------- Fassung ----------
    APP_VERSION muss bei jedem Ausliefern mit dem Cache-Namen in sw.js
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v75';
+const APP_VERSION='v77';
 const APP_STAND='3. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
