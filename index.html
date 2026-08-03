@@ -17,7 +17,11 @@
 :root{
   --bg:#F2F4F6; --paper:#FFFFFF; --ink:#14233C; --grau:#5B6B7E;
   --line:#D9DFE7; --rot:#E2001A; --rot-dim:#FBE9EB; --ok:#1E7A46; --ok-dim:#E6F2EB;
-  --warn:#B8860B; --warn-dim:#FBF3DF;
+  --warn:#B8860B; --warn-dim:#FBF3DF; --blau:#1F4E79; --blau-dim:#EAF1FA;
+  /* Nur für Chip-Schrift auf der hellen Fläche: #E2001A kommt dort auf 4,2:1,
+     #B8860B sogar nur auf 2,9:1 — beides zu wenig für 12,5 px. Rahmen und Punkt
+     behalten die volle Hausfarbe, allein die Beschriftung wird abgedunkelt. */
+  --rot-text:#C40016; --warn-text:#8A6508;
   --radius:10px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -109,17 +113,25 @@ header .wrap{padding:0 2px}
 .route{display:flex;align-items:center;gap:8px;margin:6px 0 4px;font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
 .route .strecke{flex:1;border-top:2px dotted var(--line);position:relative;height:2px;min-width:24px}
 .route .strecke::after{content:'';position:absolute;right:-1px;top:-4.5px;border:5px solid transparent;border-left:7px solid var(--ink)}
-.trip .meta{display:flex;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--grau)}
+.trip .meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--grau)}
 .badge{display:inline-block;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-family:'IBM Plex Mono',monospace;font-size:11px}
 /* ---------- Status als Farb-Chip (Redesign-Punkt 5) ----------
    Vorher trugen alle Zustände dieselbe neutrale Badge — offen sah aus wie
    abgerechnet. Farbe codiert den Zustand jetzt auf einen Blick, ohne Emoji. */
 .chip{display:inline-block;border-radius:999px;padding:3px 10px;font-family:'Barlow Condensed',sans-serif;
   font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border:1.5px solid transparent}
-.chip.offen{background:var(--rot-dim);color:var(--rot);border-color:var(--rot)}
-.chip.arbeit{background:var(--warn-dim);color:var(--warn);border-color:var(--warn)}
-.chip.geliefert{background:#EAF1FA;color:#1F4E79;border-color:#1F4E79}
+.chip.offen{background:var(--rot-dim);color:var(--rot-text);border-color:var(--rot)}
+.chip.arbeit{background:var(--warn-dim);color:var(--warn-text);border-color:var(--warn)}
+.chip.geliefert{background:var(--blau-dim);color:var(--blau);border-color:var(--blau)}
 .chip.abgerechnet{background:var(--ok-dim);color:var(--ok);border-color:var(--ok)}
+/* Neutral trägt keinen Status, sondern eine Tatsache (Meeting, Liste, ferne Frist).
+   Ohne diese Stufe würde jede Zusatzangabe zwangsläufig eine der vier Farben leihen. */
+.chip.neutral{background:var(--bg);color:var(--grau);border-color:var(--line)}
+/* Als Filter benutzt: gedrückt bekommt der Chip einen inneren Ring in seiner
+   eigenen Farbe — kein zweiter Farbton, nur mehr Gewicht. */
+.chip[aria-pressed]{display:inline-flex;align-items:center;cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif;min-height:36px;padding:0 14px;flex:0 0 auto}
+.chip[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px currentColor}
 /* ---------- Ladezustand als Skelett statt Text (Redesign-Punkt 3) ----------
    "Wird geprüft …" ist eine System-Innerei. Ein ruhig pulsierender Platzhalter
    sagt dasselbe, ohne den Nutzer mit dem Innenleben zu behelligen. */
@@ -138,8 +150,6 @@ header .wrap{padding:0 2px}
   text-transform:none;letter-spacing:0;text-align:left;opacity:0;pointer-events:none;transition:opacity .15s;z-index:70}
 .hilfe:hover::after,.hilfe:focus::after{opacity:1}
 .badge.bahn{color:var(--rot);border-color:var(--rot)}
-.badge.entwurf{background:var(--rot-dim);color:var(--rot);border-color:transparent}
-.badge.fest{background:var(--ok-dim);color:var(--ok);border-color:transparent}
 .empty{color:var(--grau);text-align:center;padding:22px 8px;font-size:14px}
 .dropzone{border:2px dashed var(--line);border-radius:var(--radius);padding:18px 14px;text-align:center;font-size:13.5px;color:var(--grau);cursor:pointer;transition:border-color .15s,background .15s}
 .dropzone:hover,.dropzone.over{border-color:var(--rot);background:var(--rot-dim);color:var(--ink)}
@@ -1386,6 +1396,30 @@ function renderPerBtns(){
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function naechte(t){if(!t.von||!t.bis||t.bis<=t.von)return 0;return Math.round((new Date(t.bis)-new Date(t.von))/86400000)}
 
+/* ---------- Status-Chips: eine Quelle für Reisen, Kalender und Werkstatt ----------
+   Die vier Stufen bedeuten überall dasselbe. Für eine Reise heißt das:
+   Entwurf aus dem Kalender-Import = noch nicht bestätigt (offen), bestätigt aber
+   ohne Rechnungsbezug = in Arbeit, auf einer DATEV-Rechnung = geliefert,
+   nach Periodenabschluss gesperrt = abgerechnet. */
+function reiseStatus(t){
+  if(t.abgerechnet)return['abgerechnet','Abgerechnet'];
+  if(t.rechnungId)return['geliefert','Auf Rechnung'];
+  if(t.entwurf)return['offen','Entwurf'];
+  return['arbeit','Erfasst'];
+}
+function statusChip(t){const[k,txt]=reiseStatus(t);return'<span class="chip '+k+'">'+txt+'</span>'}
+/* Frist-Ampel als Chip, gleiche Schwelle wie bei den Liefer-Aufträgen:
+   überfällig oder in drei Tagen rot, bis zehn Tage gelb, darüber ohne Farbe. */
+function fristChip(iso){
+  if(!iso)return'';
+  const d=new Date(iso+'T00:00:00'), heute=new Date(); heute.setHours(0,0,0,0);
+  const tage=Math.round((d-heute)/86400000);
+  if(tage<0)return'<span class="chip offen">überfällig seit '+dfmt(iso)+'</span>';
+  if(tage===0)return'<span class="chip offen">heute fällig</span>';
+  const k=tage<=3?'offen':(tage<=10?'arbeit':'neutral');
+  return'<span class="chip '+k+'">fällig '+dfmt(iso)+'</span>';
+}
+
 /* ---------- Berechnung ---------- */
 function berechne(t){
   const km=+t.km||0, bahn=+t.bahn||0;
@@ -1510,13 +1544,10 @@ function render(){
   list.innerHTML=trips.map(t=>{
     const c=berechne(t);
     const dat=t.von===t.bis||!t.bis?dfmt(t.von):dfmt(t.von)+' – '+dfmt(t.bis);
-    let badges='';
-    if(t.entwurf)badges+=' <span class="badge entwurf">Entwurf</span>';
-    if(t.abgerechnet)badges+=' <span class="badge fest">Abgerechnet</span>';
     return '<div class="trip'+(t.abgerechnet?' locked':'')+'" data-id="'+t.id+'">'
-      +'<div class="top"><span class="datum">'+dat+badges+'</span><span class="summe">'+eur(c.summe)+'</span></div>'
+      +'<div class="top"><span class="datum">'+dat+'</span><span class="summe">'+eur(c.summe)+'</span></div>'
       +'<div class="route"><span>Köln</span><span class="strecke"></span><span>'+esc(t.ziel||'?')+'</span></div>'
-      +'<div class="meta"><span class="badge '+(t.vm==='bahn'?'bahn':'')+'">'+(t.vm==='bahn'?'Bahn':'Auto '+(t.km||0)+' km')+'</span><span>'+esc(t.ag||'')+'</span>'+(t.zweck?'<span>· '+esc(t.zweck)+'</span>':'')+'</div>'
+      +'<div class="meta">'+statusChip(t)+'<span class="badge '+(t.vm==='bahn'?'bahn':'')+'">'+(t.vm==='bahn'?'Bahn':'Auto '+(t.km||0)+' km')+'</span><span>'+esc(t.ag||'')+'</span>'+(t.zweck?'<span>· '+esc(t.zweck)+'</span>':'')+'</div>'
       +'</div>'
       +(t.bahnInfo?'<div class="meta" style="color:var(--grau);font-size:11.5px">🚆 '+esc(t.bahnInfo)+'</div>':'');
   }).join('');
@@ -2925,8 +2956,8 @@ function renderJobs(){
   const fbox=el('jobFilter');
   if(fbox){
     const zaehl=s=>liste.filter(j=>(j.status||'offen')===s).length;
-    fbox.innerHTML=('<button type="button" class="minibtn'+(jobFilterAktiv==='alle'?' rot':'')+'" data-jf="alle">Alle '+liste.length+'</button>')
-      +JOB_STATUS.map(s=>'<button type="button" class="minibtn'+(jobFilterAktiv===s[0]?' rot':'')+'" data-jf="'+s[0]+'">'+s[1]+' '+zaehl(s[0])+'</button>').join('');
+    fbox.innerHTML=('<button type="button" class="chip neutral" aria-pressed="'+(jobFilterAktiv==='alle')+'" data-jf="alle">Alle '+liste.length+'</button>')
+      +JOB_STATUS.map(s=>'<button type="button" class="chip '+s[0]+'" aria-pressed="'+(jobFilterAktiv===s[0])+'" data-jf="'+s[0]+'">'+s[1]+' '+zaehl(s[0])+'</button>').join('');
     fbox.querySelectorAll('[data-jf]').forEach(b=>b.onclick=()=>{jobFilterAktiv=b.dataset.jf;renderJobs()});
   }
   const gefiltert=liste.filter(j=>jobFilterAktiv==='alle'||(j.status||'offen')===jobFilterAktiv)
@@ -4708,7 +4739,12 @@ function renderKalender(){
     let statusHtml, aktionen;
     if(z){
       const name=z.typ==='reise'?(z.ref.ziel||z.ref.zweck||'Reise'):(z.ref.thema||'Meeting');
-      statusHtml='<span style="color:#1a7a3c;font-size:11.5px">✓ '+(z.auto?'erkannt als':'verknüpft mit')+' '+esc(name)+'</span>';
+      /* Bei einer Reise trägt der Chip deren Abrechnungsstand — so sieht er im
+         Kalender direkt, welches Seminar noch nicht auf einer Rechnung steht.
+         Ein Meeting hat keinen solchen Stand und bleibt deshalb neutral. */
+      const zChip=z.typ==='reise'?statusChip(z.ref):'<span class="chip neutral">Meeting</span>';
+      statusHtml='<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+zChip+
+        '<span style="font-size:11.5px;color:var(--grau)">'+(z.auto?'erkannt als':'verknüpft mit')+' '+esc(name)+'</span></span>';
       aktionen=(z.typ==='reise'
         ?'<button type="button" class="minibtn klein" data-kreise="'+z.ref.id+'" >Reise</button>'
         :'<button type="button" class="minibtn klein" data-kmeet="'+z.ref.id+'" >Meeting</button>')+
@@ -4717,7 +4753,7 @@ function renderKalender(){
       if(z.auto)aktionen+='<button type="button" class="minibtn klein" data-kfest="'+z.typ+':'+z.ref.id+':'+e.id+'" >Merken</button>';
       if(katAg===null&&z.ref.ag)aktionen+='<button type="button" class="minibtn klein" data-kkat="'+e.id+':'+esc(z.ref.ag)+'" >Kategorisieren</button>';
     }else{
-      statusHtml='<span style="color:var(--grau);font-size:11.5px">○ nicht zugeordnet</span>';
+      statusHtml='<span class="chip offen">Nicht zugeordnet</span>';
       aktionen='<button type="button" class="minibtn klein" data-kneu="'+e.id+'" >Als Reise</button>'+
         '<button type="button" class="minibtn klein" data-kneumeet="'+e.id+'" >Als Meeting</button>'+
         '<button type="button" class="minibtn klein" data-kign="'+e.id+'" >Ignorieren</button>'+
@@ -5869,10 +5905,10 @@ const ABO_IMPORT=[
   {name:'HeyGen',kategorie:'Video & Audio',tarif:'Free',intervall:'kostenlos',betrag:0,account:'',genutzt:true,url:'https://heygen.com',notiz:'Bestätigt 21.07.2026. Free-Tarif — kostenlos, kein Konto belastet.'},
   {name:'Wispr Flow',kategorie:'KI & Assistenz',tarif:'Free',intervall:'kostenlos',betrag:0,account:'',genutzt:true,url:'https://wisprflow.ai',notiz:'Bestätigt 21.07.2026. Aktuell kostenlos. Diktier-/Spracheingabe-Tool.'},
   {name:'Adobe Creative Cloud Pro',kategorie:'Unterlagen & Design',tarif:'Creative Cloud Pro (50 Programme, 100 GB)',intervall:'jaehrlich',betrag:417.74,ablauf:'2027-05-28',account:'SCC-KK',genutzt:true,url:'https://account.adobe.com',notiz:'Bestätigt 22.07.2026. 417,74 €/Jahr = 34,81 €/M. Abonnent seit 28.05.2025, Verlängerung 28.05.2027. Konto SCC-Kreditkarte •0838. Enthält Acrobat — u.a. zum Ausfüllen der IHK-Kundenfälle.'},
-  {name:'Replit',kategorie:'Web & Hosting',tarif:'Educator-Programm',intervall:'kostenlos',betrag:0,account:'',genutzt:false,url:'https://replit.com',notiz:'Eingetragen 29.07.2026. Educator-Programm — kostenlos. Login c.huetten@going-public.edu. Freigabe ausstehend, daher noch nicht in Nutzung.'},
-  {name:'Descript',kategorie:'Video & Audio',tarif:'EDU/NFP (Hobbyist)',intervall:'jaehrlich',betrag:96,account:'',genutzt:false,url:'https://descript.com',notiz:'Eingetragen 29.07.2026. EDU/NFP-Plan, Hobbyist-Stufe: 8 €/M bei jährlicher Zahlung = 96 €/Jahr. Login c.huetten@going-public.edu. Freigabe ausstehend, daher noch nicht in Nutzung — Betrag ist der geplante Preis.'},
-  {name:'Notion',kategorie:'Unterlagen & Design',tarif:'Education Plus',intervall:'kostenlos',betrag:0,account:'',genutzt:true,url:'https://notion.so',notiz:'Eingetragen 29.07.2026. Education Plus — kostenlos. Login c.huetten@going-public.edu. Aktiv.'},
-  {name:'Runway',kategorie:'Video & Audio',tarif:'Free',intervall:'kostenlos',betrag:0,account:'',genutzt:true,url:'https://runwayml.com',notiz:'Eingetragen 29.07.2026. Free-Plan — kostenlos. Login c.huetten@going-public.edu. Bildungsrabatt (25 %) bei späterem Upgrade noch zu beantragen.'}
+  {name:'Replit',kategorie:'Web & Hosting',tarif:'Educator-Programm',intervall:'kostenlos',betrag:0,account:'',genutzt:false,url:'https://replit.com',notiz:'Eingetragen 03.08.2026. Educator-Programm — kostenlos. Login c.huetten@going-public.edu. Freigabe ausstehend, daher noch nicht in Nutzung.'},
+  {name:'Descript',kategorie:'Video & Audio',tarif:'EDU/NFP (Hobbyist)',intervall:'jaehrlich',betrag:96,account:'',genutzt:false,url:'https://descript.com',notiz:'Eingetragen 03.08.2026. EDU/NFP-Plan, Hobbyist-Stufe: 8 €/M bei jährlicher Zahlung = 96 €/Jahr. Login c.huetten@going-public.edu. Freigabe ausstehend, daher noch nicht in Nutzung — Betrag ist der geplante Preis.'},
+  {name:'Notion',kategorie:'Unterlagen & Design',tarif:'Education Plus',intervall:'kostenlos',betrag:0,account:'',genutzt:true,url:'https://notion.so',notiz:'Eingetragen 03.08.2026. Education Plus — kostenlos. Login c.huetten@going-public.edu. Aktiv.'},
+  {name:'Runway',kategorie:'Video & Audio',tarif:'Free',intervall:'kostenlos',betrag:0,account:'',genutzt:true,url:'https://runwayml.com',notiz:'Eingetragen 03.08.2026. Free-Plan — kostenlos. Login c.huetten@going-public.edu. Bildungsrabatt (25 %) bei späterem Upgrade noch zu beantragen.'}
 ];
 async function abosImportieren(){
   const liste=toolListe();
@@ -6131,7 +6167,8 @@ async function renderWerkstattAufgaben(){
       const due=t.dueDateTime&&t.dueDateTime.dateTime?t.dueDateTime.dateTime.slice(0,10):'';
       return '<div style="border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;align-items:center">'+
         '<div><div style="font-weight:600;font-size:14px">'+esc(t.title||'')+'</div>'+
-        '<div style="font-size:11.5px;color:var(--grau)">'+esc(t._listName)+(due?' \u00b7 f\u00e4llig '+dfmt(due):'')+'</div></div>'+
+        '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px">'+
+          '<span class="chip neutral">'+esc(t._listName)+'</span>'+fristChip(due)+'</div></div>'+
         '<button type="button" class="minibtn" data-wsdone="'+esc(t._listId)+'|'+esc(t.id)+'">Fertig</button></div>';
     }).join('');
     box.querySelectorAll('[data-wsdone]').forEach(b=>b.addEventListener('click',async()=>{
