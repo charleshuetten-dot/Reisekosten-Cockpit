@@ -3420,7 +3420,7 @@ async function bestaetigungEntwerfen(){
    Auflisten ist gratis (nur Graph), erst das Auswerten je Zeile kostet:
    rund 1,5 Cent je Mail (Sonnet 4.6, 3 $ Eingabe / 15 $ Ausgabe je Mio. Token). */
 const EINGANG_ARTEN=[['reise','Seminarauftrag'],['arbeitsauftrag','Arbeitsauftrag'],
-  ['termin','Termin'],['aufgabe','Aufgabe'],['ihk','IHK-Abrechnung'],['bahn','Bahnbuchung']];
+  ['termin','Termin'],['terminserie','Terminserie'],['aufgabe','Aufgabe'],['ihk','IHK-Abrechnung'],['bahn','Bahnbuchung']];
 const EINGANG_FELDNAMEN={auftraggeber:'Auftraggeber',gesellschaft:'Gesellschaft',kategorie:'Kategorie',
   auftragsnummer:'Auftragsnummer',zweck:'Seminarbezeichnung',von:'Erster Tag',bis:'Letzter Tag',
   beginn:'Beginn',ende:'Ende',ziel:'Ort',zielAdresse:'Adresse',honorarEinheit:'Honorarart',
@@ -3428,7 +3428,20 @@ const EINGANG_FELDNAMEN={auftraggeber:'Auftraggeber',gesellschaft:'Gesellschaft'
   ustBefreit:'USt-befreit',online:'Online',jobArt:'Art der Arbeit',titel:'Titel',deadline:'Abgabe',
   umfang:'Umfang',notiz:'Notiz',datum:'Datum',ort:'Ort',faellig:'Fällig',prio:'Priorität',
   bereich:'Liste',vorgang:'Vorgang',beleg:'Beleg',betrag:'Betrag',ausschuss:'Ausschuss',
-  status:'Status',buchungsnummer:'Buchungsnummer',preisGesamt:'Preis gesamt'};
+  status:'Status',buchungsnummer:'Buchungsnummer',preisGesamt:'Preis gesamt',thema:'Thema'};
+/* Welche Feldnamen zu welcher Art gehoeren — einzige Wahrheit fuer den
+   Typwechsel in der Vorschlagskarte: wechselt der Nutzer die Art von Hand,
+   bleiben nur Felder mit gleichem Namen erhalten, alles andere wird leer statt
+   unbemerkt ins falsche Schema durchzureichen. */
+const EINGANG_SCHEMA_FELDER={
+  reise:['auftraggeber','gesellschaft','kategorie','auftragsnummer','zweck','von','bis','beginn','ende','ziel','zielAdresse','honorarEinheit','honorarProTermin','anzahlTermine','honorarGesamt','ustBefreit','online'],
+  arbeitsauftrag:['auftraggeber','auftragsnummer','jobArt','titel','deadline','umfang','notiz'],
+  termin:['titel','datum','von','bis','ort','notiz'],
+  aufgabe:['titel','bereich','faellig','prio','notiz'],
+  ihk:['vorgang','beleg','datum','betrag','ausschuss','art','status'],
+  bahn:['buchungsnummer','preisGesamt','fahrten'],
+  terminserie:['titel','auftraggeber','gesellschaft','kategorie','termine']
+};
 function eingangArtName(a){const t=EINGANG_ARTEN.find(x=>x[0]===a);return t?t[1]:a}
 function eingangFeldName(f){return EINGANG_FELDNAMEN[f]||f}
 /* v82-Fehler: "450€" landet in einem Zahlenfeld, das den Text schluckt — das
@@ -3450,12 +3463,14 @@ function eingangPrompt(listen){
     'Sein Geschäftsmodell: Eine Bildungsakademie (der AUFTRAGGEBER) wird von einer Versicherung oder Bank (der GESELLSCHAFT) mit einem Seminar beauftragt und bucht ihn als Dozenten. Abgerechnet wird immer mit der Akademie, nie mit der Gesellschaft — auch wenn die Einladung direkt von der Gesellschaft kommt oder die Gesellschaft im Betreff steht.\n'+
     'AUFTRAGGEBER ist genau einer aus: '+AUFTRAGGEBER.join(' | ')+'. Ist keiner erkennbar, Feld leer lassen — rate NICHT den Absender.\n'+
     'GESELLSCHAFT ist das Unternehmen, für dessen Leute das Seminar stattfindet (z. B. '+GESELLSCHAFTEN.filter(g=>g!=='Allgemein').join(', ')+' oder eine andere). Steht keine fest: Allgemein.\n'+
-    'KATEGORIE ist das Fachthema, genau eines aus: '+KATEGORIEN.join(' | ')+'.\n\n'+
-    'Bestimme, was daraus folgt — meist genau eine Sache, höchstens drei. Mehrere nur, wenn wirklich mehreres folgt (etwa ein Seminartermin UND eine Zuarbeit mit eigener Frist). Reine Bestätigungen ohne Handlung: leere Liste.\n\n'+
+    'KATEGORIE ist das Fachthema, genau eines aus: '+KATEGORIEN.join(' | ')+'.\n'+
+    'Sein Name ist Charles Hütten. In Tabellen und Listen (etwa einem Vorlesungs- oder Kursplan mit mehreren Dozenten) kann er als "Hütten, Charles" (Nachname zuerst) stehen.\n\n'+
+    'Bestimme, was daraus folgt — meist genau eine Sache, höchstens drei. Mehrere nur, wenn wirklich mehreres folgt (etwa ein Seminartermin UND eine Zuarbeit mit eigener Frist). Reine Bestätigungen ohne Handlung: leere Liste. Enthält die Mail einen zitierten älteren Verlauf (etwa unterhalb von "Von: … Gesendet: …"), zählt für eine Aufgabe nur die neueste, aktuell offene Anfrage — aus einer älteren Bitte, die durch die neuere Nachricht bereits überholt oder erledigt ist, wird KEINE eigene Aufgabe.\n\n'+
     'Arten:\n'+
     '- "reise": Seminarauftrag oder Auftragsbestätigung mit Datum, Präsenz oder Online\n'+
     '- "arbeitsauftrag": Arbeit mit Abgabefrist ohne Seminartermin — WBT erstellen oder lektorieren, Klausuren korrigieren, Unterlagen erstellen\n'+
     '- "termin": Termin ohne Auftragsbezug, etwa eine Besprechung\n'+
+    '- "terminserie": ein Vorlesungs- oder Kursplan als Tabelle mit vielen Terminen und mehreren Dozenten, meist als PDF-Anhang — nur die Zeilen mit seinem eigenen Namen gehören in die Liste, alle anderen Zeilen werden ignoriert. Fordert die Mail dazu außerdem eine Rückmeldung (z. B. ob der Plan passt), wird DAZU zusätzlich eine "aufgabe" erzeugt.\n'+
     '- "aufgabe": alles andere, woraus sich eine To-do ergibt\n'+
     '- "ihk": Prüferentschädigung aus dem IHK-Portal (tibros)\n'+
     '- "bahn": Buchungsbestätigung der Deutschen Bahn\n\n'+
@@ -3466,10 +3481,12 @@ function eingangPrompt(listen){
     'reise: {"auftraggeber":"","gesellschaft":"","kategorie":"","auftragsnummer":"","zweck":"kurze Seminarbezeichnung","von":"YYYY-MM-DD","bis":"YYYY-MM-DD","beginn":"HH:MM","ende":"HH:MM","ziel":"Stadt","zielAdresse":"Name oder Adresse der Räumlichkeit wörtlich","honorarEinheit":"tag|block|stunde|pauschal","honorarProTermin":0,"anzahlTermine":1,"honorarGesamt":0,"ustBefreit":false,"online":false}\n'+
     'arbeitsauftrag: {"auftraggeber":"","auftragsnummer":"","jobArt":"wbt-erstellen|wbt-lektorat|klausuren|unterlagen|sonstiges","titel":"kurze Bezeichnung der Leistung","deadline":"YYYY-MM-DD","umfang":"z. B. 5 Module, 12 Klausuren, 45 WBT-Minuten","notiz":"Rückgabeweg oder Ansprechpartner"}\n'+
     'termin: {"titel":"","datum":"YYYY-MM-DD","von":"09:00","bis":"17:00","ort":"","notiz":""}\n'+
+    'terminserie: {"titel":"Kursbezeichnung, z. B. \\"BaPro 2026-1\\"","auftraggeber":"","gesellschaft":"","kategorie":"","termine":[{"datum":"YYYY-MM-DD","von":"HH:MM","bis":"HH:MM","thema":"kurz, was an diesem Termin dran ist","ort":"Stadt oder Raum, falls angegeben","online":false}]}\n'+
     'aufgabe: {"titel":"handlungsorientiert, beginnt mit einem Verb","bereich":"","faellig":"YYYY-MM-DD","prio":"low|normal|high","notiz":""}\n'+
     'ihk: {"vorgang":"","beleg":"","datum":"YYYY-MM-DD","betrag":0,"ausschuss":"","art":"","status":"erfasst|gesendet"}\n'+
     'bahn: {"buchungsnummer":"","preisGesamt":0,"fahrten":[{"datum":"YYYY-MM-DD","abfahrt":"HH:MM","ankunft":"HH:MM","von":"Startbahnhof","nach":"Zielbahnhof","zug":"z. B. ICE 599"}]}\n\n'+
     (listen&&listen.length?('Für aufgabe.bereich genau einen Wert aus: '+listen.join(' | ')+'.\n'):'')+
+    'Bei "terminserie" bleiben Honorar und Reisekosten außen vor — das ist reine Terminanlage, keine Auftragsbestätigung.\n'+
     'Bei "reise" gehören in von/bis nur die reinen Seminartage, ohne An- und Abreise. Steht im Text ausdrücklich "Präsenz" oder eine Raum-/Hoteladresse als Veranstaltungsort, ist online IMMER false — auch wenn an anderer Stelle "online" oder ein Video-Link auftaucht (etwa als Ausweichoption oder in einer Signatur). online wird nur dann true, wenn der Text den Termin selbst ausdrücklich als Online-Veranstaltung bezeichnet. honorarEinheit sagt, worauf sich der Satz bezieht: tag bei Tagessatz, block je Seminarblock, stunde bei Stundensatz, pauschal wenn nur ein Gesamtbetrag genannt ist. Bei "bahn" je Richtung GENAU EINE Fahrt, Umstiege zusammengefasst (erste Abfahrt, letzte Ankunft, Zugnummern per Komma). Erfinde nichts, unbekannte Felder leer oder 0.';
 }
 
@@ -3479,7 +3496,12 @@ async function eingangDeuten(quelle,kopf){
   let listen=[];
   try{ if(msAccount){await taskListenHolen(); listen=(taskListen||[]).map(l=>l.name).filter(Boolean);} }catch(e){}
   const inhalt=[];
-  inhalt.push((quelle&&quelle.type)?quelle:{type:'text',text:String(quelle||'')});
+  /* quelle ist meist ein einzelner Textblock; bei einer Mail mit PDF-Anhang
+     (z. B. einer Auftragsbestätigung oder einem Kursplan) ein Array aus
+     Mailtext und einem oder mehreren Dokumentbloecken. */
+  (Array.isArray(quelle)?quelle:[quelle]).forEach(q=>{
+    inhalt.push((q&&q.type)?q:{type:'text',text:String(q||'')});
+  });
   inhalt.push({type:'text',text:(kopf?kopf+'\n\n':'')+eingangPrompt(listen)});
   const resp=await fetch(claudeEndpoint(),{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1400,messages:[{role:'user',content:inhalt}]})});
@@ -3514,12 +3536,29 @@ function eingangTermine(v){
 }
 async function eingangKonfliktPruefen(v){
   v.konflikt=''; v.konfliktWeitere=0;
+  if(v.art==='terminserie'){ await terminserieVorbereiten(v); return; }
   const t=eingangTermine(v); if(!t.length||!msAccount)return;
   try{
     await pruefeKonflikte(t,(v.felder||{}).auftraggeber||'');
     v.konflikt=t.filter(x=>x.konflikt).map(x=>dfmt(x.datum)+': '+x.konflikt.subject).slice(0,3).join(' · ');
     v.konfliktWeitere=t.reduce((a,x)=>a+(x.weitere||0),0);
   }catch(e){/* ohne Kalender kein Konflikt, aber auch keine Fehlermeldung */}
+}
+/* Terminserie (Kursplan): pro Zeile mit eigenem Namen einmal die Konfliktpruefung —
+   danach bleibt die Liste stabil, damit die Checkbox-Auswahl beim Rendern nicht
+   verlorengeht. Der Titel je Zeile wird bewusst NICHT hier gebaut, sondern erst
+   beim Anzeigen/Anlegen aus den aktuellen Feldern — sonst wuerde eine Korrektur
+   an Auftraggeber oder Kursbezeichnung nicht mehr ankommen. */
+async function terminserieVorbereiten(v){
+  if(v._termine)return;
+  const f=v.felder||{};
+  const zeilen=Array.isArray(f.termine)?f.termine:[];
+  const termine=zeilen.filter(r=>r&&r.datum).map(r=>({
+    datum:r.datum, von:r.von||'09:00', bis:r.bis||'17:00',
+    thema:r.thema||'', ort:r.ort||'', online:!!r.online
+  }));
+  if(msAccount){ try{ await pruefeKonflikte(termine,f.auftraggeber||''); }catch(e){} }
+  v._termine=termine;
 }
 
 async function eingangDatei(file, statusEl){
@@ -4496,7 +4535,32 @@ async function eingangMailsLaden(){
   eingangRendern(); eingangZaehlen();
 }
 
-/* Ab hier kostet es Geld: ein Sonnet-Aufruf je Zeile. */
+/* Liest die Anhaenge einer Mail und liefert die PDFs als Claude-Dokumentbloecke.
+   Nur PDF, nicht eingebettet (isInline schliesst Signaturbilder aus) und nicht
+   zu gross. Hoechstens zwei — sonst wird ein einzelner Auswertungs-Aufruf zu
+   teuer. Auftragsbestaetigungen UND Kursplaene kommen fast immer als PDF, nicht
+   im Mailtext selbst — ohne das liest Claude nur die Begleitmail, nie die
+   eigentlichen Daten. */
+async function eingangAnhaengeHolen(mailId){
+  const bloecke=[];
+  try{
+    const d=await graph('/me/messages/'+encodeURIComponent(mailId)+'/attachments?$select=id,name,contentType,size,isInline');
+    const kandidaten=(d.value||[]).filter(a=>
+      !a.isInline && (/pdf/i.test(a.contentType||'')||/\.pdf$/i.test(a.name||'')) && (a.size||0)<8*1024*1024
+    ).slice(0,2);
+    for(const a of kandidaten){
+      try{
+        const voll=await graph('/me/messages/'+encodeURIComponent(mailId)+'/attachments/'+encodeURIComponent(a.id));
+        if(voll&&voll.contentBytes)bloecke.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:voll.contentBytes}});
+      }catch(e){/* ein einzelner Anhang darf die Auswertung nicht kippen */}
+    }
+  }catch(e){/* Anhaenge-Liste nicht lesbar — Auswertung laeuft trotzdem mit reinem Mailtext weiter */}
+  return bloecke;
+}
+
+/* Ab hier kostet es Geld: ein Sonnet-Aufruf je Zeile, PDF-Anhaenge erhoehen die
+   Eingabe-Tokens und damit den Preis — EINGANG_PREIS ist dafuer eine grobe
+   Naeherung, kein Festpreis. */
 async function eingangMailAuswerten(i){
   const e=eingangEintraege[i]; if(!e||!e.mailId||e.laeuft)return;
   e.laeuft=true; eingangRendern();
@@ -4504,7 +4568,8 @@ async function eingangMailAuswerten(i){
     const m=await graph('/me/messages/'+encodeURIComponent(e.mailId)+'?$select=subject,body,from,receivedDateTime');
     const text=(m.body&&m.body.content||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').slice(0,6000);
     const kopf='E-Mail.\nBetreff: '+(m.subject||'')+'\nVon: '+((m.from&&m.from.emailAddress&&m.from.emailAddress.address)||'')+'\nText: '+text;
-    e.vorschlaege=await eingangDeuten({type:'text',text:kopf});
+    const anhaenge=await eingangAnhaengeHolen(e.mailId);
+    e.vorschlaege=await eingangDeuten([{type:'text',text:kopf}].concat(anhaenge));
     for(const v of e.vorschlaege)await eingangKonfliktPruefen(v);
   }catch(err){ e.fehler=err.message; }
   e.laeuft=false; eingangRendern();
@@ -4534,6 +4599,7 @@ function eingangZeile(v){
   if(v.art==='arbeitsauftrag')return (JOB_ARTEN[f.jobArt]||'Arbeitsauftrag')+(f.titel?' — '+f.titel:'')+(f.auftraggeber?' für '+f.auftraggeber:'')+(f.deadline?', Abgabe '+dfmt(f.deadline):'');
   if(v.art==='termin')return (f.titel||'Termin')+(f.datum?', '+dfmt(f.datum):'')+(f.von?' '+f.von:'');
   if(v.art==='aufgabe')return f.titel||v.kurz||'Aufgabe';
+  if(v.art==='terminserie')return (f.titel||'Kursplan')+' — '+((f.termine||[]).length)+' Termin(e) mit eigenem Namen'+(f.auftraggeber?' · '+f.auftraggeber:'');
   if(v.art==='ihk')return 'IHK-Abrechnung'+(f.vorgang?' '+f.vorgang:'')+(f.betrag?' · '+eur(+f.betrag):'');
   if(v.art==='bahn'){const fa=(f.fahrten||[])[0]||{};return 'Bahnfahrt'+(fa.von?' '+fa.von+' → '+fa.nach:'')+(fa.datum?', '+dfmt(fa.datum):'')}
   return v.kurz||eingangArtName(v.art);
@@ -4560,14 +4626,42 @@ function eingangRendern(){
       '<span class="hint" style="margin-left:8px">'+EINGANG_PREIS+'</span></div>';
     else if(!e.vorschlaege.length)inhalt='<div class="hint" style="margin-top:6px">Nichts zu tun erkannt.</div>';
     else inhalt=e.vorschlaege.map((v,j)=>{
+      const f=v.felder||{};
       const uns=(v.unsicher||[]).map(k=>
         '<div class="f" style="margin-top:6px"><label>'+esc(eingangFeldName(k))+' <span style="color:var(--warn-text)">— geraten, bitte prüfen</span></label>'+
-        '<input type="text" class="einFeld" data-i="'+i+'" data-j="'+j+'" data-feld="'+esc(k)+'" value="'+esc(String((v.felder||{})[k]==null?'':(v.felder||{})[k]))+'"></div>').join('');
+        '<input type="text" class="einFeld" data-i="'+i+'" data-j="'+j+'" data-feld="'+esc(k)+'" value="'+esc(String(f[k]==null?'':f[k]))+'"></div>').join('');
+      /* Terminserie (Kursplan): eine Liste statt eines einzelnen Formulars —
+         mehrere Termine fuellen sonst nacheinander dasselbe Zielformular und
+         ueberschreiben sich dabei gegenseitig. Der Typwechsel-Dropdown bleibt
+         auch hier verfuegbar (siehe unten), zeigt bei falscher Erkennung aber
+         zunaechst eine leere Terminliste, bis neu ausgewertet wird. */
+      if(v.art==='terminserie'){
+        const termine=v._termine||[];
+        const zeilen=termine.length?termine.map((t,ti)=>
+          '<label style="display:flex;gap:8px;align-items:center;padding:5px 0;font-size:13.5px">'+
+          '<input type="checkbox" class="einTermin" data-i="'+i+'" data-j="'+j+'" data-ti="'+ti+'" '+(t.konflikt?'':'checked')+'> '+
+          esc(terminTitelBauen(f.auftraggeber,f.titel,t.thema))+' · '+dfmt(t.datum)+' '+t.von+'–'+t.bis+
+          (t.online?' · Online':(t.ort?' · '+esc(t.ort):''))+
+          (t.konflikt?' <span style="color:var(--rot)">⚠ vermutlich Duplikat von „'+esc(t.konflikt.subject)+'"</span>'
+            :(t.weitere?' <span style="opacity:.55">· '+t.weitere+' weitere(r) Termin(e) an diesem Tag</span>':''))+
+          '</label>').join('') : '<div class="hint">Keine Termine mit dem eigenen Namen erkannt.</div>';
+        const knoepfeTs=v.erledigt?'<div class="hint" style="margin-top:6px">✓ übernommen</div>'
+          :'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">'+
+            (termine.length?'<button class="minibtn haupt" data-ein="terminlegen" data-i="'+i+'" data-j="'+j+'">Termine anlegen</button>':'')+
+            '<button class="minibtn" data-ein="weg" data-i="'+i+'" data-j="'+j+'">Verwerfen</button></div>';
+        return '<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">'+
+          '<select class="einArt" data-i="'+i+'" data-j="'+j+'"'+(v.erledigt?' disabled':'')+'>'+
+          EINGANG_ARTEN.map(a=>'<option value="'+a[0]+'"'+(a[0]===v.art?' selected':'')+'>'+a[1]+'</option>').join('')+'</select>'+
+          '<div style="margin-top:4px"><b>'+esc(eingangZeile(v))+'</b></div>'+
+          (v.kurz?'<div class="hint">'+esc(v.kurz)+'</div>':'')+
+          uns+(msAccount?'':'<div class="hint">Erst Outlook verbinden, um Konflikte zu prüfen.</div>')+
+          '<div style="margin-top:6px">'+zeilen+'</div>'+knoepfeTs+'</div>';
+      }
       const knoepfe=v.erledigt?'<div class="hint" style="margin-top:6px">✓ übernommen</div>'
         :v.uebergeben?'<div class="hint" style="margin-top:6px">→ im Formular offen — nach dem Speichern dort wandert die Mail von selbst nach „Erledigt".</div>'
         :'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">'+
           '<button class="minibtn haupt" data-ein="ok" data-i="'+i+'" data-j="'+j+'">Übernehmen</button>'+
-          ((v.art==='arbeitsauftrag'&&(v.felder||{}).jobArt==='unterlagen')?'<button class="minibtn" data-ein="werkstatt" data-i="'+i+'" data-j="'+j+'">In die Werkstatt</button>':'')+
+          ((v.art==='arbeitsauftrag'&&f.jobArt==='unterlagen')?'<button class="minibtn" data-ein="werkstatt" data-i="'+i+'" data-j="'+j+'">In die Werkstatt</button>':'')+
           '<button class="minibtn" data-ein="weg" data-i="'+i+'" data-j="'+j+'">Verwerfen</button></div>';
       return '<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">'+
         '<select class="einArt" data-i="'+i+'" data-j="'+j+'"'+(v.uebergeben||v.erledigt?' disabled':'')+'>'+
@@ -4589,8 +4683,22 @@ function eingangRendern(){
       '<div class="mfrom">'+esc(e.quelle||'')+(e.von?' · '+esc(e.von):'')+(e.datum?' · '+dfmt(e.datum):'')+'</div>'+
       inhalt+schluss+'</div>';
   }).join('');
-  box.querySelectorAll('select.einArt').forEach(s=>s.addEventListener('change',()=>{
-    const e=eingangEintraege[+s.dataset.i]; if(e&&e.vorschlaege&&e.vorschlaege[+s.dataset.j])e.vorschlaege[+s.dataset.j].art=s.value;
+  box.querySelectorAll('select.einArt').forEach(s=>s.addEventListener('change',async()=>{
+    const e=eingangEintraege[+s.dataset.i]; const v=e&&e.vorschlaege&&e.vorschlaege[+s.dataset.j];
+    if(!v)return;
+    /* Nur Felder mit gleichem Namen ins neue Schema mitnehmen — sonst fuellt ein
+       geratener Wert aus dem falschen Schema unbemerkt das falsche Feld, und die
+       Karte zeigt bis zum naechsten vollen Rendern ohnehin noch die alten Werte. */
+    const alt=v.felder||{}, erlaubt=EINGANG_SCHEMA_FELDER[s.value]||[];
+    const neu={};
+    Object.keys(alt).forEach(k=>{ if(erlaubt.includes(k))neu[k]=alt[k]; });
+    v.art=s.value; v.felder=neu; v.unsicher=[]; v.konflikt=''; v.konfliktWeitere=0; v._termine=null;
+    /* Wechselt jemand von Hand in "Terminserie", steckt eine etwaige Terminliste
+       nur dann noch im neuen felder-Objekt, wenn der alte Typ schon "termine"
+       hiess — das faengt EINGANG_SCHEMA_FELDER oben ab. Ohne das bleibt die
+       Karte leer, bis neu ausgewertet wird — kein Fehler, nur nichts zu tun. */
+    if(s.value==='terminserie')await terminserieVorbereiten(v);
+    eingangRendern();
   }));
   box.querySelectorAll('input.einFeld').forEach(f=>f.addEventListener('input',()=>{
     const e=eingangEintraege[+f.dataset.i]; const v=e&&e.vorschlaege&&e.vorschlaege[+f.dataset.j];
@@ -4610,6 +4718,35 @@ async function eingangAktion(was,i,j){
   }
   const v=e.vorschlaege&&e.vorschlaege[j]; if(!v)return;
   if(was==='weg'){e.vorschlaege.splice(j,1);eingangRendern();return}
+  if(was==='terminlegen'){
+    const f=v.felder||{};
+    const listBox=el('cockpitListe');
+    const checks=listBox?[...listBox.querySelectorAll('input.einTermin[data-i="'+i+'"][data-j="'+j+'"]')]:[];
+    const auswahl=(v._termine||[]).filter((t,ti)=>!checks[ti]||checks[ti].checked)
+      .map(t=>({subject:terminTitelBauen(f.auftraggeber,f.titel,t.thema),datum:t.datum,von:t.von,bis:t.bis,
+        ort:t.online?'Online':(t.ort||''),konflikt:t.konflikt}));
+    if(!auswahl.length){toast('Keine Termine ausgewählt');return}
+    const st=el('cockpitStatus');
+    if(st)st.innerHTML='<span class="spin"></span>Lege '+auswahl.length+' Termine an …';
+    const kennungBasis='Angelegt vom Dozenten-Cockpit aus dem Eingang'+(f.titel?' · '+f.titel:'');
+    let ok=0,zusammen=0;
+    for(const t of auswahl){
+      const r=await terminSchreiben(t,f.auftraggeber||'',kennungBasis);
+      if(r==='angelegt'||r==='zusammengelegt')ok++;
+      if(r==='zusammengelegt')zusammen++;
+    }
+    if(st)st.textContent=ok+' von '+auswahl.length+' Terminen in Outlook erledigt'+(zusammen?' ('+zusammen+' davon zusammengelegt)':'')+'.';
+    toast(ok+' Termine erledigt');
+    if(ok===auswahl.length){
+      v.erledigt=true;
+      if((e.vorschlaege||[]).every(x=>x.erledigt)){
+        eingangEintraege.splice(i,1);
+        if(e.mailId){try{await cockpitVerschieben(e.mailId);toast('Mail nach „Erledigt" verschoben')}catch(err){}}
+      }
+    }
+    eingangRendern(); eingangZaehlen();
+    return;
+  }
   if(was==='werkstatt'){
     const f=v.felder||{};
     bereichWechseln('werkstatt');
@@ -7446,7 +7583,7 @@ document.addEventListener('click',e=>{
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v86';
+const APP_VERSION='v88';
 const APP_STAND='4. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
