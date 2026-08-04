@@ -51,7 +51,7 @@ body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui
 .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
 h1,h2,h3{font-family:'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.02em}
 
-header{background:var(--ink);color:#fff;padding:18px 16px 14px}
+header{background:var(--ink);color:var(--paper);padding:18px 16px 14px}
 header .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:var(--s-klein);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-hell)}
 header h1{font-size:var(--s-seite);font-weight:700;text-transform:uppercase;line-height:1.05;margin-top:2px}
 header h1 em{font-style:normal;color:var(--rot)}
@@ -82,7 +82,7 @@ header .wrap{padding:0 2px}
 .qbar{display:flex;gap:8px;align-items:center;margin:14px 0 10px;flex-wrap:wrap}
 .qbar select,.qbar .qbtn{font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:600;letter-spacing:.04em}
 .qbtn{background:var(--paper);border:1.5px solid var(--line);border-radius:999px;padding:6px 16px;cursor:pointer;color:var(--grau)}
-.qbtn.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.qbtn.active{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 .qbar select{border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--paper);color:var(--ink)}
 
 .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
@@ -97,7 +97,7 @@ header .wrap{padding:0 2px}
 .dropzone.over{border-color:var(--ink);background:var(--bg)}
 .kpi .lbl{font-size:var(--s-klein);text-transform:uppercase;letter-spacing:.1em;color:var(--grau);font-weight:600}
 .kpi .val{font-family:'IBM Plex Mono',monospace;font-size:var(--s-teil);font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
-.kpi.total{background:var(--ink);border-color:var(--ink);color:#fff}
+.kpi.total{background:var(--ink);border-color:var(--ink);color:var(--paper)}
 .kpi.total .lbl{color:var(--ink-hell)}
 /* Kennzahl als Knopf: sie springt in den Bereich, aus dem sie stammt. */
 button.kpi{width:100%;text-align:left;font:inherit;cursor:pointer;display:block}
@@ -111,12 +111,20 @@ button.kpi:active{opacity:.85}
 .card h2{font-size:var(--s-karte);font-weight:700;text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .card h2 .cnt{font-family:'IBM Plex Mono',monospace;font-size:var(--s-klein);color:var(--grau);font-weight:400;text-transform:none}
 .card h2 .tools{display:flex;gap:8px}
-.minibtn{font-family:'Barlow Condensed',sans-serif;font-size:var(--s-text);font-weight:600;text-transform:uppercase;letter-spacing:.04em;border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:8px 18px;min-height:var(--h-norm);cursor:pointer;transition:border-color .15s,background .15s}
+.minibtn{font-family:'Barlow Condensed',sans-serif;font-size:var(--s-text);font-weight:600;text-transform:uppercase;letter-spacing:.04em;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:8px 18px;min-height:var(--h-norm);cursor:pointer;transition:border-color .15s,background .15s}
 .minibtn:hover{border-color:var(--ink)}
 .minibtn.rot{border-color:var(--rot);color:var(--rot)}
 /* Hauptaktion einer Karte — gefüllt, damit sie ohne Suchen ins Auge fällt.
    Er arbeitet viel am Handy; wichtige Knöpfe dürfen nicht wie Beiwerk aussehen. */
-.minibtn.haupt{background:var(--ink);border-color:var(--ink);color:#fff}
+.minibtn.haupt{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+/* Hauptaktion: am Handy volle Breite, am Desktop mindestens 260px — aber nur
+   in echten Aktionsleisten (.btnrow, .btnreihe). In .tools-Kopfzeilen steht
+   der Hauptknopf neben kompakten Nebenaktionen; dort bliebe erzwungene
+   Breite falsch, dort bleibt die Größe am Inhalt. */
+.btnrow .minibtn.haupt,.btnreihe .minibtn.haupt{flex:1 1 260px}
+@media (max-width:520px){
+  .btnrow .minibtn.haupt,.btnreihe .minibtn.haupt{flex-basis:100%}
+}
 /* Knöpfe in Listenzeilen: kompakter als die Hauptknöpfe, damit dichte Listen nicht
    auseinanderfallen — aber mit ordentlichem Tippziel statt der früheren 11px/2px,
    die als Inline-Style überall die Klasse überschrieben haben. */
@@ -157,11 +165,11 @@ button.kpi:active{opacity:.85}
 @keyframes skelpuls{0%{background-position:200% 0}100%{background-position:-200% 0}}
 /* ---------- Hilfe-Popover statt Erklär-Fließtext (Redesign-Punkt 3) ---------- */
 .hilfe{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
-  border:1.5px solid var(--line);border-radius:999px;background:#fff;color:var(--grau);
+  border:1.5px solid var(--line);border-radius:999px;background:var(--paper);color:var(--grau);
   font-size:var(--s-klein);font-weight:700;cursor:help;position:relative;vertical-align:middle;margin-left:6px;padding:0}
 .hilfe:hover,.hilfe:focus{border-color:var(--ink);color:var(--ink)}
 .hilfe::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);
-  width:min(300px,70vw);background:var(--ink);color:#fff;padding:9px 11px;border-radius:8px;
+  width:min(300px,70vw);background:var(--ink);color:var(--paper);padding:9px 11px;border-radius:8px;
   font-family:'IBM Plex Sans',sans-serif;font-size:var(--s-klein);font-weight:400;line-height:1.45;
   text-transform:none;letter-spacing:0;text-align:left;opacity:0;pointer-events:none;transition:opacity .15s;z-index:70}
 .hilfe:hover::after,.hilfe:focus::after{opacity:1}
@@ -173,7 +181,7 @@ button.kpi:active{opacity:.85}
 .dropzone:hover,.dropzone.over{border-color:var(--rot);background:var(--rot-dim);color:var(--ink)}
 .bereiche{display:flex;gap:0;margin-top:14px;border:1px solid rgba(255,255,255,.28);border-radius:8px;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
 .bereiche button{background:transparent;border:0;color:rgba(255,255,255,.75);font:600 12.5px/1 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.07em;padding:9px 13px;cursor:pointer;white-space:nowrap;flex:0 0 auto}
-.bereiche button.on{background:var(--rot);color:#fff}
+.bereiche button.on{background:var(--rot);color:var(--paper)}
 .mailrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:var(--s-text)}
 .mailrow:last-child{border-bottom:0}
 .mailrow .mfrom{color:var(--grau);font-size:var(--s-klein)}
@@ -185,12 +193,11 @@ button.kpi:active{opacity:.85}
 .trow .tmeta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .tpill{font-size:var(--s-klein);padding:2px 7px;border-radius:20px;background:var(--rot-dim);color:var(--rot);font-weight:600}
 .tpill.due{background:#eef2f6;color:var(--grau)}
-.tpill.prio-high{background:var(--rot);color:#fff}
-.trow select,.trow input[type="date"]{font-size:var(--s-text);padding:6px 9px;min-height:34px;border-radius:8px;border:1.5px solid var(--line);background:#fff;color:var(--ink)}
+.tpill.prio-high{background:var(--rot);color:var(--paper)}
 .trow .tmeta{gap:8px}
 .tpill{font-size:var(--s-klein);padding:4px 10px}
 .kachelgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:9px}
-.kachel{border:1.5px solid var(--line);border-radius:12px;padding:16px 8px;text-align:center;font-size:var(--s-klein);line-height:1.3;cursor:pointer;background:#fff;transition:border-color .15s,color .15s}
+.kachel{border:1.5px solid var(--line);border-radius:12px;padding:16px 8px;text-align:center;font-size:var(--s-klein);line-height:1.3;cursor:pointer;background:var(--paper);transition:border-color .15s,color .15s}
 .kachel:hover{border-color:var(--rot);color:var(--rot)}
 .kachel .kicon{font-size:var(--s-teil);display:block;margin-bottom:6px}
 .breadcrumb{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:10px;font-size:var(--s-klein)}
@@ -203,7 +210,7 @@ button.kpi:active{opacity:.85}
 .dateirow{display:flex;gap:8px;align-items:center;padding:7px 9px;border-radius:8px;border:1px solid var(--line);text-decoration:none;color:var(--ink);font-size:var(--s-klein)}
 .dateirow:hover{border-color:var(--rot);color:var(--rot)}
 .quicknav{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 10px;margin-bottom:2px;-webkit-overflow-scrolling:touch}
-.quicknav button{flex:0 0 auto;font-size:var(--s-klein);font-weight:600;padding:7px 13px;border-radius:20px;border:1.5px solid var(--line);background:#fff;color:var(--ink);white-space:nowrap;cursor:pointer;font-family:inherit}
+.quicknav button{flex:0 0 auto;font-size:var(--s-klein);font-weight:600;padding:7px 13px;border-radius:20px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);white-space:nowrap;cursor:pointer;font-family:inherit}
 .quicknav button:hover{border-color:var(--rot);color:var(--rot)}
 
 /* Stapelordnung (bewusst gesetzt, damit nichts mehr den Dialog verdeckt):
@@ -228,7 +235,7 @@ button.kpi:active{opacity:.85}
 .sheet h2{font-size:var(--s-teil);font-weight:700;text-transform:uppercase;margin-bottom:12px}
 .f{margin-bottom:11px}
 .f label{display:block;font-size:var(--s-klein);font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin-bottom:4px}
-.f input[type=text],.f input[type=date],.f input[type=number],.f select{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px 10px;min-height:var(--h-norm);font-size:var(--s-text);font-family:inherit;background:#fff;color:var(--ink)}
+.f input[type=text],.f input[type=date],.f input[type=number],.f select{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px 10px;min-height:var(--h-norm);font-size:var(--s-text);font-family:inherit;background:var(--paper);color:var(--ink)}
 .f input:focus,.f select:focus{outline:2px solid var(--ink);outline-offset:1px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
@@ -236,8 +243,8 @@ button.kpi:active{opacity:.85}
 .check input{width:18px;height:18px;accent-color:var(--ink)}
 .check label{margin:0;text-transform:none;font-size:var(--s-text);letter-spacing:0;font-weight:400}
 .segment{display:flex;border:1.5px solid var(--line);border-radius:8px;overflow:hidden}
-.segment button{flex:1;padding:9px;border:none;background:#fff;font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:600;text-transform:uppercase;color:var(--grau);cursor:pointer}
-.segment button.on{background:var(--ink);color:#fff}
+.segment button{flex:1;padding:9px;border:none;background:var(--paper);font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:600;text-transform:uppercase;color:var(--grau);cursor:pointer}
+.segment button.on{background:var(--ink);color:var(--paper)}
 /* Das Reise-Formular hat zwei Teile: was vor der Reise entschieden wird und was
    danach abgerechnet wird. Nur einer ist sichtbar — sonst steht beim Erfassen
    einer neuen Reise die halbe Abrechnung im Weg. */
@@ -252,7 +259,7 @@ button.kpi:active{opacity:.85}
 .abschnitt[open]>summary::after{content:'\2212'}
 .abschnitt{border-top:1px solid var(--line);padding-top:var(--a2)}
 .stepper{display:flex;align-items:center;gap:0;border:1.5px solid var(--line);border-radius:8px;overflow:hidden}
-.stepper button{width:38px;padding:7px 0;border:none;background:#fff;font-size:var(--s-karte);cursor:pointer;color:var(--ink)}
+.stepper button{width:38px;padding:7px 0;border:none;background:var(--paper);font-size:var(--s-karte);cursor:pointer;color:var(--ink)}
 .stepper span{flex:1;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:600}
 .calc{background:var(--bg);border-radius:8px;padding:10px 12px;font-size:var(--s-text);margin:12px 0}
 .calc .row{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
@@ -261,14 +268,14 @@ button.kpi:active{opacity:.85}
 /* Radius 999px wie bei .minibtn — im Sheet standen bisher eckige und runde
    Knoepfe nebeneinander. Eine Form fuer alle Knoepfe. */
 button.primary,button.ghost,button.danger{font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-radius:999px;padding:11px 20px;min-height:var(--h-haupt);cursor:pointer}
-button.primary{background:var(--rot);color:#fff;border:none;flex:1 1 180px}
+button.primary{background:var(--rot);color:var(--paper);border:none;flex:1 1 180px}
 /* Die Fussleiste bleibt am unteren Rand des Sheets stehen: bei kleinem Fenster
    war "Speichern" sonst nur nach langem Scrollen erreichbar. Der negative
    bottom-Wert gleicht das Innenabstand des Sheets aus. */
 .sheet .btnrow{position:sticky;bottom:calc(-26px - env(safe-area-inset-bottom));background:var(--paper);padding-top:10px;padding-bottom:calc(26px + env(safe-area-inset-bottom));margin-bottom:calc(-26px - env(safe-area-inset-bottom));box-shadow:0 -10px 14px -10px rgba(20,35,60,.22)}
 button.primary:disabled{background:var(--line);cursor:default}
-button.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
-button.danger{background:#fff;color:var(--rot);border:1.5px solid var(--rot)}
+button.ghost{background:var(--paper);color:var(--ink);border:1.5px solid var(--line)}
+button.danger{background:var(--paper);color:var(--rot);border:1.5px solid var(--rot)}
 
 /* Belegliste */
 .belege{border:1.5px solid var(--line);border-radius:8px;overflow:hidden}
@@ -279,7 +286,7 @@ button.danger{background:#fff;color:var(--rot);border:1.5px solid var(--rot)}
 .beleg .bx{background:none;border:none;color:var(--grau);font-size:var(--s-karte);cursor:pointer;padding:0 4px}
 .belegadd{display:grid;grid-template-columns:1fr 90px 34px;gap:6px;padding:8px;background:var(--bg)}
 .belegadd input{border:1.5px solid var(--line);border-radius:6px;padding:7px 8px;font-size:var(--s-text);font-family:inherit}
-.belegadd button{border:none;background:var(--ink);color:#fff;border-radius:6px;font-size:var(--s-karte);cursor:pointer}
+.belegadd button{border:none;background:var(--ink);color:var(--paper);border-radius:6px;font-size:var(--s-karte);cursor:pointer}
 .belegfoot{display:flex;justify-content:space-between;padding:6px 10px;background:var(--bg);font-size:var(--s-klein);color:var(--grau)}
 
 .fab{position:fixed;bottom:0;left:0;right:0;background:var(--paper);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;justify-content:center;z-index:40}
@@ -287,17 +294,17 @@ button.danger{background:#fff;color:var(--rot);border:1.5px solid var(--rot)}
 
 .hint{font-size:var(--s-klein);color:var(--grau);margin-top:8px}
 .suggwrap{position:relative}
-.sugg{position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--line);border-radius:8px;margin-top:3px;z-index:10;box-shadow:0 8px 20px rgba(20,35,60,.14);overflow:hidden;max-height:230px;overflow-y:auto}
+.sugg{position:absolute;top:100%;left:0;right:0;background:var(--paper);border:1.5px solid var(--line);border-radius:8px;margin-top:3px;z-index:10;box-shadow:0 8px 20px rgba(20,35,60,.14);overflow:hidden;max-height:230px;overflow-y:auto}
 .sugg>div{padding:9px 10px;font-size:var(--s-text);cursor:pointer;border-bottom:1px solid var(--line)}
 .sugg>div:last-child{border-bottom:none}
-.sugg>div:hover,.sugg>div:focus{background:var(--bg);outline:none}
+.sugg>div:hover,.sugg>div:focus{background:var(--bg);outline:2px solid var(--ink);outline-offset:-2px}
 .sugg .adr{display:block;font-size:var(--s-klein);color:var(--grau)}
 .sugg .star{color:var(--rot);font-size:var(--s-klein);margin-right:4px}
 details.card>summary{list-style:none;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:700;text-transform:uppercase;letter-spacing:.02em}
 details.card>summary::-webkit-details-marker{display:none}
 details.card>summary::after{content:'+';float:right;color:var(--grau);font-weight:600}
 details.card[open]>summary::after{content:'–'}
-.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:8px;font-size:var(--s-text);z-index:90;display:none;max-width:90%}
+.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:9px 16px;border-radius:8px;font-size:var(--s-text);z-index:90;display:none;max-width:90%}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--ink);border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes sp{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.spin{animation:none}}
@@ -306,7 +313,7 @@ details.card[open]>summary::after{content:'–'}
 #printArea{display:none}
 @media print{
   body>*{display:none!important}
-  body{background:#fff;padding:0}
+  body{background:var(--paper);padding:0}
   #printArea{display:block!important;font-family:'IBM Plex Sans',sans-serif;color:#000;font-size:11.5pt}
   #printArea .pkopf{display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:14px}
   #printArea h1{font-size:17pt;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif}
@@ -321,25 +328,21 @@ details.card[open]>summary::after{content:'–'}
   #printArea .fuss{margin-top:16px;font-size:8.5pt;color:#444}
 }
 
-/* ---------- Touch-Geräte: Finger statt Mauszeiger ----------
-   Greift NUR auf Handy/Tablet (pointer:coarse) — der Desktop behält sein
-   kompaktes Layout. Apple nennt 44px als Mindestmaß für Tippziele, Google 48px;
-   .minibtn lag bei ~30px, Selects bei ~34px. Beim Erfassen direkt nach einem
-   Seminar zählt jeder Fehlgriff. */
-@media (pointer:coarse){
-  .minibtn{padding:11px 18px;font-size:var(--s-text);min-height:44px}
-  .minibtn.klein{padding:8px 14px;font-size:var(--s-text);min-height:40px}
-  .trow select,.trow input[type="date"]{min-height:44px;font-size:var(--s-text)}
-  button{min-height:44px}
-  select,input[type="date"],input[type="time"],input[type="number"],input[type="text"]{min-height:44px;font-size:var(--s-text)}
-  select{padding:8px 12px}
-  .bereiche button{min-height:46px}
-  .fab button{min-height:48px}
-  summary{padding:8px 0;min-height:40px}
-  /* Tippziele in Listen auseinanderrücken */
-  .trip{padding-top:12px;padding-bottom:12px}
-  label{font-size:var(--s-klein)}
-}
+/* ---------- Trefferflächen: durchgängig auf den Tokens, nicht nur am Handy ----------
+   Frueher galt hier eine eigene pointer:coarse-Staffel mit eigenen Werten
+   (44/40/34px), die aelter ist als die Token-Einfuehrung in v72 und sie seither
+   wieder unterlief — der Skill verlangt 48px fuer jedes Feld und jeden Knopf,
+   36px nur in Listenzeilen, und genau diese Werte, nichts dazwischen.
+   Jetzt gelten dieselben Werte auf jedem Geraet; Touch gewinnt dadurch nichts
+   mehr extra, verliert aber auch nichts. */
+button{min-height:var(--h-norm)}
+select,input[type="date"],input[type="time"],input[type="number"],input[type="text"]{min-height:var(--h-norm);font-size:var(--s-text)}
+.trow select,.trow input[type="date"]{min-height:var(--h-klein);font-size:var(--s-text);padding:6px 9px;border-radius:8px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink)}
+.fab button{min-height:var(--h-norm)}
+summary{padding:8px 0;min-height:var(--h-klein)}
+label{font-size:var(--s-klein)}
+/* Tippziele in Listen auseinanderrücken — hilft auf jedem Geraet */
+.trip{padding-top:12px;padding-bottom:12px}
 
 /* ---------- Untere Navigationsleiste (Daumenbereich) ---------- */
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;
@@ -350,7 +353,7 @@ details.card[open]>summary::after{content:'–'}
   padding:7px 2px 6px;cursor:pointer;font:600 10px/1.1 'Barlow Condensed',sans-serif;
   text-transform:uppercase;letter-spacing:.04em;min-height:52px}
 .tabbar button .ic{font-size:var(--s-karte);line-height:1}
-.tabbar button.on{color:#fff}
+.tabbar button.on{color:var(--paper)}
 .tabbar button.on .ic{filter:drop-shadow(0 0 6px rgba(255,80,80,.5))}
 /* Platz schaffen, damit die Leiste nichts überdeckt */
 body{padding-bottom:64px}
@@ -375,7 +378,7 @@ body{padding-bottom:64px}
 .zurueckStart{display:inline-flex;align-items:center;gap:8px;background:var(--ink);
   border:0;border-radius:999px;padding:11px 22px;margin-bottom:18px;
   cursor:pointer;font:700 15px/1 'Barlow Condensed',sans-serif;text-transform:uppercase;
-  letter-spacing:.05em;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+  letter-spacing:.05em;color:var(--paper);box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .zurueckStart:hover{background:var(--rot)}
 .zurueckStart .pfeil{font-size:var(--s-karte);line-height:1;margin-top:-2px}
 /* Am Handy nicht nötig — dort gibt es die untere Leiste mit Start */
@@ -396,7 +399,7 @@ body{padding-bottom:64px}
     <h1>Dozenten-<em>Cockpit</em></h1>
     <div class="bereiche">
       <button id="tabStart" class="on">Start</button>
-      <button id="tabSeminare">Seminare &amp; Reise</button>
+      <button id="tabSeminare">Seminare</button>
       <button id="tabWerkstatt">Werkstatt</button>
       <button id="tabAbrechnung">Abrechnung</button>
       <button id="tabTools">Einstellungen</button>
@@ -1765,11 +1768,11 @@ function openFormPrefill(p){
   el('fVon').value=p.von||''; el('fBis').value=p.bis||p.von||'';
   syncTage();
   el('fAuftragsnr').value=p.auftragsnummer||'';
-  const honorar=p.honorarGesamt||((p.honorarProTermin||0)*(p.anzahlTermine||1));
+  const honorar=zahlAus(p.honorarGesamt)||(zahlAus(p.honorarProTermin)*(zahlAus(p.anzahlTermine)||1));
   el('fHonorar').value=honorar||'';
   if(el('fHonEinheit'))el('fHonEinheit').value=p.honorarEinheit||'tag';
-  if(el('fHonSatz'))el('fHonSatz').value=p.honorarProTermin||'';
-  if(el('fHonAnzahl'))el('fHonAnzahl').value=p.anzahlTermine||'';
+  if(el('fHonSatz'))el('fHonSatz').value=zahlAus(p.honorarProTermin)||'';
+  if(el('fHonAnzahl'))el('fHonAnzahl').value=zahlAus(p.anzahlTermine)||'';
   honorarSync('summe');
   rechnungModus='einzel';syncRechnungModus();
   el('rechnungWrap').open=true; formTeilSetzen('abrechnen');
@@ -1805,7 +1808,7 @@ async function bahnBelegParse(file){
     const s=clean.indexOf('{'),e2=clean.lastIndexOf('}');
     if(s<0)throw new Error('Keine Daten erkannt');
     const p=JSON.parse(clean.slice(s,e2+1));
-    const preis=Number(p.preisGesamt)||0;
+    const preis=zahlAus(p.preisGesamt);
     if(!preis)throw new Error('Kein Gesamtpreis gefunden');
     el('fBahnK').value=preis.toFixed(2);
     el('stBahn').checked=true;
@@ -2911,7 +2914,7 @@ function renderTaskFilter(){
   const chips=[{k:'alle',l:'Alle'}].concat(bereiche.map(n=>({k:n,l:n})));
   box.innerHTML=chips.map(ch=>
     '<button type="button" class="minibtn" data-tf="'+esc(ch.k)+'"'+
-    (ch.k===taskFilter?' style="border-color:var(--ink);background:var(--ink);color:#fff"':'')+
+    (ch.k===taskFilter?' style="border-color:var(--ink);background:var(--ink);color:var(--paper)"':'')+
     '>'+esc(ch.l)+' <span style="opacity:.6">'+zaehl(ch.k)+'</span></button>').join('');
   box.querySelectorAll('[data-tf]').forEach(b=>b.addEventListener('click',()=>{
     taskFilter=b.dataset.tf;renderTaskFilter();renderTaskBoard();
@@ -3344,30 +3347,34 @@ function quickWahl(was){
    Termine bisher meist gar nicht an, weil es ein zweiter Handgriff war. */
 async function reiseTermineAnlegen(){
   if(!msAccount){toast('Bitte zuerst Outlook verbinden');return}
+  if(!editId){toast('Bitte die Reise zuerst speichern');return}
   const von=el('fVon').value, bis=el('fBis').value||el('fVon').value;
   if(!von){toast('Bitte zuerst den ersten Seminartag eintragen');return}
   const ag=(el('fAg').value==='__frei'&&el('fAgFrei'))?el('fAgFrei').value:el('fAg').value;
   const p={auftraggeber:ag,zweck:el('fZweck').value||'Seminar',kurs:el('fKurs').value||'',von:von,bis:bis,
     anreise:(el('fAnreise')&&el('fAnreise').value)||'', abreise:(el('fAbreise')&&el('fAbreise').value)||'',
     ziel:el('fZiel').value,zielAdresse:el('fZiel').value,beginn:'09:00',ende:'17:00'};
-  const termine=planTermineBauen(p);
-  const liste=termine.map(t=>'· '+dfmt(t.datum)+' '+t.von+'–'+t.bis+'  '+t.subject).join('\n');
-  if(!confirm('Diese '+termine.length+' Termine in Outlook anlegen?\n\n'+liste))return;
-  let ok=0;
+  let termine=planTermineBauen(p);
+  await pruefeKonflikte(termine,ag,editId);
+  /* Tage, an denen schon ein mit dieser Reise verknüpfter Termin liegt,
+     werden übersprungen — sonst legt "Termine anlegen" bei jedem Aufruf neue an. */
+  const uebersprungen=termine.filter(t=>t.verknuepft).length;
+  termine=termine.filter(t=>!t.verknuepft);
+  if(!termine.length){toast(uebersprungen?'Alle Tage sind schon verknüpft':'Keine Termine zu erstellen');return}
+  const liste=termine.map(t=>'· '+dfmt(t.datum)+' '+t.von+'–'+t.bis+'  '+t.subject+(t.konflikt?' ⚠':'')).join('\n');
+  if(!confirm('Diese '+termine.length+' Termine in Outlook anlegen'+(uebersprungen?' ('+uebersprungen+' Tag(e) übersprungen, schon verknüpft)':'')+'?\n\n'+liste))return;
+  /* Die Kennung am Ende des Termintexts verknuepft den Termin mit der Reise —
+     dasselbe Format wie bei Aufgaben seit v82. Sie ueberlebt Aenderungen an
+     Titel oder Kategorie, weil sie nicht daran haengt. */
+  const kennungText='Angelegt vom Dozenten-Cockpit'+(el('fAuftragsnr').value?' \u00b7 Auftrag '+el('fAuftragsnr').value:'')+
+    '\n\n'+bezugKennung('reise',editId);
+  let ok=0,zusammen=0;
   for(const t of termine){
-    try{
-      await graph('/me/events',{method:'POST',body:JSON.stringify({
-        subject:t.subject,
-        start:{dateTime:t.datum+'T'+t.von+':00',timeZone:'Europe/Berlin'},
-        end:{dateTime:t.datum+'T'+t.bis+':00',timeZone:'Europe/Berlin'},
-        location:{displayName:t.ort||''},
-        categories:terminKategorien(ag),
-        body:{contentType:'text',content:'Angelegt vom Dozenten-Cockpit'+(el('fAuftragsnr').value?' \u00b7 Auftrag '+el('fAuftragsnr').value:'')}
-      })});
-      ok++;
-    }catch(e){/* einzelner Fehler stoppt nicht alles */}
+    const r=await terminSchreiben(t,ag,kennungText);
+    if(r==='angelegt'||r==='zusammengelegt')ok++;
+    if(r==='zusammengelegt')zusammen++;
   }
-  toast(ok+' von '+termine.length+' Terminen angelegt');
+  toast(ok+' von '+termine.length+' Terminen erledigt'+(zusammen?' ('+zusammen+' zusammengelegt)':''));
 }
 
 /* Bestaetigungsmail als Outlook-ENTWURF anlegen — bewusst nur Entwurf, nie senden.
@@ -3424,6 +3431,19 @@ const EINGANG_FELDNAMEN={auftraggeber:'Auftraggeber',gesellschaft:'Gesellschaft'
   status:'Status',buchungsnummer:'Buchungsnummer',preisGesamt:'Preis gesamt'};
 function eingangArtName(a){const t=EINGANG_ARTEN.find(x=>x[0]===a);return t?t[1]:a}
 function eingangFeldName(f){return EINGANG_FELDNAMEN[f]||f}
+/* v82-Fehler: "450€" landet in einem Zahlenfeld, das den Text schluckt — das
+   Honorar kommt leer an. Zieht die Zahl aus dem Text, statt sich auf den
+   Prompt zu verlassen, der numerische Felder verspricht, aber nicht immer
+   liefert. Erkennt auch deutsches Tausenderformat (1.200,50). */
+function zahlAus(wert){
+  if(typeof wert==='number')return isFinite(wert)?wert:0;
+  let s=String(wert==null?'':wert).trim().replace(/[^\d,.-]/g,'');
+  if(!s)return 0;
+  if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');
+  else if(s.includes(','))s=s.replace(',','.');
+  const n=parseFloat(s);
+  return isFinite(n)?n:0;
+}
 
 function eingangPrompt(listen){
   return 'Das hat ein selbstständiger Seminardozent (Finanz-, Versicherungs- und Immobilienbranche, zugleich IHK-Prüfer) in seinen Eingang gelegt — als Mail, Datei, Screenshot oder Notiz. Heute ist '+heuteISO()+'.\n\n'+
@@ -3450,7 +3470,7 @@ function eingangPrompt(listen){
     'ihk: {"vorgang":"","beleg":"","datum":"YYYY-MM-DD","betrag":0,"ausschuss":"","art":"","status":"erfasst|gesendet"}\n'+
     'bahn: {"buchungsnummer":"","preisGesamt":0,"fahrten":[{"datum":"YYYY-MM-DD","abfahrt":"HH:MM","ankunft":"HH:MM","von":"Startbahnhof","nach":"Zielbahnhof","zug":"z. B. ICE 599"}]}\n\n'+
     (listen&&listen.length?('Für aufgabe.bereich genau einen Wert aus: '+listen.join(' | ')+'.\n'):'')+
-    'Bei "reise" gehören in von/bis nur die reinen Seminartage, ohne An- und Abreise. honorarEinheit sagt, worauf sich der Satz bezieht: tag bei Tagessatz, block je Seminarblock, stunde bei Stundensatz, pauschal wenn nur ein Gesamtbetrag genannt ist. Bei "bahn" je Richtung GENAU EINE Fahrt, Umstiege zusammengefasst (erste Abfahrt, letzte Ankunft, Zugnummern per Komma). Erfinde nichts, unbekannte Felder leer oder 0.';
+    'Bei "reise" gehören in von/bis nur die reinen Seminartage, ohne An- und Abreise. Steht im Text ausdrücklich "Präsenz" oder eine Raum-/Hoteladresse als Veranstaltungsort, ist online IMMER false — auch wenn an anderer Stelle "online" oder ein Video-Link auftaucht (etwa als Ausweichoption oder in einer Signatur). online wird nur dann true, wenn der Text den Termin selbst ausdrücklich als Online-Veranstaltung bezeichnet. honorarEinheit sagt, worauf sich der Satz bezieht: tag bei Tagessatz, block je Seminarblock, stunde bei Stundensatz, pauschal wenn nur ein Gesamtbetrag genannt ist. Bei "bahn" je Richtung GENAU EINE Fahrt, Umstiege zusammengefasst (erste Abfahrt, letzte Ankunft, Zugnummern per Komma). Erfinde nichts, unbekannte Felder leer oder 0.';
 }
 
 /* Nimmt Text, Bild oder PDF und liefert die Vorschlaege. Der einzige Ort, an dem
@@ -3493,11 +3513,12 @@ function eingangTermine(v){
   return [];
 }
 async function eingangKonfliktPruefen(v){
-  v.konflikt='';
+  v.konflikt=''; v.konfliktWeitere=0;
   const t=eingangTermine(v); if(!t.length||!msAccount)return;
   try{
-    await pruefeKonflikte(t);
-    v.konflikt=t.filter(x=>x.konflikt).map(x=>dfmt(x.datum)+': '+x.konflikt).slice(0,3).join(' · ');
+    await pruefeKonflikte(t,(v.felder||{}).auftraggeber||'');
+    v.konflikt=t.filter(x=>x.konflikt).map(x=>dfmt(x.datum)+': '+x.konflikt.subject).slice(0,3).join(' · ');
+    v.konfliktWeitere=t.reduce((a,x)=>a+(x.weitere||0),0);
   }catch(e){/* ohne Kalender kein Konflikt, aber auch keine Fehlermeldung */}
 }
 
@@ -3535,10 +3556,10 @@ async function eingangWeiterleiten(v, st, eintrag){
   if(v.art==='ihk'){
     const liste=ihkAbrListe();
     const da=liste.find(x=>x.vorgang&&f.vorgang&&String(x.vorgang)===String(f.vorgang));
-    if(da)Object.assign(da,{beleg:f.beleg||da.beleg,datum:f.datum||da.datum,betrag:+f.betrag||da.betrag,
+    if(da)Object.assign(da,{beleg:f.beleg||da.beleg,datum:f.datum||da.datum,betrag:zahlAus(f.betrag)||da.betrag,
       ausschuss:f.ausschuss||da.ausschuss,art:f.art||da.art,status:f.status||da.status});
     else liste.push({id:uid(),vorgang:f.vorgang||'',beleg:f.beleg||'',datum:f.datum||'',
-      betrag:+f.betrag||0,ausschuss:f.ausschuss||'',art:f.art||'',status:f.status||'erfasst'});
+      betrag:zahlAus(f.betrag),ausschuss:f.ausschuss||'',art:f.art||'',status:f.status||'erfasst'});
     await save(); bereichWechseln('abrechnung'); renderIhkAbr();
     melde('IHK-Abrechnung übernommen');
     await eingangAbschliessen('ihk');
@@ -4553,7 +4574,8 @@ function eingangRendern(){
         EINGANG_ARTEN.map(a=>'<option value="'+a[0]+'"'+(a[0]===v.art?' selected':'')+'>'+a[1]+'</option>').join('')+'</select>'+
         '<div style="margin-top:4px"><b>'+esc(eingangZeile(v))+'</b></div>'+
         (v.kurz?'<div class="hint">'+esc(v.kurz)+'</div>':'')+
-        (v.konflikt?'<div class="hint" style="margin-top:6px;color:var(--warn-text)">Kalender belegt — '+esc(v.konflikt)+'</div>':'')+
+        (v.konflikt?'<div class="hint" style="margin-top:6px;color:var(--warn-text)">Vermutlich schon im Kalender — '+esc(v.konflikt)+'</div>':'')+
+        (!v.konflikt&&v.konfliktWeitere?'<div class="hint" style="margin-top:6px;opacity:.6">'+v.konfliktWeitere+' weitere(r) Termin(e) an diesem Tag</div>':'')+
         uns+eingangFelderBlock(v)+knoepfe+'</div>';
     }).join('')+
       /* Zwei offene Vorschlaege fuellen nacheinander dasselbe Formular — der zweite
@@ -4646,7 +4668,7 @@ function bahnZeigen(p){
       '<div style="padding:4px 0;border-bottom:1px solid var(--line)">'+
       '<b>'+esc(dfmt(f.datum))+'</b> · '+esc(f.abfahrt||'')+' – '+esc(f.ankunft||'')+'<br>'+
       '<span style="color:var(--grau)">'+esc(f.von||'')+' → '+esc(f.nach||'')+(f.zug?' · '+esc(f.zug):'')+'</span></div>').join('')+
-    '<div style="padding:6px 0"><b>'+eur(p.preisGesamt||0)+'</b>'+(p.buchungsnummer?' · Buchung '+esc(p.buchungsnummer):'')+'</div></div>';
+    '<div style="padding:6px 0"><b>'+eur(zahlAus(p.preisGesamt))+'</b>'+(p.buchungsnummer?' · Buchung '+esc(p.buchungsnummer):'')+'</div></div>';
   /* Reisen anbieten, deren Zeitraum zu einer der Fahrten passt (± 1 Tag für Vorabendanreise) */
   const passt=t=>fahrten.some(f=>f.datum&&f.datum>=tagVersetzt(t.von,-1)&&f.datum<=tagVersetzt(t.bis||t.von,1));
   const kandidaten=state.trips.filter(passt);
@@ -4668,7 +4690,7 @@ async function bahnUebernehmen(){
   if(!t||!bahnBuchung){el('bahnStatus').textContent='Bitte eine Reise wählen.';return}
   const st=el('bahnStatus');st.textContent='Übernehme …';
   t.vm='bahn';
-  t.bahn=+(bahnBuchung.preisGesamt||0);
+  t.bahn=zahlAus(bahnBuchung.preisGesamt);
   t.status=t.status||{};t.status.bahn=true;
   /* Zugdetails an der Reise ablegen. Eigenes Feld: die Reise hat kein Notizfeld
      (t.notiz gehoert zum Tool-Stack), und formData() wuerde ein Fremdfeld ohnehin
@@ -4711,7 +4733,7 @@ async function bahnUebernehmen(){
 /* Vorschau + Termine */
 async function planZeigen(p){
   planAuftrag=p;
-  const honorar=p.honorarGesamt||((p.honorarProTermin||0)*(p.anzahlTermine||1));
+  const honorar=zahlAus(p.honorarGesamt)||(zahlAus(p.honorarProTermin)*(zahlAus(p.anzahlTermine)||1));
   el('planDaten').innerHTML=
     '<div class="agrow"><span>Auftraggeber <span style="color:var(--grau);font-size:11px">(rechnet ab)</span></span><span>'+esc(p.auftraggeber||'– nicht erkannt')+'</span></div>'+
     '<div class="agrow"><span>Gesellschaft <span style="color:var(--grau);font-size:11px">(für wen)</span></span><span>'+esc(p.gesellschaft||'–')+'</span></div>'+
@@ -4733,10 +4755,12 @@ async function planZeigen(p){
   planAuftrag._fahrMin=fahrMin;
   const termine=planTermineBauen(planAuftrag);
   el('planTermine').innerHTML=(fahrMin?'<div class="hint">Fahrzeit ca. '+fahrMin+' Min → '+(fahrMin>60?'Vorabendanreise':'Anreise am Morgen (60 Min Puffer)')+'</div>':'')+'<div class="hint"><span class="spin"></span>Prüfe auf Terminkonflikte …</div>';
-  await pruefeKonflikte(termine);
+  await pruefeKonflikte(termine,p.auftraggeber);
   el('planTermine').innerHTML=(fahrMin?'<div class="hint">Fahrzeit ca. '+fahrMin+' Min → '+(fahrMin>60?'Vorabendanreise':'Anreise am Morgen (60 Min Puffer)')+'</div>':'')+
     termine.map((t,i)=>
-    '<label style="display:flex;gap:8px;align-items:center;padding:5px 0;font-size:13.5px"><input type="checkbox" '+(t.konflikt?'':'checked')+' data-ti="'+i+'"> '+esc(t.subject)+' · '+dfmt(t.datum)+' '+t.von+'–'+t.bis+(t.konflikt?' <span style="color:var(--rot)">⚠ Konflikt mit „'+esc(t.konflikt)+'"</span>':'')+'</label>').join('');
+    '<label style="display:flex;gap:8px;align-items:center;padding:5px 0;font-size:13.5px"><input type="checkbox" '+(t.konflikt?'':'checked')+' data-ti="'+i+'"> '+esc(t.subject)+' · '+dfmt(t.datum)+' '+t.von+'–'+t.bis+
+    (t.konflikt?' <span style="color:var(--rot)">⚠ vermutlich Duplikat von „'+esc(t.konflikt.subject)+'"</span>'
+      :(t.weitere?' <span style="opacity:.55">· '+t.weitere+' weitere(r) Termin(e) an diesem Tag</span>':''))+'</label>').join('');
   planAuftrag._termine=termine;
   el('planVorschau').scrollIntoView({behavior:'smooth'});
 }
@@ -4779,23 +4803,90 @@ async function konfliktKalenderAutoInit(){
     }
   }catch(e){/* ohne Verbindung bleibt es beim Hauptkalender */}
 }
-async function pruefeKonflikte(termine){
+/* Konflikt ist nicht gleich Konflikt. Gemeldet wird nur Duplikatverdacht:
+   gleicher Tag, im Titel oder in der Kategorie ein erkannter Auftraggeber, und
+   die Überlappung deckt den überwiegenden Teil der Seminarzeit. Ein Telefonat
+   in der Mittagspause oder ein direkt anschließender Termin ist Normalbetrieb
+   und läuft still mit (t.weitere zählt es, ohne zu warnen).
+   reiseId (optional): findet die Cockpit-Kennung im Termintext und markiert
+   den Tag als t.verknuepft — schon verknüpfte Termine sind kein Duplikat und
+   werden beim Vorschlagen neuer Termine übersprungen. */
+function hmMin(hm){const[a,b]=String(hm||'0:0').split(':').map(Number);return a*60+(b||0)}
+async function pruefeKonflikte(termine,ag,reiseId){
   if(!msAccount)return;
   await konfliktKalenderAutoInit();
   /* Hauptkalender (leere id) plus die vom Nutzer gewählten Nebenkalender */
   const quellen=[{id:'',name:''}].concat(konfliktKalender());
   for(const t of termine){
-    t.konflikt=null;
+    t.konflikt=null; t.weitere=0; t.verknuepft=false;
+    const tVon=hmMin(t.von), tBis=hmMin(t.bis), dauer=Math.max(1,tBis-tVon);
     for(const q of quellen){
       try{
         const basis=q.id?'/me/calendars/'+encodeURIComponent(q.id)+'/calendarView':'/me/calendarView';
-        const d=await graph(basis+'?startDateTime='+t.datum+'T'+t.von+':00&endDateTime='+t.datum+'T'+t.bis+':00&$select=subject,showAs&$top=5');
-        /* Als "frei" markierte Termine (Feiertage, Infos) sind kein echter Konflikt */
-        const treffer=(d.value||[]).find(x=>x.showAs!=='free');
-        if(treffer){ t.konflikt=treffer.subject+(q.name?' · '+q.name:''); break }
+        const d=await graph(basis+'?startDateTime='+t.datum+'T00:00:00&endDateTime='+t.datum+'T23:59:59'+
+          '&$select=id,subject,showAs,start,end,categories,body,isOrganizer,attendees&$top=25');
+        for(const evt of (d.value||[])){
+          if(evt.showAs==='free')continue;
+          if(reiseId){
+            const bez=bezugLesen(String((evt.body&&evt.body.content)||'').replace(/<[^>]+>/g,''));
+            if(bez&&bez.art==='reise'&&bez.id===reiseId){ t.verknuepft=true; continue }
+          }
+          const eVon=hmMin((evt.start&&evt.start.dateTime||'').slice(11,16));
+          const eBis=hmMin((evt.end&&evt.end.dateTime||'').slice(11,16));
+          const overlap=Math.min(tBis,eBis)-Math.max(tVon,eVon);
+          if(overlap<=0)continue;
+          const istDuplikat=ag&&overlap>=dauer*0.6&&
+            (titelAuftraggeber(evt.subject)===ag||evtKategorieAuftraggeber(evt)===ag);
+          if(istDuplikat&&!t.konflikt){
+            t.konflikt={id:evt.id,subject:evt.subject,kalender:q.name||'',
+              isOrganizer:evt.isOrganizer!==false,hatTeilnehmer:Array.isArray(evt.attendees)&&evt.attendees.length>0};
+          }else{
+            t.weitere++;
+          }
+        }
       }catch(e){/* einzelner Kalender darf fehlschlagen */}
     }
   }
+}
+/* Legt einen Termin an — oder bringt bei Duplikatverdacht den vorhandenen auf
+   die Konvention und verknüpft ihn, statt einen zweiten danebenzustellen.
+   Löschen wird nie angeboten: ein handischer Termin kann eine Einladung mit
+   Teilnehmern sein. Bei fremden oder besetzten Terminen (nicht Organisator
+   oder Teilnehmer vorhanden) darf der Titel ohnehin nicht geändert werden —
+   dort bleibt nur "daneben anlegen" oder überspringen. */
+async function terminSchreiben(t,ag,kennungText){
+  if(t.konflikt){
+    if(t.konflikt.isOrganizer&&!t.konflikt.hatTeilnehmer){
+      const zusammen=confirm('Vermutlich derselbe Termin schon im Kalender: „'+t.konflikt.subject+'".\n\n'+
+        'Zusammenlegen — Titel und Kategorie angleichen und mit der Reise verknüpfen?\n\n'+
+        'Abbrechen = daneben stehen lassen, beide Termine bleiben.');
+      if(zusammen){
+        try{
+          const bestehend=await graph('/me/events/'+encodeURIComponent(t.konflikt.id)+'?$select=body');
+          const altText=String((bestehend.body&&bestehend.body.content)||'').replace(/<[^>]+>/g,'').trim();
+          await graph('/me/events/'+encodeURIComponent(t.konflikt.id),{method:'PATCH',body:JSON.stringify({
+            subject:t.subject,
+            categories:terminKategorien(ag),
+            body:{contentType:'text',content:(altText?altText+'\n\n':'')+kennungText}
+          })});
+          return 'zusammengelegt';
+        }catch(e){return 'fehler'}
+      }
+    }else if(!confirm('Vermutlich derselbe Termin schon im Kalender: „'+t.konflikt.subject+'" — Einladung mit Teilnehmern, Titel kann nicht geändert werden.\n\nTrotzdem einen eigenen Termin anlegen?')){
+      return 'uebersprungen';
+    }
+  }
+  try{
+    await graph('/me/events',{method:'POST',body:JSON.stringify({
+      subject:t.subject,
+      start:{dateTime:t.datum+'T'+t.von+':00',timeZone:'Europe/Berlin'},
+      end:{dateTime:t.datum+'T'+t.bis+':00',timeZone:'Europe/Berlin'},
+      location:{displayName:t.ort||''},
+      categories:terminKategorien(ag),
+      body:{contentType:'text',content:kennungText}
+    })});
+    return 'angelegt';
+  }catch(e){return 'fehler'}
 }
 function planTermineBauen(p){
   const ag=p.auftraggeber||'Auftraggeber', titel=p.zweck||'Seminar';
@@ -4837,27 +4928,16 @@ async function termineAnlegen(){
   const checks=[...el('planTermine').querySelectorAll('input[data-ti]')];
   const auswahl=termine.filter((t,i)=>checks[i]&&checks[i].checked);
   if(!auswahl.length){st.textContent='Keine Termine ausgewählt.';return}
-  const konflikte=auswahl.filter(t=>t.konflikt);
-  if(konflikte.length&&!confirm(konflikte.length+' ausgewählte Termine überschneiden sich mit bestehenden Kalendereinträgen. Trotzdem anlegen?')){
-    st.textContent='Abgebrochen wegen Terminkonflikten — Häkchen anpassen und erneut versuchen.';return;
-  }
   st.innerHTML='<span class="spin"></span>Lege '+auswahl.length+' Termine an …';
-  let ok=0;
+  const kennungBasis='Angelegt vom Dozenten-Cockpit'+(planAuftrag.auftragsnummer?' · Auftrag '+planAuftrag.auftragsnummer:'');
+  let ok=0,zusammen=0;
   for(const t of auswahl){
-    try{
-      await graph('/me/events',{method:'POST',body:JSON.stringify({
-        subject:t.subject,
-        start:{dateTime:t.datum+'T'+t.von+':00',timeZone:'Europe/Berlin'},
-        end:{dateTime:t.datum+'T'+t.bis+':00',timeZone:'Europe/Berlin'},
-        location:{displayName:t.ort},
-        categories:terminKategorien(planAuftrag.auftraggeber),
-        body:{contentType:'text',content:'Angelegt vom Dozenten-Cockpit'+(planAuftrag.auftragsnummer?' · Auftrag '+planAuftrag.auftragsnummer:'')}
-      })});
-      ok++;
-    }catch(e){/* einzelner Fehler stoppt nicht alles */}
+    const r=await terminSchreiben(t,planAuftrag.auftraggeber,kennungBasis);
+    if(r==='angelegt'||r==='zusammengelegt')ok++;
+    if(r==='zusammengelegt')zusammen++;
   }
-  st.textContent=ok+' von '+auswahl.length+' Terminen in Outlook angelegt.';
-  toast(ok+' Termine angelegt');
+  st.textContent=ok+' von '+auswahl.length+' Terminen in Outlook erledigt'+(zusammen?' ('+zusammen+' davon zusammengelegt)':'')+'.';
+  toast(ok+' Termine erledigt');
 }
 function alsReise(){
   if(!planAuftrag)return;
@@ -7025,12 +7105,17 @@ el('btnSave').addEventListener('click',async()=>{
        jeder Bearbeitung stillschweigend verschwinden. */
     state.trips[i]=Object.assign({},state.trips[i],t);
   }
-  else state.trips.push(t);
+  else{ state.trips.push(t); editId=t.id; }
   if(t.typ!=='ihk'){kgMemoUpdate(t.ag,t.kategorie,t.gesellschaft);kursMemoUpdate(t.ag,t.gesellschaft,t.kurs)}
   await save();closeForm();
   ui.q=perVon(t.von);ui.jahr=+t.von.slice(0,4);render();
   toast('Reise gespeichert');
   await eingangAbschliessen('reise');
+  /* Termine werden beim Speichern angeboten, nicht erst auf Knopfdruck gesucht.
+     editId ist hier bereits gesetzt (formData() liefert die id), die Formularfelder
+     stehen trotz geschlossenem Sheet noch — reiseTermineAnlegen prueft selbst,
+     welche Tage schon verknuepft sind, und schlaegt nur den Rest vor. */
+  if(t.typ!=='ihk')await reiseTermineAnlegen();
 });
 el('btnDelete').addEventListener('click',async()=>{
   state.trips=state.trips.filter(x=>x.id!==editId);
@@ -7361,7 +7446,7 @@ document.addEventListener('click',e=>{
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v83';
+const APP_VERSION='v86';
 const APP_STAND='4. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
