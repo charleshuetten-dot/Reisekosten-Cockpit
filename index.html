@@ -1202,6 +1202,9 @@ body{padding-bottom:64px}
       </div>
     </div>
     <div class="f"><label>Anlass</label><input type="text" id="fZweck" placeholder="z. B. Seminar Marketing Grundlagen"></div>
+    <div class="f"><label>Kurs / Seminar</label>
+      <input type="text" id="fKurs" list="kursListe" placeholder="z. B. Sachkunde 34d Aufbau">
+    </div>
     <div class="grid2" id="fKatWrap">
       <div class="f"><label>Kategorie</label>
         <select id="fKategorie" class="kat-select"></select>
@@ -1635,6 +1638,7 @@ function openForm(id){
   else{agSel.value=t?t.ag:'Going Public Akademie';el('fAgFrei').style.display=agSel.value==='__frei'?'block':'none';el('fAgFrei').value=''}
   zeigeKontakt();
   el('fZiel').value=t?(t.zielAdresse||t.ziel||''):''; el('fZweck').value=t?t.zweck||'':'';
+  el('fKurs').value=t?(t.kurs||''):'';
   el('fVon').value=t?t.von:''; el('fBis').value=t?t.bis||'':'';
   if(el('fAnreise'))el('fAnreise').value=t?(t.anreise||''):'';
   if(el('fAbreise'))el('fAbreise').value=t?(t.abreise||''):'';
@@ -1945,7 +1949,7 @@ function formData(){
   return {
     id:editId||uid(),
     ag:agSel==='__frei'?(el('fAgFrei').value.trim()||'Sonstige'):agSel,
-    ziel:el('fZiel').value.trim(), zweck:el('fZweck').value.trim(),
+    ziel:el('fZiel').value.trim(), zweck:el('fZweck').value.trim(), kurs:el('fKurs').value.trim(),
     von:el('fVon').value, bis:el('fBis').value||el('fVon').value,
     anreise:(el('fAnreise')&&el('fAnreise').value)||'', abreise:(el('fAbreise')&&el('fAbreise').value)||'',
     zielAdresse:(selZiel&&selZiel.adresse)?selZiel.adresse:(editId?((state.trips.find(x=>x.id===editId)||{}).zielAdresse||''):''),
@@ -3343,7 +3347,7 @@ async function reiseTermineAnlegen(){
   const von=el('fVon').value, bis=el('fBis').value||el('fVon').value;
   if(!von){toast('Bitte zuerst den ersten Seminartag eintragen');return}
   const ag=(el('fAg').value==='__frei'&&el('fAgFrei'))?el('fAgFrei').value:el('fAg').value;
-  const p={auftraggeber:ag,zweck:el('fZweck').value||'Seminar',von:von,bis:bis,
+  const p={auftraggeber:ag,zweck:el('fZweck').value||'Seminar',kurs:el('fKurs').value||'',von:von,bis:bis,
     anreise:(el('fAnreise')&&el('fAnreise').value)||'', abreise:(el('fAbreise')&&el('fAbreise').value)||'',
     ziel:el('fZiel').value,zielAdresse:el('fZiel').value,beginn:'09:00',ende:'17:00'};
   const termine=planTermineBauen(p);
@@ -4795,7 +4799,7 @@ async function pruefeKonflikte(termine){
 }
 function planTermineBauen(p){
   const ag=p.auftraggeber||'Auftraggeber', titel=p.zweck||'Seminar';
-  const name=ag.split(' ')[0].replace('!','')+' '+titel;
+  const name=terminTitelBauen(ag,p.kurs,titel);
   const beginn=p.beginn||'09:00', ende=p.ende||'17:00';
   const out=[];
   const d0=new Date(p.von+'T00:00'), d1=new Date((p.bis||p.von)+'T00:00');
@@ -5519,25 +5523,46 @@ function agStamm(ag){
 /* Schreibweisen, mit denen ein Termintitel beginnen darf — die App bleibt tolerant,
    damit eine Abkürzung im Kalender nicht die Erkennung bricht. */
 const AG_ALIAS={
-  'Going Public Akademie':['going public akademie','going public','gp akademie'],
+  'Going Public Akademie':['going public akademie','going public','gp akademie','gp'],
   'BWV Rheinland':['bwv rheinland','bwv'],
   'IHK Köln':['ihk köln','ihk koeln','ihk'],
-  'Zinal':['zinal'],
-  'Global Finanz':['global finanz','globalfinanz','gf ']
+  'Zinal':['zinal','zin'],
+  'Global Finanz':['global finanz','globalfinanz','gf']
 };
 /* Zentrale Erkennung: liefert den Auftraggeber zu einem Termintitel — oder null.
-   Wird von Start-Banner UND Kalender-Reiter genutzt, damit beide gleich urteilen. */
+   Wird von Start-Banner UND Kalender-Reiter genutzt, damit beide gleich urteilen.
+   Prüft auf Wortgrenze statt reinem startsWith: "GF34K2" darf nicht auf das
+   Kürzel "gf" anspringen, "GF 34d" schon. */
 function titelAuftraggeber(titel){
   const t=(titel||'').trim().toLowerCase();
   if(!t)return null;
   for(const ag of AUFTRAGGEBER){
     const aliasse=AG_ALIAS[ag]||[ag.toLowerCase()];
-    if(aliasse.some(a=>t.startsWith(a)))return ag;
+    if(aliasse.some(a=>{
+      if(!t.startsWith(a))return false;
+      const naechstesZeichen=t.charAt(a.length);
+      return naechstesZeichen===''||!/[a-zäöüß0-9]/.test(naechstesZeichen);
+    }))return ag;
   }
   return null;
 }
 function titelIstReiseNebentermin(titel){
   return /^(anreise|abreise|rückreise|rueckreise)/i.test((titel||'').trim());
+}
+/* Feste Kürzel für neu angelegte Termine — kurz, weil die Handy-Kalenderansicht
+   nur die ersten Wörter zeigt. Getrennt von AG_ALIAS: dort geht es um das
+   Wiedererkennen bestehender Titel, hier um das Bauen neuer. */
+const AG_KUERZEL={
+  'Going Public Akademie':'GP','BWV Rheinland':'BWV','IHK Köln':'IHK',
+  'Zinal':'ZIN','Global Finanz':'GF'
+};
+function agKuerzel(ag){ return AG_KUERZEL[ag]||(ag||'').split(' ')[0].replace('!','')||'Auftraggeber'; }
+/* Einzige Stelle, die einen Termintitel baut — genutzt von planTermineBauen
+   und vom Aufräumlauf. Aufbau: Kürzel · Kurs · Thema. Präsenz/Online gehört
+   ins Ort-Feld, nicht hierher. */
+function terminTitelBauen(ag,kurs,thema){
+  const kopf=[agKuerzel(ag),(kurs||'').trim()].filter(Boolean).join(' ');
+  return thema?(kopf?kopf+' · '+thema:thema):(kopf||thema||'Seminar');
 }
 /* Outlook-Kategorien, die ein von der App angelegter Termin bekommt:
    "Dozentur" als Sammelkategorie für alles Berufliche, dazu der Auftraggeber für Farbe/Filter. */
@@ -6459,9 +6484,9 @@ async function renderBriefing(){
   el('btnTagebuchSpeichern').addEventListener('click',tagebuchSpeichern);
   tagebuchLaden(next);
 }
-/* Die Reise selbst kennt keinen Kurs. Deshalb der gemerkte Kurs zum
-   Auftraggeber-Gesellschaft-Paar; ohne Merkeintrag bleibt es bei der
-   Gesellschaftsebene, damit alte Einträge sichtbar bleiben. */
+/* Seit dem eigenen Kursfeld im Reiseformular traegt t.kurs den Wert direkt;
+   der Merkeintrag zum Auftraggeber-Gesellschaft-Paar bleibt Rueckfall fuer
+   Reisen aus der Zeit davor, die noch kein Kursfeld hatten. */
 function tagebuchKurs(t){return (t&&t.kurs)||kursMemoGet(t&&t.ag,t&&t.gesellschaft)}
 async function tagebuchLaden(next){
   const box=el('tagebuchListe');if(!box)return;
@@ -7001,7 +7026,7 @@ el('btnSave').addEventListener('click',async()=>{
     state.trips[i]=Object.assign({},state.trips[i],t);
   }
   else state.trips.push(t);
-  if(t.typ!=='ihk')kgMemoUpdate(t.ag,t.kategorie,t.gesellschaft);
+  if(t.typ!=='ihk'){kgMemoUpdate(t.ag,t.kategorie,t.gesellschaft);kursMemoUpdate(t.ag,t.gesellschaft,t.kurs)}
   await save();closeForm();
   ui.q=perVon(t.von);ui.jahr=+t.von.slice(0,4);render();
   toast('Reise gespeichert');
@@ -7034,8 +7059,14 @@ function zeigeKontakt(){
   const k=KONTAKTE[ag];
   el('kontaktBox').innerHTML=k?'Ansprechpartner: '+esc(k.name)+' · <a href="mailto:'+esc(k.mail)+'">'+esc(k.mail)+'</a>':'';
 }
-el('fAg').addEventListener('change',()=>{el('fAgFrei').style.display=el('fAg').value==='__frei'?'block':'none';zeigeKontakt();kgMemoApply(el('fAg').value,'fKategorie','fGesellschaft','fGesellschaftFrei');ihkModusAnwenden()});
-el('fGesellschaft').addEventListener('change',()=>{el('fGesellschaftFrei').style.display=el('fGesellschaft').value==='__frei'?'block':'none'});
+el('fAg').addEventListener('change',()=>{el('fAgFrei').style.display=el('fAg').value==='__frei'?'block':'none';zeigeKontakt();kgMemoApply(el('fAg').value,'fKategorie','fGesellschaft','fGesellschaftFrei');ihkModusAnwenden();
+  const k=kursMemoGet(el('fAg').value==='__frei'?el('fAgFrei').value:el('fAg').value,el('fGesellschaft')?el('fGesellschaft').value:'');
+  if(k&&!el('fKurs').value)el('fKurs').value=k;
+});
+el('fGesellschaft').addEventListener('change',()=>{el('fGesellschaftFrei').style.display=el('fGesellschaft').value==='__frei'?'block':'none';
+  const k=kursMemoGet(el('fAg').value==='__frei'?el('fAgFrei').value:el('fAg').value,el('fGesellschaft').value);
+  if(k&&!el('fKurs').value)el('fKurs').value=k;
+});
 el('segAuto').addEventListener('click',()=>{verkehrsmittel='auto';syncVm();calcPreview()});
 el('btnInboxDikt').addEventListener('click',inboxDiktToggle);
 el('btnInboxSortieren').addEventListener('click',inboxSortieren);
@@ -7330,7 +7361,7 @@ document.addEventListener('click',e=>{
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v82';
+const APP_VERSION='v83';
 const APP_STAND='4. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
