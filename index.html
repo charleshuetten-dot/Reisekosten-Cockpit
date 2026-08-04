@@ -72,6 +72,10 @@ header h1 em{font-style:normal;color:var(--rot)}
   .wrap.spalten>.card,.wrap.spalten>details.card,.spalte>.card,.spalte>details.card{margin-bottom:0;width:auto}
   /* Kacheln, Zurück-Knopf, KPIs und breite Karten laufen über beide Spalten */
   .wrap.spalten>.zurueckStart,.wrap.spalten>.kpis,.wrap.spalten>.vollbreite{grid-column:1 / -1}
+  /* Die Startseite ist bewusst schmal: drei Bloecke untereinander lesen sich
+     ruhiger als vier Kacheln nebeneinander. Die Arbeitsbereiche bleiben breit,
+     dort stehen Monatsreihen und Auftraggeber-Tabellen. */
+  .wrap.schmal{max-width:980px}
 }
 header .wrap{padding:0 2px}
 
@@ -351,7 +355,7 @@ details.card[open]>summary::after{content:'–'}
 /* Platz schaffen, damit die Leiste nichts überdeckt */
 body{padding-bottom:64px}
 /* Das alte Reiter-Band nur noch auf Desktop zeigen; Handy nutzt die untere Leiste */
-@media (pointer:coarse){ .bereiche{display:none} }
+@media (max-width:899px){ .bereiche{display:none} }
 @media (min-width:900px){ .tabbar{display:none} body{padding-bottom:84px} }
 /* Die Aktionsleiste (.fab) ist seit Welle 3 in JEDEM Bereich sichtbar. Beide Leisten
    kleben am unteren Rand — am Handy muss die Aktionsleiste deshalb ÜBER der
@@ -363,9 +367,11 @@ body{padding-bottom:64px}
   .fab{bottom:calc(53px + env(safe-area-inset-bottom));padding-bottom:10px}
   body{padding-bottom:calc(140px + env(safe-area-inset-bottom))}
 }
-/* Obere Reiter-Leiste komplett ausgeblendet — Navigation läuft über Kacheln (Desktop)
-   und untere Leiste (Handy). "‹ Start" führt aus jedem Bereich zurück. */
-.bereiche{display:none!important}
+/* Die Reiterleiste war abgeschaltet, solange die Navigation ueber die Startkacheln
+   lief. Die Kacheln sind mit v73 gefallen, die Ausblendung blieb stehen — am
+   Desktop gab es danach ueberhaupt keine Navigation mehr, weil dort zugleich die
+   untere Leiste ausgeblendet ist. Jetzt gilt sauber getrennt: breiter Schirm
+   Reiter oben, schmaler Schirm untere Leiste. */
 .zurueckStart{display:inline-flex;align-items:center;gap:8px;background:var(--ink);
   border:0;border-radius:999px;padding:11px 22px;margin-bottom:18px;
   cursor:pointer;font:700 15px/1 'Barlow Condensed',sans-serif;text-transform:uppercase;
@@ -400,7 +406,7 @@ body{padding-bottom:64px}
 
 <div id="offlineBanner" style="display:none"></div>
 
-<div class="wrap spalten" id="bereichStart">
+<div class="wrap schmal" id="bereichStart">
 
 <div class="kpis" id="startKpis">
   <button type="button" class="kpi total" data-kpi="eingang"><div class="lbl">Eingang</div><div class="val" id="kpiEingang">–</div></button>
@@ -409,16 +415,6 @@ body{padding-bottom:64px}
   <button type="button" class="kpi total" data-kpi="rechnungen"><div class="lbl">Rechnungen</div><div class="val" id="kpiRechnungen">–</div></button>
 </div>
 
-<div class="card vollbreite" id="heuteCard">
-    <h2>Nächste sieben Tage
-      <span class="tools"><button class="minibtn" id="btnWocheReload">Aktualisieren</button></span>
-    </h2>
-    <div id="wocheListe" style="margin-top:8px"></div>
-    <div id="heuteZeile" class="hint" style="margin-top:10px"></div>
-  </div>
-
-<div class="card vollbreite" id="kalenderHinweis" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
-<div class="spalte">
 <div class="card" id="eingangCard">
     <h2>Eingang <span id="cockpitBadge" class="chip offen" style="display:none"></span>
       <span class="tools">
@@ -426,9 +422,10 @@ body{padding-bottom:64px}
         <button class="minibtn haupt" id="btnCockpitLesen">Alle auswerten</button>
       </span>
     </h2>
-    <div class="hint">Vier Wege herein: Mail in den Outlook-Ordner „Dozenten Cockpit" ziehen oder ihr die Kategorie „Seminarauftrag" geben, unterwegs per „Hey Google, erinnere mich …" sprechen, hier eine Datei einwerfen oder tippen. Auflisten kostet nichts — <b>Auswerten</b> je Zeile lässt Claude lesen, rund 1,5 Cent.</div>
-    <textarea id="inboxText" rows="2" placeholder="z. B. Folien für die Allianz-Schulung im August aktualisieren" style="width:100%;margin-top:8px"></textarea>
-    <div id="ibDrop" class="dropzone" style="margin-top:8px">
+    <div class="hint">Mail in den Outlook-Ordner „Dozenten Cockpit" ziehen, ihr die Kategorie „Seminarauftrag" geben, unterwegs sprechen, hier eine Datei einwerfen oder tippen. Auflisten kostet nichts, <b>Auswerten</b> je Zeile rund 1,5 Cent.</div>
+    <div id="kalenderHinweis" style="display:none;margin-top:8px;border:1px solid var(--warn);background:var(--warn-dim);border-radius:8px;padding:8px 10px"></div>
+    <textarea id="inboxText" rows="2" placeholder="Aufgabe, Gedanke oder Auftrag — tippen oder diktieren" style="width:100%;margin-top:8px"></textarea>
+    <div id="ibDrop" class="dropzone" style="margin-top:8px;padding:10px">
       Mail, Screenshot oder PDF hierher ziehen oder mit <b>Strg + V</b> einfügen.
       <input type="file" id="ibDropFile" accept=".eml,.msg,.png,.jpg,.jpeg,.pdf" style="display:none">
     </div>
@@ -458,8 +455,6 @@ body{padding-bottom:64px}
       <div class="hint" id="gtaskStatus"></div>
     </div>
   </div>
-</div>
-<div class="spalte">
 <details class="card" id="taskCard" open>
     <summary><h2 style="display:inline">Aufgaben</h2>
       <span class="tools"><button class="minibtn" id="btnTaskReload">Aktualisieren</button><button class="minibtn haupt" id="btnTaskNeu">+ Aufgabe</button></span>
@@ -476,6 +471,10 @@ body{padding-bottom:64px}
         </div>
       </div>
       <div class="f"><label>Fällig am (optional)</label><input type="date" id="tkFaellig"></div>
+      <div class="f"><label>Bezug (optional)</label>
+        <select id="tkBezug"></select>
+      </div>
+      <div class="f"><label>Notiz (optional)</label><textarea id="tkNotiz" rows="2"></textarea></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
         <button type="button" class="minibtn" id="btnTaskSpeichern">Anlegen</button>
         <button type="button" class="minibtn rot" id="btnTaskAbbrechen">Abbrechen</button>
@@ -485,9 +484,8 @@ body{padding-bottom:64px}
     <div id="taskBoard" style="margin-top:8px"></div>
   </details>
 </div>
-</div>
 
-<div class="wrap spalten" id="bereichSeminare" style="display:none">
+<div class="wrap" id="bereichSeminare" style="display:none">
 
 <!-- Seminartagebuch: gehoert zu den Seminaren -->
 <div class="card" id="briefingCard" style="display:none">
@@ -648,6 +646,107 @@ body{padding-bottom:64px}
 
 <div class="wrap" id="bereichWerkstatt" style="display:none">
 
+<details class="card" id="werkstattCard" open>
+    <summary>Unterlagen &amp; Prompts</summary>
+    <div class="hint">Für Seminarunterlagen und DIHK-Klausuren. Bereitet Ordner und Auftrag vor — die eigentliche Erstellung läuft dann in deinem Claude-Chat mit dem Gamma-Connector.</div>
+
+    <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau)">Kursordner</span>
+        <button class="minibtn" id="btnOrdnerReload">Aktualisieren</button><button class="minibtn" id="btnPfadKopieren">Pfad kopieren</button>
+      </div>
+      <div class="hint">Klick auf einen Ordner blättert direkt hier weiter, Dateien öffnen sich in OneDrive.</div>
+      <div id="ordnerGrid" style="margin-top:8px"></div>
+    </div>
+
+    <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
+      <div class="lbl-klein" style="margin-bottom:8px">Neuer Auftrag</div>
+      <div class="grid2">
+        <div class="f"><label>Auftraggeber / Bereich</label>
+          <select id="wsAg" class="ag-select ag-dihk"></select>
+          <input type="text" id="wsAgFrei" placeholder="Name" style="display:none;margin-top:6px">
+        </div>
+        <div class="f" id="wsDihkThemaWrap" style="display:none"><label>Klausur-Thema</label><input type="text" id="wsDihkThema" placeholder="z. B. Bausparen"></div>
+      </div>
+      <div class="grid2" id="wsKatWrap">
+        <div class="f"><label>Kategorie</label>
+          <select id="wsKategorie" class="kat-select"></select>
+        </div>
+        <div class="f"><label>Gesellschaft</label>
+          <select id="wsGesellschaft" class="ges-select"></select>
+          <input type="text" id="wsGesellschaftFrei" placeholder="Name" style="display:none;margin-top:6px">
+        </div>
+      </div>
+      <div class="f" id="wsKursWrap"><label>Kurs / Seminar</label>
+        <input type="text" id="wsKurs" list="kursListe" placeholder="z. B. Sachkunde 34d Aufbau">
+      </div>
+      <datalist id="kursListe"></datalist>
+      <div class="f"><label>Was soll passieren?</label><textarea id="wsAuftrag" rows="3" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 14px/1.45 'IBM Plex Sans',sans-serif" placeholder="z. B. Kapitel 3 der Folien aktualisieren, neue Praxisbeispiele ergänzen"></textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button type="button" class="minibtn" id="btnWsOrdner">Ordner in OneDrive öffnen</button>
+        <button type="button" class="minibtn" id="btnWsGenerate">✨ Prompt generieren</button>
+      </div>
+      <div class="hint" id="wsStatus"></div>
+      <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px">
+        <div class="lbl-klein">Direkt mit Gamma erzeugen</div>
+        <div class="hint" style="margin:4px 0 8px">Statt den Prompt zu kopieren: Gamma baut das Deck sofort und legt es im Kursordner ab.</div>
+        <div class="grid3">
+          <div class="f"><label>Format</label>
+            <select id="gaFormat"><option value="presentation">Präsentation</option><option value="document">Dokument</option></select>
+          </div>
+          <div class="f"><label>Karten</label><input type="number" id="gaKarten" min="1" max="60" value="12" inputmode="numeric"></div>
+          <div class="f"><label>Textmenge</label>
+            <select id="gaMenge"><option value="brief">knapp</option><option value="medium" selected>mittel</option><option value="detailed">ausführlich</option></select>
+          </div>
+        </div>
+        <div class="grid2" style="margin-top:6px">
+          <div class="f"><label>Dateiname / Thema</label>
+            <input type="text" id="gaThema" placeholder="z. B. Allgefahren-vs-klassisch"></div>
+          <div class="f"><label>Ablage als</label>
+            <select id="gaArt">
+              <option value="Folien">Folien</option>
+              <option value="Übung">Übung / Fall</option>
+              <option value="Handout">Handout (Teilnehmer)</option>
+              <option value="Skript">Skript</option>
+            </select></div>
+        </div>
+        <div class="hint" id="gaZielHinweis" style="margin-top:2px"></div>
+        <div class="btnreihe">
+          <button type="button" class="minibtn haupt" id="btnGammaGen">✨ Deck erzeugen</button>
+          <button type="button" class="minibtn" id="btnGammaAblage" style="display:none">In Kursordner ablegen</button>
+          <button type="button" class="minibtn" id="btnGammaUpdate" style="display:none">Aktualisierte Fassung holen</button>
+          <a href="#" target="_blank" rel="noopener" class="minibtn" id="gaLink" style="display:none;text-decoration:none">In Gamma öffnen ↗</a>
+        </div>
+        <details style="margin-top:8px">
+          <summary style="cursor:pointer;font-size:12.5px;color:var(--grau)">Bestehendes Gamma-Deck aus deiner Bibliothek holen</summary>
+          <div class="f" style="margin-top:6px"><label>Gamma-ID oder Link</label>
+            <input type="text" id="gaFremdId" placeholder="g_… oder https://gamma.app/docs/…"></div>
+          <button type="button" class="minibtn" id="btnGammaFremd">Diese Fassung holen</button>
+        </details>
+        <div class="hint" id="gaStatus" style="margin-top:6px"></div>
+      </div>
+      <div class="f" id="wsPromptWrap" style="display:none;margin-top:8px">
+        <label>Generierter Prompt (bei Bedarf anpassen)</label>
+        <textarea id="wsPromptText" rows="6" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 13.5px/1.45 'IBM Plex Sans',sans-serif"></textarea>
+        <button type="button" class="minibtn" id="btnWsCopyOpen" style="margin-top:6px">Kopieren &amp; Claude öffnen</button>
+      </div>
+    </div>
+
+    <details style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
+      <summary style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer">Arbeitszeit erfassen (Stundensatz)</summary>
+      <div style="margin-top:8px">
+        <div class="grid2">
+          <div class="f"><label>Stunden</label><input type="number" id="azStunden" min="0" step="0.25" inputmode="decimal" placeholder="z. B. 1,5"></div>
+          <div class="f"><label>Stundensatz (€)</label><input type="number" id="azSatz" min="0" step="1" inputmode="decimal" placeholder="z. B. 90"></div>
+        </div>
+        <div class="f"><label>Beschreibung</label><input type="text" id="azBeschreibung" placeholder="z. B. Foliensatz Kapitel 3 überarbeitet"></div>
+        <button type="button" class="minibtn" id="btnAzSpeichern" style="margin-top:6px">Erfassen</button>
+        <div class="hint" id="azStatus"></div>
+        <div id="azListe" style="margin-top:6px"></div>
+      </div>
+    </details>
+  </details>
+
 <div class="card vollbreite" id="jobCard">
     <h2>Arbeitsaufträge
       <span class="tools"><button class="minibtn haupt" id="btnJobNeu">+ Auftrag</button></span>
@@ -753,123 +852,25 @@ body{padding-bottom:64px}
     </div>
   </div>
 
-<details class="card" id="werkstattCard">
-    <summary>Ordner & Auftrag</summary>
-    <div class="hint">Für Seminarunterlagen und DIHK-Klausuren. Bereitet Ordner und Auftrag vor — die eigentliche Erstellung läuft dann in deinem Claude-Chat mit dem Gamma-Connector.</div>
 
-    <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau)">Kursordner</span>
-        <button class="minibtn" id="btnOrdnerReload">Aktualisieren</button><button class="minibtn" id="btnPfadKopieren">Pfad kopieren</button>
-      </div>
-      <div class="hint">Klick auf einen Ordner blättert direkt hier weiter, Dateien öffnen sich in OneDrive.</div>
-      <div id="ordnerGrid" style="margin-top:8px"></div>
-    </div>
-
-    <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
-      <div class="lbl-klein" style="margin-bottom:8px">Neuer Auftrag</div>
-      <div class="grid2">
-        <div class="f"><label>Auftraggeber / Bereich</label>
-          <select id="wsAg" class="ag-select ag-dihk"></select>
-          <input type="text" id="wsAgFrei" placeholder="Name" style="display:none;margin-top:6px">
-        </div>
-        <div class="f" id="wsDihkThemaWrap" style="display:none"><label>Klausur-Thema</label><input type="text" id="wsDihkThema" placeholder="z. B. Bausparen"></div>
-      </div>
-      <div class="grid2" id="wsKatWrap">
-        <div class="f"><label>Kategorie</label>
-          <select id="wsKategorie" class="kat-select"></select>
-        </div>
-        <div class="f"><label>Gesellschaft</label>
-          <select id="wsGesellschaft" class="ges-select"></select>
-          <input type="text" id="wsGesellschaftFrei" placeholder="Name" style="display:none;margin-top:6px">
-        </div>
-      </div>
-      <div class="f" id="wsKursWrap"><label>Kurs / Seminar</label>
-        <input type="text" id="wsKurs" list="kursListe" placeholder="z. B. Sachkunde 34d Aufbau">
-      </div>
-      <datalist id="kursListe"></datalist>
-      <div class="f"><label>Was soll passieren?</label><textarea id="wsAuftrag" rows="3" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 14px/1.45 'IBM Plex Sans',sans-serif" placeholder="z. B. Kapitel 3 der Folien aktualisieren, neue Praxisbeispiele ergänzen"></textarea></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-        <button type="button" class="minibtn" id="btnWsOrdner">Ordner in OneDrive öffnen</button>
-        <button type="button" class="minibtn" id="btnWsGenerate">✨ Prompt generieren</button>
-      </div>
-      <div class="hint" id="wsStatus"></div>
-      <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px">
-        <div class="lbl-klein">Direkt mit Gamma erzeugen</div>
-        <div class="hint" style="margin:4px 0 8px">Statt den Prompt zu kopieren: Gamma baut das Deck sofort und legt es im Kursordner ab.</div>
-        <div class="grid3">
-          <div class="f"><label>Format</label>
-            <select id="gaFormat"><option value="presentation">Präsentation</option><option value="document">Dokument</option></select>
-          </div>
-          <div class="f"><label>Karten</label><input type="number" id="gaKarten" min="1" max="60" value="12" inputmode="numeric"></div>
-          <div class="f"><label>Textmenge</label>
-            <select id="gaMenge"><option value="brief">knapp</option><option value="medium" selected>mittel</option><option value="detailed">ausführlich</option></select>
-          </div>
-        </div>
-        <div class="grid2" style="margin-top:6px">
-          <div class="f"><label>Dateiname / Thema</label>
-            <input type="text" id="gaThema" placeholder="z. B. Allgefahren-vs-klassisch"></div>
-          <div class="f"><label>Ablage als</label>
-            <select id="gaArt">
-              <option value="Folien">Folien</option>
-              <option value="Übung">Übung / Fall</option>
-              <option value="Handout">Handout (Teilnehmer)</option>
-              <option value="Skript">Skript</option>
-            </select></div>
-        </div>
-        <div class="hint" id="gaZielHinweis" style="margin-top:2px"></div>
-        <div class="btnreihe">
-          <button type="button" class="minibtn haupt" id="btnGammaGen">✨ Deck erzeugen</button>
-          <button type="button" class="minibtn" id="btnGammaAblage" style="display:none">In Kursordner ablegen</button>
-          <button type="button" class="minibtn" id="btnGammaUpdate" style="display:none">Aktualisierte Fassung holen</button>
-          <a href="#" target="_blank" rel="noopener" class="minibtn" id="gaLink" style="display:none;text-decoration:none">In Gamma öffnen ↗</a>
-        </div>
-        <details style="margin-top:8px">
-          <summary style="cursor:pointer;font-size:12.5px;color:var(--grau)">Bestehendes Gamma-Deck aus deiner Bibliothek holen</summary>
-          <div class="f" style="margin-top:6px"><label>Gamma-ID oder Link</label>
-            <input type="text" id="gaFremdId" placeholder="g_… oder https://gamma.app/docs/…"></div>
-          <button type="button" class="minibtn" id="btnGammaFremd">Diese Fassung holen</button>
-        </details>
-        <div class="hint" id="gaStatus" style="margin-top:6px"></div>
-      </div>
-      <div class="f" id="wsPromptWrap" style="display:none;margin-top:8px">
-        <label>Generierter Prompt (bei Bedarf anpassen)</label>
-        <textarea id="wsPromptText" rows="6" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 13.5px/1.45 'IBM Plex Sans',sans-serif"></textarea>
-        <button type="button" class="minibtn" id="btnWsCopyOpen" style="margin-top:6px">Kopieren &amp; Claude öffnen</button>
-      </div>
-    </div>
-
-    <details style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
-      <summary style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer">Arbeitszeit erfassen (Stundensatz)</summary>
-      <div style="margin-top:8px">
-        <div class="grid2">
-          <div class="f"><label>Stunden</label><input type="number" id="azStunden" min="0" step="0.25" inputmode="decimal" placeholder="z. B. 1,5"></div>
-          <div class="f"><label>Stundensatz (€)</label><input type="number" id="azSatz" min="0" step="1" inputmode="decimal" placeholder="z. B. 90"></div>
-        </div>
-        <div class="f"><label>Beschreibung</label><input type="text" id="azBeschreibung" placeholder="z. B. Foliensatz Kapitel 3 überarbeitet"></div>
-        <button type="button" class="minibtn" id="btnAzSpeichern" style="margin-top:6px">Erfassen</button>
-        <div class="hint" id="azStatus"></div>
-        <div id="azListe" style="margin-top:6px"></div>
-      </div>
-    </details>
-  </details>
 
 </div>
 
-<div class="wrap spalten" id="bereichAbrechnung" style="display:none">
-
-<!-- Nachbereitung: gehoert zur Abrechnung, nicht auf die Startseite -->
-<div class="card" id="nachCard" style="display:none;border-color:var(--warn)">
-    <h2>Nachbereitung</h2>
-    <div class="hint">Gelaufene Seminare — Verpflegung prüfen und abhaken. Danach sind sie abrechnungsfertig.</div>
-    <div id="nachListe" style="margin-top:8px"></div>
-  </div>
+<div class="wrap" id="bereichAbrechnung" style="display:none">
 
   <div class="quicknav">
     <button type="button" data-jump="agMonatCard">Auftraggeber</button>
     <button type="button" data-jump="sccCard">SCC-Erstattung</button>
     <button type="button" data-jump="portalKacheln">IHK &amp; DATEV</button>
     <button type="button" data-jump="jahrCard">Jahr</button>
+  </div>
+
+
+<!-- Nachbereitung: gehoert zur Abrechnung, nicht auf die Startseite -->
+<div class="card" id="nachCard" style="display:none;border-color:var(--warn)">
+    <h2>Nachbereitung</h2>
+    <div class="hint">Gelaufene Seminare — Verpflegung prüfen und abhaken. Danach sind sie abrechnungsfertig.</div>
+    <div id="nachListe" style="margin-top:8px"></div>
   </div>
 
 <!-- Stufe 2, monatlich: SCC/Coaching stellt dem Auftraggeber in Rechnung.
@@ -1008,7 +1009,7 @@ body{padding-bottom:64px}
 
 </div>
 
-<div class="wrap spalten" id="bereichTools" style="display:none">
+<div class="wrap" id="bereichTools" style="display:none">
 
 <div class="kpis" id="toolKpis"></div>
 
@@ -2917,9 +2918,14 @@ function renderTaskFilter(){
 function taskBearbeiten(id){
   const t=taskCache.find(x=>x.id===id); if(!t)return;
   const row=document.querySelector('[data-trow="'+id+'"]'); if(!row)return;
-  const notiz=String((t.body&&t.body.content)||'').replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
+  const roh=String((t.body&&t.body.content)||'').replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
+  /* Die Kennung bleibt aus dem Textfeld heraus — sie ist Technik, kein Inhalt,
+     und wuerde beim Ueberschreiben der Notiz sonst mit verschwinden. */
+  const bezug=bezugLesen(roh);
+  const notiz=roh.replace(/\[cockpit:[^\]]+\]/,'').trim();
   row.innerHTML='<div class="f"><label>Titel</label><input type="text" class="teTitel" value="'+esc(t.title||'')+'"></div>'+
     '<div class="f" style="margin-top:6px"><label>Notiz</label><textarea class="teNotiz" rows="3">'+esc(notiz)+'</textarea></div>'+
+    (bezug?'<div class="hint">Bezug: '+esc(bezugText(bezug)||'Auftrag')+'</div>':'')+
     '<div style="display:flex;gap:8px;margin-top:8px">'+
     '<button type="button" class="minibtn haupt teOk">Speichern</button>'+
     '<button type="button" class="minibtn teAb">Abbrechen</button></div>';
@@ -2928,7 +2934,9 @@ function taskBearbeiten(id){
   row.querySelector('.teOk').addEventListener('click',()=>{
     const titel=row.querySelector('.teTitel').value.trim();
     if(!titel){toast('Ohne Titel geht es nicht');return}
-    taskAendern(id,{title:titel,body:{content:row.querySelector('.teNotiz').value,contentType:'text'}});
+    let inhalt=row.querySelector('.teNotiz').value.trim();
+    if(bezug)inhalt=(inhalt?inhalt+'\n\n':'')+bezugKennung(bezug.art,bezug.id);
+    taskAendern(id,{title:titel,body:{content:inhalt,contentType:'text'}});
   });
 }
 function renderTaskBoard(){
@@ -2952,6 +2960,10 @@ function renderTaskBoard(){
   box.querySelectorAll('[data-tstart]').forEach(b=>b.addEventListener('click',()=>taskAendern(b.dataset.tstart,{status:'inProgress'})));
   box.querySelectorAll('[data-tedit]').forEach(b=>b.addEventListener('click',()=>taskBearbeiten(b.dataset.tedit)));
   box.querySelectorAll('[data-flagfix]').forEach(b=>b.addEventListener('click',()=>flaggeEinsortieren(b.dataset.flagfix)));
+  box.querySelectorAll('[data-tgo]').forEach(b=>b.addEventListener('click',()=>{
+    const t=taskCache.find(x=>x.id===b.dataset.tgo);
+    bezugAnspringen(bezugLesen(String((t&&t.body&&t.body.content)||'').replace(/<[^>]+>/g,'')));
+  }));
   box.querySelectorAll('select[data-tprio]').forEach(s=>s.addEventListener('change',()=>taskAendern(s.dataset.tprio,{importance:s.value})));
   box.querySelectorAll('input[data-tdue]').forEach(i=>i.addEventListener('change',()=>{
     const v=i.value;
@@ -2982,18 +2994,64 @@ async function flaggeEinsortieren(id){
   el('inboxStatus').textContent=warFlagge?'Aus einer gekennzeichneten Mail — Titel anpassen, Liste wählen, anlegen. Die Kennzeichnung wird danach entfernt.':'Aus „'+(t._listName||'Aufgaben')+'“ — Liste wählen und anlegen. Die alte Aufgabe wird danach abgehakt.';
   el('eingangCard').scrollIntoView({behavior:'smooth',block:'center'});
 }
+/* ---------- Bezug zwischen Aufgabe und Cockpit-Datensatz ----------
+   Microsoft To Do kennt keine Fremdschluessel. Damit eine Aufgabe spaeter zu
+   ihrem Auftrag zurueckfuehrt, wird die Kennung an das Ende der Notiz gehaengt:
+   [cockpit:reise:<id>] bzw. [cockpit:job:<id>]. Sie steht in eckigen Klammern
+   am Zeilenende, damit sie in To Do selbst nicht stoert und beim Bearbeiten
+   nicht versehentlich zerschossen wird. */
+function bezugKennung(art,id){return '[cockpit:'+art+':'+id+']'}
+function bezugLesen(text){
+  const m=/\[cockpit:(reise|job):([A-Za-z0-9_-]+)\]/.exec(String(text||''));
+  return m?{art:m[1],id:m[2]}:null;
+}
+function bezugText(b){
+  if(!b)return '';
+  if(b.art==='reise'){
+    const t=(state.trips||[]).find(x=>x.id===b.id);
+    return t?((t.zweck||t.ag||'Auftrag')+(t.von?' · '+dfmt(t.von):'')):'';
+  }
+  const j=(state.jobs||[]).find(x=>x.id===b.id);
+  return j?((JOB_ARTEN[j.art]||'Arbeitsauftrag')+(j.titel?' · '+j.titel:'')):'';
+}
+/* Auswahl im Aufgabenformular: offene Auftraege, neueste zuerst. */
+function tkBezugFuellen(){
+  const sel=el('tkBezug'); if(!sel)return;
+  const opts=['<option value="">— kein Bezug —</option>'];
+  (state.trips||[]).filter(t=>!t.abgerechnet).sort((a,b)=>(b.von||'').localeCompare(a.von||'')).slice(0,25)
+    .forEach(t=>opts.push('<option value="reise:'+t.id+'">'+esc((t.zweck||t.ag||'Auftrag')+(t.von?' · '+dfmt(t.von):''))+'</option>'));
+  (state.jobs||[]).filter(j=>(j.status||'offen')!=='abgerechnet').slice(0,25)
+    .forEach(j=>opts.push('<option value="job:'+j.id+'">'+esc((JOB_ARTEN[j.art]||'Arbeitsauftrag')+(j.titel?' · '+j.titel:''))+'</option>'));
+  sel.innerHTML=opts.join('');
+}
+/* Springt aus der Aufgabe in den Datensatz, auf den sie sich bezieht. */
+function bezugAnspringen(b){
+  if(!b)return;
+  if(b.art==='reise'){
+    const t=(state.trips||[]).find(x=>x.id===b.id);
+    if(!t){toast('Der zugehörige Auftrag wurde gelöscht');return}
+    bereichWechseln('seminare'); openForm(t.id);
+  }else{
+    const j=(state.jobs||[]).find(x=>x.id===b.id);
+    if(!j){toast('Der zugehörige Arbeitsauftrag wurde gelöscht');return}
+    bereichWechseln('werkstatt'); jobFormOeffnen(j.id);
+  }
+}
 function taskRowHtml(t){
   const due=t.dueDateTime&&t.dueDateTime.dateTime?t.dueDateTime.dateTime.slice(0,10):'';
   /* Herkunft = Liste (das neue Ordnungssystem), Kategorie nur als Rückfall
      für Aufgaben, die noch in der Standardliste liegen. */
   const kat=t._listName||(t.categories||[]).find(c=>TASK_KATEGORIEN.includes(c))||'';
-  const hatNotiz=!!String((t.body&&t.body.content)||'').replace(/<[^>]+>/g,'').trim();
+  const rohNotiz=String((t.body&&t.body.content)||'').replace(/<[^>]+>/g,'');
+  const bezug=bezugLesen(rohNotiz);
+  const hatNotiz=!!rohNotiz.replace(/\[cockpit:[^\]]+\]/,'').trim();
   return '<div class="trow" data-trow="'+t.id+'">'+
     '<div class="ttitle">'+esc(t.title)+'</div>'+
     '<div class="tmeta">'+
     (kat?'<span class="tpill">'+esc(kat)+'</span>':'')+
     (t.importance==='high'?'<span class="tpill prio-high">Hoch</span>':'')+
     (hatNotiz?'<span class="tpill" title="Notiz vorhanden">Notiz</span>':'')+
+    (bezug?'<button type="button" class="minibtn klein" data-tgo="'+t.id+'" title="'+esc(bezugText(bezug)||'Zum Auftrag')+'">↗ Auftrag</button>':'')+
     '<input type="date" data-tdue="'+t.id+'" value="'+due+'" style="font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 4px">'+
     '<select data-tprio="'+t.id+'" style="width:auto"><option value="normal"'+(t.importance==='normal'?' selected':'')+'>Normal</option><option value="high"'+(t.importance==='high'?' selected':'')+'>Hoch</option><option value="low"'+(t.importance==='low'?' selected':'')+'>Niedrig</option></select>'+
     ((istFlaggenListe(t._listName)||t._istDefault)?'<button type="button" class="minibtn klein" data-flagfix="'+t.id+'" title="In die richtige Liste übernehmen">→ Einsortieren</button>':'')+
@@ -3030,7 +3088,9 @@ async function tkListenFuellen(){
     sel.value=wunsch;
   }catch(e){ if(!sel.options.length)sel.innerHTML='<option>Dozentur</option>' }
 }
-function taskFormOeffnen(){el('tkTitel').value='';el('tkFaellig').value='';tkListenFuellen();sheetAuf('taskForm')}
+function taskFormOeffnen(){el('tkTitel').value='';el('tkFaellig').value='';
+  if(el('tkNotiz'))el('tkNotiz').value='';
+  tkListenFuellen();tkBezugFuellen();sheetAuf('taskForm')}
 async function taskAnlegen(){
   const titel=el('tkTitel').value.trim();
   if(!titel){toast('Bitte Titel eingeben');return}
@@ -3043,6 +3103,12 @@ async function taskAnlegen(){
     const listId=(ziel&&ziel.id)||await taskListIdHolen();
     const body={title:titel,categories:[kat],importance:el('tkPrio').value};
     if(el('tkFaellig').value)body.dueDateTime={dateTime:el('tkFaellig').value+'T00:00:00',timeZone:'Europe/Berlin'};
+    /* Notiz plus Kennung: die Kennung steht am Ende, damit sie beim Bearbeiten
+       in To Do nicht mitten im Text steht. */
+    const bez=(el('tkBezug')&&el('tkBezug').value)||'';
+    let notiz=(el('tkNotiz')&&el('tkNotiz').value.trim())||'';
+    if(bez){const p=bez.split(':'); notiz=(notiz?notiz+'\n\n':'')+bezugKennung(p[0],p[1])}
+    if(notiz)body.body={content:notiz,contentType:'text'};
     await graph('/me/todo/lists/'+encodeURIComponent(listId)+'/tasks',{method:'POST',body:JSON.stringify(body)});
     sheetZu();
     toast('Aufgabe angelegt');
@@ -3240,61 +3306,6 @@ function renderJobs(){
    im Cockpit wird (Prueferausschuss, Rueckruf, Privates). Ohne Verbindung
    faellt die Liste auf die erfassten Reisen zurueck, damit die Karte offline
    nicht leer bleibt. */
-async function wocheLaden(){
-  const box=el('wocheListe'); if(!box)return;
-  const a=new Date(), b=new Date(); b.setDate(b.getDate()+7);
-  const vonISO=ymd(a), bisISO=ymd(b);
-  if(!msAccount){wocheAusReisen(vonISO,bisISO);return}
-  box.innerHTML='<div class="hint"><span class="spin"></span>Lade Termine \u2026</div>';
-  try{
-    const d=await graph('/me/calendarView?startDateTime='+vonISO+'T00:00:00&endDateTime='+bisISO+'T23:59:59&$top=100&$select=subject,start,end,location,isAllDay,isOnlineMeeting&$orderby=start/dateTime');
-    const evts=(d.value||[]);
-    if(!evts.length){box.innerHTML='<div class="hint">Keine Termine in den nächsten sieben Tagen.</div>';return}
-    const tage={};
-    evts.forEach(e=>{
-      const tag=((e.start&&e.start.dateTime)||'').slice(0,10); if(!tag)return;
-      const zeit=e.isAllDay?'ganztägig':((e.start.dateTime||'').slice(11,16));
-      const ort=e.isOnlineMeeting?'online':((e.location&&e.location.displayName)||'');
-      (tage[tag]=tage[tag]||[]).push({zeit,titel:e.subject||'(ohne Titel)',ort});
-    });
-    box.innerHTML=wocheHtml(tage);
-  }catch(err){wocheAusReisen(vonISO,bisISO)}
-}
-function wocheAusReisen(vonISO,bisISO){
-  const box=el('wocheListe'); if(!box)return;
-  const tage={};
-  (state.trips||[]).filter(t=>t.von&&t.von>=vonISO&&t.von<=bisISO).forEach(t=>{
-    (tage[t.von]=tage[t.von]||[]).push({zeit:'',titel:t.zweck||t.ag||'Seminar',ort:t.online?'online':(t.ziel||'')});
-  });
-  box.innerHTML=Object.keys(tage).length
-    ? '<div class="hint" style="margin-bottom:6px">Ohne Outlook-Verbindung — aus den erfassten Reisen.</div>'+wocheHtml(tage)
-    : '<div class="hint">Keine Termine in den nächsten sieben Tagen.</div>';
-}
-function wocheHtml(tage){
-  const WT=['So','Mo','Di','Mi','Do','Fr','Sa'];
-  return Object.keys(tage).sort().map(tag=>{
-    const d=new Date(tag+'T12:00:00');
-    const kopf=WT[d.getDay()]+' '+dfmt(tag)+(tag===heuteISO()?' · heute':'');
-    const zeilen=tage[tag].map(x=>
-      '<div style="display:flex;gap:10px;padding:3px 0">'+
-      '<span class="mono" style="min-width:58px;color:var(--grau)">'+esc(x.zeit)+'</span>'+
-      '<span>'+esc(x.titel)+(x.ort?' <span style="color:var(--grau)">· '+esc(x.ort)+'</span>':'')+'</span></div>').join('');
-    return '<div style="margin-bottom:10px"><div class="lbl-klein">'+esc(kopf)+'</div>'+zeilen+'</div>';
-  }).join('');
-}
-
-function renderHeuteZeile(){
-  const box=el('heuteZeile'); if(!box)return;
-  const teile=[];
-  /* Nachbereitung und offene Abrechnung stehen seit dem Umbau in der
-     Kennzahlenleiste, die Termine in der Liste darueber. Hier bleibt nur, was
-     sonst nirgends auftaucht: Arbeitsauftraege mit naher Frist. */
-  const jobs=(state.jobs||[]).filter(j=>(j.status||'offen')!=='abgerechnet' && j.deadline);
-  const eilig=jobs.filter(j=>jobTageBisDeadline(j)!==null && jobTageBisDeadline(j)<=7);
-  if(eilig.length)teile.push('<span style="color:var(--rot)">'+eilig.length+(eilig.length===1?' Arbeitsauftrag fällig':' Arbeitsaufträge fällig')+'</span>');
-
-  box.innerHTML=teile.join(' &nbsp;·&nbsp; ');
-}
 
 /* Getippte oder diktierte Notiz — dieselbe Strecke wie Mail und Datei.
    Frueher hatte der Schnellerfassen-Dialog einen eigenen, dritten Prompt mit
@@ -5197,7 +5208,7 @@ function bereichWechseln(b,ziel){
   if(b==='abrechnung'){renderNachbereitung();render()}
   if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true)}
   if(b==='werkstatt')renderJobs();
-  if(b==='start'){renderTbAuswertung();renderHeuteZeile();wocheLaden()}
+  if(b==='start')renderTbAuswertung();
   /* FAB ist jetzt ueberall sichtbar — der Schnellerfassen-Knopf soll in jedem Bereich
      erreichbar sein. "+ Reise erfassen" und CSV blenden sich bereichsabhaengig aus. */
   document.querySelector('.fab').style.display='flex';
@@ -6769,9 +6780,11 @@ async function autoKalenderCheck(){
     const heute=new Date();
     const bisD=new Date();bisD.setDate(bisD.getDate()+45);
     const von=ymd(heute), bis=ymd(bisD);
-    const d=await graph('/me/calendarView?startDateTime='+von+'T00:00:00&endDateTime='+bis+'T23:59:59&$top=200&$select=subject,start,categories');
+    const d=await graph('/me/calendarView?startDateTime='+von+'T00:00:00&endDateTime='+bis+'T23:59:59&$top=200&$select=subject,start,categories,isOnlineMeeting');
     const evts=(d.value||[]).filter(e=>{
       if(titelIstReiseNebentermin(e.subject))return false;
+      /* Global Finanz online steckt in der Monatspauschale — kein eigener Auftrag */
+      if(e.isOnlineMeeting&&titelAuftraggeber(e.subject)==='Global Finanz')return false;
       return evtIstBeruflich(e);
     });
     const neue=evts.filter(e=>{
@@ -6927,13 +6940,20 @@ async function importKalender(){
     const arr=JSON.parse(clean.slice(start,end+1));
     if(!arr.length){st.textContent='Keine passenden Termine im Zeitraum gefunden.';el('iStart').disabled=false;return}
     kalVorschlaege=arr.filter(e=>e.von).map(e=>{
-      const p={id:uid(),ag:(e.auftraggeber||'').trim(),ziel:e.ziel||'',adresse:e.adresse||'',
+      /* Die App kennt die Kuerzel („GF " = Global Finanz, „GP " = Going Public),
+         das Modell raet nur. Wo titelAuftraggeber greift, gewinnt es — sonst
+         wurde aus „GF 34 K2" regelmaessig Going Public. */
+      const ausTitel=titelAuftraggeber(e.zweck||'')||titelAuftraggeber(e.auftraggeber||'');
+      const p={id:uid(),ag:ausTitel||(e.auftraggeber||'').trim(),ziel:e.ziel||'',adresse:e.adresse||'',
         zweck:e.zweck||'',anreise:e.anreise||'',von:e.von,bis:e.bis||e.von,abreise:e.abreise||'',
         kategorie:KATEGORIEN.includes(e.kategorie)?e.kategorie:'Sonstiges',online:!!e.online};
       const tr=reiseTreffer({von:p.von,bis:p.bis,auftraggeber:p.ag,ziel:p.ziel});
       p.trefferId=tr?tr.id:null;
       return p;
-    });
+    /* Global Finanz online laeuft ueber die Monatspauschale — ein Datensatz je
+       Termin wuerde die Rechnungsgrundlage doppelt fuellen. In Praesenz braucht
+       es ihn trotzdem, dort haengen Kilometer und Verpflegung daran. */
+    }).filter(p=>!(p.ag==='Global Finanz'&&p.online));
     if(!kalVorschlaege.length){st.textContent='Keine passenden Termine im Zeitraum gefunden.';el('iStart').disabled=false;return}
     el('iSuche').style.display='none'; el('iStart').style.display='none'; el('iNeu').style.display='block';
     renderKalVorschlaege(); kalRestHinweis();
@@ -7048,7 +7068,6 @@ el('mGesellschaft').addEventListener('change',()=>{
   const k=kursMemoGet(ag,ges);
   if(k)el('mKurs').value=k;
 });
-el('btnWocheReload').addEventListener('click',wocheLaden);
 el('btnTaskReload').addEventListener('click',()=>{taskListen=null;taskListId=null;taskBoardLaden()});
 el('btnTaskNeu').addEventListener('click',taskFormOeffnen);
 el('btnTaskSpeichern').addEventListener('click',taskAnlegen);
@@ -7311,8 +7330,8 @@ document.addEventListener('click',e=>{
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v80';
-const APP_STAND='3. August 2026';
+const APP_VERSION='v82';
+const APP_STAND='4. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
   let geladen=null;
