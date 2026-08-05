@@ -1120,6 +1120,14 @@ body{padding-bottom:64px}
     </div>
   </div>
 
+<div class="card">
+    <h2>Postfach aufräumen</h2>
+    <div class="hint">Mails, die flach in „Erledigt" liegen statt in einem Kürzel-Unterordner — etwa aus der Zeit vor dieser Umstellung, oder von Hand einsortiert. Prüft nur den Betreff, ruft Claude nicht auf. Ohne erkannten Auftraggeber wird nichts vorgeschlagen.</div>
+    <button type="button" class="minibtn" id="btnPostfachAufraeumen" style="margin-top:8px">Jetzt prüfen</button>
+    <div class="hint" id="aufraeumStatus" style="margin-top:6px"></div>
+    <div id="aufraeumListe" style="margin-top:8px"></div>
+  </div>
+
 <div class="vollbreite" id="versionZeile"></div>
 </div>
 
@@ -4460,6 +4468,11 @@ const COCKPIT_ORDNER='dozenten cockpit';
 const COCKPIT_ERLEDIGT='erledigt';
 const EINGANG_KATEGORIE='Seminarauftrag';
 const EINGANG_PREIS='rund 1,5 Cent';
+/* Bearbeitete Mails landen nicht mehr flach in „Erledigt", sondern in einem
+   Kürzel-Unterordner je Auftraggeber (AG_KUERZEL) — dieselbe Kurzform wie im
+   Kalender. Kein eigener Ordnerbaum: nur eine Ebene, keine zweite Wahrheit
+   neben der OneDrive-Ablage. Ohne erkennbaren Auftraggeber: Sonstiges. */
+const EINGANG_ABLAGE_SONSTIGES='Sonstiges';
 let cockpitOrdner=null, eingangEintraege=[], eingangWartet=null;
 
 /* Bewusst OHNE $filter: Umlaute und Leerzeichen im Ordnernamen brechen die
@@ -4477,8 +4490,44 @@ async function cockpitOrdnerHolen(neu){
   if(!o)o=await suche('/me/mailFolders/inbox/childFolders',COCKPIT_ORDNER);
   if(!o){cockpitOrdner=null;return null}
   const erl=await suche('/me/mailFolders/'+encodeURIComponent(o.id)+'/childFolders',COCKPIT_ERLEDIGT);
-  cockpitOrdner={id:o.id,anzahl:o.totalItemCount||0,erledigtId:erl?erl.id:null};
+  const altUnter=(cockpitOrdner&&cockpitOrdner.erledigtId===(erl?erl.id:null))?cockpitOrdner.unterordner:null;
+  cockpitOrdner={id:o.id,anzahl:o.totalItemCount||0,erledigtId:erl?erl.id:null,unterordner:altUnter||{}};
   return cockpitOrdner;
+}
+
+/* Liefert die ID des Kürzel-Unterordners unter „Erledigt", legt ihn beim
+   ersten Mal an. Groß-/Kleinschreibung beim Vergleich egal, falls der Ordner
+   von Hand entstanden ist. Ergebnis wird auf cockpitOrdner.unterordner
+   gecacht, damit nicht jede Mail eine eigene Ordnerliste holt. */
+async function erledigtUnterordnerHolen(name){
+  const o=await cockpitOrdnerHolen();
+  if(!o||!o.erledigtId)return null;
+  const schluessel=(name||EINGANG_ABLAGE_SONSTIGES);
+  if(o.unterordner[schluessel])return o.unterordner[schluessel];
+  try{
+    const r=await graph('/me/mailFolders/'+encodeURIComponent(o.erledigtId)+'/childFolders?$top=100&$select=id,displayName');
+    const f=(r.value||[]).find(x=>(x.displayName||'').trim().toLowerCase()===schluessel.toLowerCase());
+    if(f){o.unterordner[schluessel]=f.id;return f.id}
+  }catch(e){}
+  try{
+    const neu=await graph('/me/mailFolders/'+encodeURIComponent(o.erledigtId)+'/childFolders',
+      {method:'POST',body:JSON.stringify({displayName:schluessel})});
+    o.unterordner[schluessel]=neu.id;
+    return neu.id;
+  }catch(e){return null}
+}
+
+/* Bestimmt, in welchen Kürzel-Unterordner eine bearbeitete Mail gehört —
+   liest den Auftraggeber aus dem bereits erkannten Vorschlag, keine zweite
+   Erkennung, keine weiteren Kosten. IHK-Vorgänge haben kein eigenes
+   Auftraggeber-Feld, gehören aber immer zu IHK Köln. Ohne Treffer: Sonstiges. */
+function eingangAblageOrdner(e){
+  for(const v of (e.vorschlaege||[])){
+    const ag=(v.felder||{}).auftraggeber;
+    if(ag&&AG_KUERZEL[ag])return AG_KUERZEL[ag];
+    if(v.art==='ihk')return AG_KUERZEL['IHK Köln'];
+  }
+  return EINGANG_ABLAGE_SONSTIGES;
 }
 
 /* Nur zaehlen: zwei Graph-Abfragen, kein Modellaufruf, keine Kosten. */
@@ -4712,7 +4761,7 @@ async function eingangAktion(was,i,j){
   if(was==='lesen'){ e.fehler=null; await eingangMailAuswerten(i); return }
   if(was==='fertig'){
     eingangEintraege.splice(i,1);
-    if(e.mailId)await cockpitVerschieben(e.mailId);
+    if(e.mailId)await cockpitVerschieben(e.mailId,eingangAblageOrdner(e));
     eingangRendern(); eingangZaehlen();
     return;
   }
@@ -4741,7 +4790,8 @@ async function eingangAktion(was,i,j){
       v.erledigt=true;
       if((e.vorschlaege||[]).every(x=>x.erledigt)){
         eingangEintraege.splice(i,1);
-        if(e.mailId){try{await cockpitVerschieben(e.mailId);toast('Mail nach „Erledigt" verschoben')}catch(err){}}
+        const ordner=eingangAblageOrdner(e);
+        if(e.mailId){try{await cockpitVerschieben(e.mailId,ordner);toast('Mail nach „Erledigt/'+ordner+'" verschoben')}catch(err){}}
       }
     }
     eingangRendern(); eingangZaehlen();
@@ -4776,19 +4826,62 @@ async function eingangAbschliessen(art){
   if((e.vorschlaege||[]).some(x=>!x.erledigt)){eingangRendern();return}
   eingangEintraege.splice(i,1);
   if(e.mailId){
-    try{await cockpitVerschieben(e.mailId);toast('Mail nach „Erledigt" verschoben')}
+    const ordner=eingangAblageOrdner(e);
+    try{await cockpitVerschieben(e.mailId,ordner);toast('Mail nach „Erledigt/'+ordner+'" verschoben')}
     catch(err){toast('Mail konnte nicht verschoben werden')}
   }
   eingangRendern(); eingangZaehlen();
 }
 
-async function cockpitVerschieben(id){
+async function cockpitVerschieben(id,ordnerName){
   try{
     const o=await cockpitOrdnerHolen();
     if(!o||!o.erledigtId){toast('Unterordner „Erledigt" fehlt — Mail bleibt liegen');return}
+    const zielId=await erledigtUnterordnerHolen(ordnerName)||o.erledigtId;
     await graph('/me/messages/'+encodeURIComponent(id)+'/move',{method:'POST',
-      body:JSON.stringify({destinationId:o.erledigtId})});
+      body:JSON.stringify({destinationId:zielId})});
   }catch(e){toast('Verschieben fehlgeschlagen: '+e.message)}
+}
+
+/* ---- Postfach aufräumen: Mails, die flach in „Erledigt" liegen, in die
+   Kürzel-Unterordner nachsortieren. Reine Graph-Abfrage plus lokaler
+   Betreffabgleich (textAuftraggeber) — kein Claude-Aufruf, kostet nichts.
+   Bewusst kein automatischer Lauf: nur auflisten, Übernehmen je Zeile, so
+   wie es der Kalender-Aufräumlauf auch machen wird. Ohne erkannten
+   Auftraggeber gibt es keinen Knopf — raten wäre falsch einsortieren. */
+async function postfachAufraeumenListe(){
+  const st=el('aufraeumStatus'), box=el('aufraeumListe');
+  if(!st||!box)return;
+  if(!msAccount){st.textContent='Erst Outlook verbinden.';box.innerHTML='';return}
+  st.innerHTML='<span class="spin"></span>Wird geprüft …'; box.innerHTML='';
+  try{
+    const o=await cockpitOrdnerHolen(true);
+    if(!o||!o.erledigtId){st.textContent='Unterordner „Erledigt" fehlt.';return}
+    const r=await graph('/me/mailFolders/'+encodeURIComponent(o.erledigtId)+
+      '/messages?$top=100&$select=id,subject,receivedDateTime&$orderby=receivedDateTime desc');
+    const treffer=(r.value||[]).map(m=>({id:m.id,betreff:m.subject||'(ohne Betreff)',
+      ag:textAuftraggeber(m.subject||'')}));
+    box.dataset.treffer=JSON.stringify(treffer);
+    if(!treffer.length){st.textContent='„Erledigt" liegt flach leer — nichts zum Aufräumen.';return}
+    const erkannt=treffer.filter(t=>t.ag).length;
+    st.textContent=treffer.length+' Mail(s) liegen flach in „Erledigt", davon '+erkannt+' mit erkanntem Auftraggeber.';
+    box.innerHTML=treffer.map((t,i)=>
+      '<div class="agrow"><span>'+esc(t.betreff)+'<br><span class="hint">'+
+      (t.ag?('→ '+esc(AG_KUERZEL[t.ag]||t.ag)):'kein Auftraggeber erkannt')+'</span></span>'+
+      (t.ag?'<button type="button" class="minibtn" data-aufraeum="'+i+'">Übernehmen</button>':'')+
+      '</div>').join('');
+  }catch(e){st.textContent='Fehler: '+e.message}
+}
+async function postfachAufraeumenUebernehmen(i){
+  const box=el('aufraeumListe'); if(!box)return;
+  const treffer=JSON.parse(box.dataset.treffer||'[]');
+  const t=treffer[i]; if(!t||!t.ag)return;
+  const ordner=AG_KUERZEL[t.ag]||EINGANG_ABLAGE_SONSTIGES;
+  try{
+    await cockpitVerschieben(t.id,ordner);
+    toast('Einsortiert unter „Erledigt/'+ordner+'"');
+    postfachAufraeumenListe();
+  }catch(e){toast('Fehlgeschlagen: '+e.message)}
 }
 
 /* ---- Bahnbuchung aus der DB-Bestätigungsmail ---- */
@@ -5744,7 +5837,8 @@ const AG_ALIAS={
   'BWV Rheinland':['bwv rheinland','bwv'],
   'IHK Köln':['ihk köln','ihk koeln','ihk'],
   'Zinal':['zinal','zin'],
-  'Global Finanz':['global finanz','globalfinanz','gf']
+  'Global Finanz':['global finanz','globalfinanz','gf'],
+  'FHDW Mettmann':['fhdw mettmann','fhdw']
 };
 /* Zentrale Erkennung: liefert den Auftraggeber zu einem Termintitel — oder null.
    Wird von Start-Banner UND Kalender-Reiter genutzt, damit beide gleich urteilen.
@@ -5771,8 +5865,21 @@ function titelIstReiseNebentermin(titel){
    Wiedererkennen bestehender Titel, hier um das Bauen neuer. */
 const AG_KUERZEL={
   'Going Public Akademie':'GP','BWV Rheinland':'BWV','IHK Köln':'IHK',
-  'Zinal':'ZIN','Global Finanz':'GF'
+  'Zinal':'ZIN','Global Finanz':'GF','FHDW Mettmann':'FHDW'
 };
+/* Freitext-Suche für Mail-Betreffe: anders als titelAuftraggeber (das nur den
+   Anfang eines Termintitels prüft) sucht diese Fassung das Alias an
+   beliebiger Stelle mit Wortgrenze — ein Betreff beginnt selten mit dem
+   Kürzel. Für die Postfach-Ablage, nicht für Termine. */
+function textAuftraggeber(text){
+  const t=(text||'').toLowerCase();
+  if(!t)return null;
+  for(const ag of AUFTRAGGEBER){
+    const aliasse=AG_ALIAS[ag]||[ag.toLowerCase()];
+    if(aliasse.some(a=>new RegExp('(^|[^a-zäöüß0-9])'+a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'([^a-zäöüß0-9]|$)').test(t)))return ag;
+  }
+  return null;
+}
 function agKuerzel(ag){ return AG_KUERZEL[ag]||(ag||'').split(' ')[0].replace('!','')||'Auftraggeber'; }
 /* Einzige Stelle, die einen Termintitel baut — genutzt von planTermineBauen
    und vom Aufräumlauf. Aufbau: Kürzel · Kurs · Thema. Präsenz/Online gehört
@@ -7583,8 +7690,8 @@ document.addEventListener('click',e=>{
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v88';
-const APP_STAND='4. August 2026';
+const APP_VERSION='v89';
+const APP_STAND='5. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
   let geladen=null;
@@ -7781,6 +7888,11 @@ document.querySelectorAll('.quicknav button[data-jump]').forEach(b=>b.addEventLi
 }));
 el('btnMsConnect').addEventListener('click',msConnect);
 el('btnMsDisconnect').addEventListener('click',msDisconnect);
+el('btnPostfachAufraeumen').addEventListener('click',postfachAufraeumenListe);
+el('aufraeumListe').addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-aufraeum]'); if(!b)return;
+  postfachAufraeumenUebernehmen(+b.dataset.aufraeum);
+});
 el('btnEingangReload').addEventListener('click',()=>{eingangMailsLaden();renderGtasks(false)});
 el('btnCockpitLesen').addEventListener('click',eingangAlleAuswerten);
 el('btnTermineAnlegen').addEventListener('click',termineAnlegen);
