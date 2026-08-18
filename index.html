@@ -1261,6 +1261,13 @@ body{padding-bottom:64px}
       <div class="f"><label>Abreise (nur bei Folgetag)</label><input type="date" id="fAbreise"></div>
     </div>
     <div class="hint" id="reiseSpanneHint" style="margin:calc(-1 * var(--a1)) 0 var(--a3)"></div>
+    <!-- Was im Raum gebraucht wird und nur in der Auftragsbestätigung steht:
+         Teilnehmerzahl, Raum, Technik, Ansprechpartner vor Ort, Parken. Der
+         Eingang füllt das aus der Mail vor, es landet im Termintext. Kein
+         Honorar — der Termin wird mitgelesen. -->
+    <div class="f"><label>Hinweise für den Kalendereintrag</label>
+      <textarea id="fTerminHinweise" rows="2" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 14px/1.45 'IBM Plex Sans',sans-serif" placeholder="z. B. 14 Teilnehmer · Raum 2.03 · Beamer vorhanden · vor Ort: Frau Grund"></textarea>
+    </div>
     <div class="f suggwrap"><label>Zielort</label><input type="text" id="fZiel" placeholder="Ort oder Adresse eingeben …" autocomplete="off">
       <div class="sugg" id="zielSugg" style="display:none"></div>
       <div style="display:flex;gap:var(--a2);align-items:center;margin-top:var(--a2);flex-wrap:wrap">
@@ -1749,6 +1756,7 @@ function openForm(id){
   formTeil='planen'; syncFormTeil();
   el('memoText').value=''; el('memoStatus').textContent='';
   el('fAuftragsnr').value=t?t.auftragsnr||'':''; el('fHonorar').value=t&&t.honorar?t.honorar:'';
+  if(el('fTerminHinweise'))el('fTerminHinweise').value=t?(t.terminHinweise||''):'';
   if(el('fHonEinheit'))el('fHonEinheit').value=(t&&t.honEinheit)||'tag';
   if(el('fHonSatz'))el('fHonSatz').value=t&&t.honSatz?t.honSatz:'';
   if(el('fHonAnzahl'))el('fHonAnzahl').value=t&&t.honAnzahl?t.honAnzahl:'';
@@ -1847,6 +1855,7 @@ function openFormPrefill(p){
   if(el('fEnde'))el('fEnde').value=p.ende||'';
   syncTage();
   el('fAuftragsnr').value=p.auftragsnummer||'';
+  if(el('fTerminHinweise'))el('fTerminHinweise').value=p.hinweise||'';
   const honorar=zahlAus(p.honorarGesamt)||(zahlAus(p.honorarProTermin)*(zahlAus(p.anzahlTermine)||1));
   el('fHonorar').value=honorar||'';
   if(el('fHonEinheit'))el('fHonEinheit').value=p.honorarEinheit||'tag';
@@ -2045,6 +2054,7 @@ function formData(){
     gesellschaft:reiseTyp==='ihk'?'':(el('fGesellschaft').value==='__frei'?el('fGesellschaftFrei').value.trim():el('fGesellschaft').value),
     status:{bahn:el('stBahn').checked,hotel:el('stHotel').checked,termine:el('stTermine').checked,unterlagen:el('stUnterlagen').checked},
     auftragsnr:el('fAuftragsnr').value.trim(), honorar:+el('fHonorar').value||0,
+    terminHinweise:(el('fTerminHinweise')?el('fTerminHinweise').value:'').trim(),
     honEinheit:el('fHonEinheit')?el('fHonEinheit').value:'pauschal',
     honSatz:+((el('fHonSatz')||{}).value)||0, honAnzahl:+((el('fHonAnzahl')||{}).value)||0,
     rechnungModus:reiseModus==='online'?'einzel':rechnungModus, pauschale:reiseModus==='online'?0:(+el('fPauschale').value||0), rechnungGestellt:el('fRechnungGestellt').checked,
@@ -3476,7 +3486,8 @@ async function reiseTermineAnlegen(){
     anreise:(el('fAnreise')&&el('fAnreise').value)||'', abreise:(el('fAbreise')&&el('fAbreise').value)||'',
     ziel:el('fZiel').value,zielAdresse:el('fZiel').value,
     beginn:(el('fBeginn')&&el('fBeginn').value)||'09:00',
-    ende:(el('fEnde')&&el('fEnde').value)||'17:00'};
+    ende:(el('fEnde')&&el('fEnde').value)||'17:00',
+    gesellschaft:el('fGesellschaft')?(el('fGesellschaft').value==='__frei'&&el('fGesellschaftFrei')?el('fGesellschaftFrei').value:el('fGesellschaft').value):''};
   let termine=planTermineBauen(p);
   await pruefeKonflikte(termine,ag,editId);
   /* Tage, an denen schon ein mit dieser Reise verknüpfter Termin liegt,
@@ -3496,6 +3507,8 @@ async function reiseTermineAnlegen(){
   const zeilen=[
     'Angelegt vom Dozenten-Cockpit'+(el('fAuftragsnr').value?' · Auftrag '+el('fAuftragsnr').value:''),
     ansprechpartnerZeile(ag,trip.quellMailVonName||'',trip.quellMailVonAdresse||''),
+    /* Was nur in der Auftragsbestätigung steht und am Seminartag gebraucht wird. */
+    (el('fTerminHinweise')&&el('fTerminHinweise').value.trim())?el('fTerminHinweise').value.trim():'',
     ordnerLink?'Kursordner: '+ordnerLink:'',
     trip.quellMailWebLink?'Mail: '+trip.quellMailWebLink:''
   ].filter(Boolean).join('\n');
@@ -3587,13 +3600,14 @@ const EINGANG_FELDNAMEN={auftraggeber:'Auftraggeber',gesellschaft:'Gesellschaft'
   ustBefreit:'USt-befreit',online:'Online',jobArt:'Art der Arbeit',titel:'Titel',deadline:'Abgabe',
   umfang:'Umfang',notiz:'Notiz',datum:'Datum',ort:'Ort',faellig:'Fällig',prio:'Priorität',
   bereich:'Liste',vorgang:'Vorgang',beleg:'Beleg',betrag:'Betrag',ausschuss:'Ausschuss',
-  status:'Status',buchungsnummer:'Buchungsnummer',preisGesamt:'Preis gesamt',thema:'Thema'};
+  status:'Status',buchungsnummer:'Buchungsnummer',preisGesamt:'Preis gesamt',thema:'Thema',
+  hinweise:'Hinweise für den Termin'};
 /* Welche Feldnamen zu welcher Art gehoeren — einzige Wahrheit fuer den
    Typwechsel in der Vorschlagskarte: wechselt der Nutzer die Art von Hand,
    bleiben nur Felder mit gleichem Namen erhalten, alles andere wird leer statt
    unbemerkt ins falsche Schema durchzureichen. */
 const EINGANG_SCHEMA_FELDER={
-  reise:['auftraggeber','gesellschaft','kategorie','auftragsnummer','zweck','von','bis','beginn','ende','ziel','zielAdresse','honorarEinheit','honorarProTermin','anzahlTermine','honorarGesamt','ustBefreit','online'],
+  reise:['auftraggeber','gesellschaft','kategorie','auftragsnummer','zweck','von','bis','beginn','ende','ziel','zielAdresse','honorarEinheit','honorarProTermin','anzahlTermine','honorarGesamt','ustBefreit','online','hinweise'],
   arbeitsauftrag:['auftraggeber','auftragsnummer','jobArt','titel','deadline','umfang','notiz'],
   termin:['titel','datum','von','bis','ort','notiz'],
   aufgabe:['titel','bereich','faellig','prio','notiz'],
@@ -3637,7 +3651,7 @@ function eingangPrompt(listen){
     '{"vorschlaege":[{"art":"…","kurz":"eine Zeile, was daraus folgt","unsicher":["feldname"],"felder":{…}}]}\n'+
     '"unsicher" nennt höchstens drei Feldnamen, deren Wert du geraten oder erschlossen hast, weil er nicht ausdrücklich dastand — das wichtigste zuerst. Was wörtlich im Text steht, gehört NICHT hinein.\n\n'+
     'Feldschema je Art:\n'+
-    'reise: {"auftraggeber":"","gesellschaft":"","kategorie":"","auftragsnummer":"","zweck":"kurze Seminarbezeichnung","von":"YYYY-MM-DD","bis":"YYYY-MM-DD","beginn":"HH:MM","ende":"HH:MM","ziel":"Stadt","zielAdresse":"Name oder Adresse der Räumlichkeit wörtlich","honorarEinheit":"tag|block|stunde|pauschal","honorarProTermin":0,"anzahlTermine":1,"honorarGesamt":0,"ustBefreit":false,"online":false}\n'+
+    'reise: {"auftraggeber":"","gesellschaft":"","kategorie":"","auftragsnummer":"","zweck":"kurze Seminarbezeichnung","von":"YYYY-MM-DD","bis":"YYYY-MM-DD","beginn":"HH:MM","ende":"HH:MM","ziel":"Stadt","zielAdresse":"Name oder Adresse der Räumlichkeit wörtlich","honorarEinheit":"tag|block|stunde|pauschal","honorarProTermin":0,"anzahlTermine":1,"honorarGesamt":0,"ustBefreit":false,"online":false,"hinweise":"was am Seminartag vor Ort gebraucht wird"}\n'+
     'arbeitsauftrag: {"auftraggeber":"","auftragsnummer":"","jobArt":"wbt-erstellen|wbt-lektorat|klausuren|unterlagen|sonstiges","titel":"kurze Bezeichnung der Leistung","deadline":"YYYY-MM-DD","umfang":"z. B. 5 Module, 12 Klausuren, 45 WBT-Minuten","notiz":"Rückgabeweg oder Ansprechpartner"}\n'+
     'termin: {"titel":"","datum":"YYYY-MM-DD","von":"09:00","bis":"17:00","ort":"","notiz":""}\n'+
     'terminserie: {"titel":"Kursbezeichnung, z. B. \\"BaPro 2026-1\\"","auftraggeber":"","gesellschaft":"","kategorie":"","termine":[{"datum":"YYYY-MM-DD","von":"HH:MM oder leer, wenn keine Uhrzeit im Text steht","bis":"HH:MM oder leer, wenn keine Uhrzeit im Text steht","thema":"kurz, was an diesem Termin dran ist","ort":"Stadt oder Raum, falls angegeben","online":false}]}\n'+
@@ -3646,6 +3660,7 @@ function eingangPrompt(listen){
     'bahn: {"buchungsnummer":"","preisGesamt":0,"fahrten":[{"datum":"YYYY-MM-DD","abfahrt":"HH:MM","ankunft":"HH:MM","von":"Startbahnhof","nach":"Zielbahnhof","zug":"z. B. ICE 599"}]}\n\n'+
     (listen&&listen.length?('Für aufgabe.bereich genau einen Wert aus: '+listen.join(' | ')+'.\n'):'')+
     'Bei "terminserie" bleiben Honorar und Reisekosten außen vor — das ist reine Terminanlage, keine Auftragsbestätigung. Steht zu einem Termin keine Uhrzeit im Text, von/bis leer lassen statt 00:00 zu raten — die App setzt dann selbst 09:00–17:00 als Vorgabe.\n'+
+    'Bei "reise" ist "hinweise" höchstens ein Satz mit dem, was er am Seminartag vor Ort braucht und was nur in dieser Bestätigung steht — Teilnehmerzahl, Raum, Technik, Ansprechpartner vor Ort, Parken, Zugangscode. Kein Honorar, keine Rechnungsangaben, keine Höflichkeitsfloskeln; steht nichts dergleichen im Text, Feld leer lassen.\n'+
     'Bei "reise" gehören in von/bis nur die reinen Seminartage, ohne An- und Abreise. Steht im Text ausdrücklich "Präsenz" oder eine Raum-/Hoteladresse als Veranstaltungsort, ist online IMMER false — auch wenn an anderer Stelle "online" oder ein Video-Link auftaucht (etwa als Ausweichoption oder in einer Signatur). online wird nur dann true, wenn der Text den Termin selbst ausdrücklich als Online-Veranstaltung bezeichnet. honorarEinheit sagt, worauf sich der Satz bezieht: tag bei Tagessatz, block je Seminarblock, stunde bei Stundensatz, pauschal wenn nur ein Gesamtbetrag genannt ist. Bei "bahn" je Richtung GENAU EINE Fahrt, Umstiege zusammengefasst (erste Abfahrt, letzte Ankunft, Zugnummern per Komma). Erfinde nichts, unbekannte Felder leer oder 0.';
 }
 
@@ -5369,7 +5384,7 @@ async function terminSchreiben(t,ag,kennungText){
 const ANREISE_ANKUNFT='18:00';
 function planTermineBauen(p){
   const ag=p.auftraggeber||'Auftraggeber', titel=p.zweck||'Seminar';
-  const name=terminTitelBauen(ag,p.kurs,titel);
+  const name=terminTitelBauen(ag,p.kurs,titel,p.gesellschaft||'');
   const beginn=p.beginn||'09:00', ende=p.ende||'17:00';
   const out=[];
   const d0=new Date(p.von+'T00:00'), d1=new Date((p.bis||p.von)+'T00:00');
@@ -5553,6 +5568,8 @@ async function kalenderLaden(){
       categories:e.categories||[],
       online:!!e.isOnlineMeeting,
       allDay:!!e.isAllDay,
+      organisator:e.isOrganizer!==false,
+      teilnehmer:Array.isArray(e.attendees)&&e.attendees.length>0,
       eigen:e.isOrganizer!==false&&(!Array.isArray(e.attendees)||e.attendees.length===0)
     })).filter(e=>e.datum);
     st.textContent='';
@@ -5761,6 +5778,7 @@ function zeilenEditorQuelle(quelle,id){
     const e=kalCache.find(x=>x.id===id); if(!e)return null;
     return {id:e.id,titel:e.titel,datum:e.datum,datumBis:endeAusGraph(e.datum,e.bis,e.allDay),ort:e.ort||'',
       online:!!e.online,eigen:!!e.eigen,categories:e.categories||[],allDay:!!e.allDay,
+      organisator:e.organisator!==false,teilnehmer:!!e.teilnehmer,
       zeitVon:e.allDay?'':(e.zeit||''),zeitBis:e.allDay?'':(e.zeitBis||'')};
   }
   const evt=kalLaufTreffer.find(x=>x.id===id); if(!evt)return null;
@@ -5770,50 +5788,238 @@ function zeilenEditorQuelle(quelle,id){
     ort:(evt.location&&evt.location.displayName)||'',online:!!evt.isOnlineMeeting,
     eigen:evt.isOrganizer!==false&&(!Array.isArray(evt.attendees)||evt.attendees.length===0),
     categories:evt.categories||[],allDay:!!evt.isAllDay,
+    organisator:evt.isOrganizer!==false,
+    teilnehmer:Array.isArray(evt.attendees)&&evt.attendees.length>0,
     zeitVon:evt.isAllDay?'':s.slice(11,16),zeitBis:evt.isAllDay?'':b.slice(11,16)};
 }
-/* Titel nach der Konvention "Kuerzel Kurs · Thema" zerlegen — nur als Vorschlag,
-   entschieden wird im Feld. */
+/* Vorschlag aus einem bestehenden Titel. Drei Schritte, absteigend nach
+   Verlaesslichkeit: das Auftraggeber-Alias vorn abschneiden (es steckt gleich
+   wieder im Kuerzel), dann einen Kurs erkennen, der Rest ist das Thema.
+   Bewusst nur ein Vorschlag — er steht in Feldern, die Charles vor dem
+   Speichern liest und korrigiert. Ohne diesen Schritt landete das Kuerzel im
+   Thema und der Titel las sich danach „GP GP ÖVBS Mindset". */
+function zeilenAliasWeg(titel,ag){
+  let rest=String(titel||'').trim();
+  if(!ag)return rest;
+  const aliasse=[...(AG_ALIAS[ag]||[]),(ag||'').toLowerCase(),(agKuerzel(ag)||'').toLowerCase()]
+    .filter(Boolean).sort((a,b)=>b.length-a.length);
+  for(const a of aliasse){
+    if(rest.toLowerCase().startsWith(a)){
+      const n=rest.charAt(a.length);
+      if(n===''||!/[a-zäöüß0-9]/i.test(n))return rest.slice(a.length).replace(/^[\s·\-–:]+/,'').trim();
+    }
+  }
+  return rest;
+}
+/* Kurs im Resttitel suchen: erst der volle Name aus der gepflegten Liste, dann
+   die Sachkunde-Kuerzel 34d/34f/34i, zuletzt ein tragendes Wort des Kursnamens
+   („Fachwirt", „Ruhestandsplaner"). Gefunden heisst nicht sicher — deshalb Feld. */
+/* Kuerzel, unter denen Charles seine Kurse tippt. Ohne sie sucht die Erkennung
+   den Prospektnamen und findet ihn nie — „GP DVAG FW PV mdl." nennt den
+   Fachwirt, schreibt ihn aber nirgends aus. Der volle Name bleibt der Wert im
+   Feld, das Kuerzel ist nur der Weg dorthin. */
+const KURS_ALIAS={
+  'Versicherungsfachmann 34d':['34d','vfm'],
+  'Finanzanlagenfachmann 34f':['34f','faf'],
+  'Immobiliardarlehensvermittler 34i':['34i'],
+  'Fachwirt für Finanzberatung IHK':['fw','fachwirt'],
+  'Fachberater für Finanzdienstleistungen IHK':['fb','fachberater'],
+  'Bachelor Professional in Finanzberatung':[],
+  'Ruhestandsplaner':['rsp'],
+  'Ruhestandsberater':['rsb'],
+  'Beratung & Verkauf':['b&v','bv']
+};
+/* „BaPro" allein ist nicht eindeutig — es gibt beide Bachelor Professional.
+   Aufgeloest wird er ueber den Auftraggeber: die Finanzberatung laeuft bei
+   Charles immer ueber Going Public, Versicherungen und Finanzanlagen ueber das
+   BWV. Kommt der Titel von einem anderen Auftraggeber, bleibt das Kuerzel im
+   Thema stehen statt geraten zu werden. */
+const KURS_MEHRDEUTIG={
+  'bapro':{'Going Public Akademie':'Bachelor Professional in Finanzberatung',
+           'BWV Rheinland':'Bachelor Professional in Versicherungen und Finanzanlagen'},
+  'bp':{'Going Public Akademie':'Bachelor Professional in Finanzberatung',
+        'BWV Rheinland':'Bachelor Professional in Versicherungen und Finanzanlagen'}
+};
+/* Kursdurchgang („K2" in „GF 34 K2") — er bezeichnet den zweiten Durchlauf
+   desselben Kurses, nicht den Kurs selbst, und gehoert nach Charles' Ansage
+   weder in den Kurs noch ins Thema. */
+const KURSDURCHGANG=/\b[kg]\s?\d{1,2}\b/i;
+function aliasTreffer(text,aliasse){
+  const s=String(text||'');
+  for(const a of (aliasse||[])){
+    /* Auf dem Originaltext suchen, nicht auf der kleingeschriebenen Fassung:
+       der Treffer wird anschliessend aus dem Titel entfernt, und „dvag" findet
+       sich in „DVAG FW" nicht wieder. */
+    const m=s.match(new RegExp('(^|[^a-zäöüß0-9&])('+a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')([^a-zäöüß0-9&]|$)','i'));
+    if(m)return m[2];
+  }
+  return '';
+}
+/* Gesellschaft aus dem Resttitel — sie steht bei Charles hinter dem Kuerzel
+   des Auftraggebers und entscheidet ueber Ablage und Abrechnung. */
+function titelGesellschaft(text){
+  for(const g of Object.keys(GES_ALIAS)){
+    const tr=aliasTreffer(text,GES_ALIAS[g]);
+    if(tr)return {ges:g,treffer:tr};
+  }
+  return {ges:'',treffer:''};
+}
+function zeilenKursRaten(rest,ag){
+  const liste=kurseListe().filter(Boolean);
+  const tief=rest.toLowerCase();
+  const voll=liste.filter(k=>tief.includes(k.toLowerCase())).sort((a,b)=>b.length-a.length)[0];
+  if(voll)return {kurs:voll,treffer:voll};
+  /* Mehrdeutige Kuerzel zuerst: sie brauchen den Auftraggeber, und ohne ihn
+     darf gar nichts vorgeschlagen werden. */
+  for(const kz of Object.keys(KURS_MEHRDEUTIG)){
+    const tr=aliasTreffer(rest,[kz]);
+    if(!tr)continue;
+    const k=KURS_MEHRDEUTIG[kz][ag||''];
+    return k?{kurs:k,treffer:tr}:{kurs:'',treffer:''};
+  }
+  /* Kuerzel vor Wortsuche: „FW" ist eindeutig, „Fachwirt" kaeme im Fliesstext
+     auch in einem Satz vor. */
+  for(const k of Object.keys(KURS_ALIAS)){
+    const tr=aliasTreffer(rest,KURS_ALIAS[k]);
+    if(tr)return {kurs:k,treffer:tr};
+  }
+  for(const k of liste){
+    const wort=(k.split(/[\s/]+/).find(w=>w.length>=8)||'');
+    if(wort&&tief.includes(wort.toLowerCase()))return {kurs:k,treffer:wort};
+  }
+  return {kurs:'',treffer:''};
+}
+/* Zwei Titelanfaenge sind bei Charles eindeutig und duerfen nicht als Kurs
+   gelesen werden: „IHK …" ist immer eine Pruefung (das 34d darin bezeichnet die
+   Sachkunde, nicht den Lehrgang — bisher schlug der Kursvorschlag genau darauf
+   an), „DIHK …" ist immer eine Ausschusssitzung zur Klausurerstellung oder zu
+   neuen Verordnungen. DIHK zuerst pruefen, sonst greift die IHK-Regel. */
+/* Titelgedaechtnis: „GP ÖVBS Mindset" kommt mehrfach im Jahr mit identischem
+   Titel wieder. Ohne Gedaechtnis wird jedes Mal neu geraten und jedes Mal
+   dasselbe von Hand nachgetragen. Schluessel ist der ROHE Titel aus Outlook,
+   nicht der auf Konvention gebrachte — der Veranstalter schickt beim naechsten
+   Mal wieder seinen eigenen. Gespeichert wird erst beim Erfassen, also nach
+   Charles' Kontrolle; geraten wird nichts. */
+function titelMemoKey(titel){ return String(titel||'').replace(/\s+/g,' ').trim().toLowerCase(); }
+function titelMemo(){
+  if(!state.settings)state.settings={};
+  if(!state.settings.titelMemo||typeof state.settings.titelMemo!=='object')state.settings.titelMemo={};
+  return state.settings.titelMemo;
+}
+function titelMemoGet(titel){
+  const k=titelMemoKey(titel); return k?(titelMemo()[k]||null):null;
+}
+function titelMemoSet(titel,daten){
+  const k=titelMemoKey(titel); if(!k)return;
+  titelMemo()[k]=daten;
+}
+function zeilenArtRaten(titel){
+  const t=String(titel||'').trim();
+  if(/^d\s?ihk\b/i.test(t))return 'gremium';
+  if(/^ihk\b/i.test(t))return 'pruefung';
+  return 'seminar';
+}
 function zeilenTitelTeile(titel,ag){
-  const teile=String(titel||'').split('·');
-  if(teile.length>1)
-    return {kurs:teile[0].replace(new RegExp('^'+agKuerzel(ag),'i'),'').trim(),thema:teile.slice(1).join('·').trim()};
-  return {kurs:'',thema:(teile[0]||'').trim()};
+  const rest=zeilenAliasWeg(titel,ag);
+  const teile=rest.split('·').map(x=>x.trim()).filter(Boolean);
+  /* Folgt der Titel schon der Konvention, zaehlt seine eigene Zerlegung —
+     der Kopf enthaelt dann Gesellschaft und Kurs, das Thema steht dahinter. */
+  if(teile.length>1){
+    const kopf=teile[0], thema=teile.slice(1).join(' · ');
+    const gk=titelGesellschaft(kopf);
+    let ohneGes=kopf;
+    if(gk.treffer)ohneGes=kopf.replace(gk.treffer,' ').replace(/\s+/g,' ').trim();
+    return {ges:gk.ges,kurs:ohneGes,thema:thema};
+  }
+  const roh=teile[0]||'';
+  const gk=titelGesellschaft(roh);
+  let ohneGes=gk.treffer?roh.replace(gk.treffer,' ').replace(/\s+/g,' ').trim():roh;
+  /* Kursdurchgang faellt weg — „34 K2" meint den zweiten Durchlauf von 34d. */
+  ohneGes=ohneGes.replace(KURSDURCHGANG,' ').replace(/\s+/g,' ').trim();
+  /* Pruefung und Gremium tragen keinen Lehrgang — der ganze Rest ist das Thema. */
+  if(zeilenArtRaten(titel)!=='seminar')return {ges:gk.ges,kurs:'',thema:ohneGes};
+  const g=zeilenKursRaten(ohneGes,ag);
+  if(!g.kurs)return {ges:gk.ges,kurs:'',thema:ohneGes};
+  const i=ohneGes.toLowerCase().indexOf(g.treffer.toLowerCase());
+  const thema=(ohneGes.slice(0,i)+' '+ohneGes.slice(i+g.treffer.length))
+    .replace(/\s+/g,' ').replace(/^[\s·\-–:]+|[\s·\-–:]+$/g,'').trim();
+  return {ges:gk.ges,kurs:g.kurs,thema:thema};
 }
 function zeilenEditorHtml(quelle,id){
   if(!zeilenEditor||zeilenEditor.quelle!==quelle||zeilenEditor.id!==id)return '';
   const q=zeilenEditorQuelle(quelle,id); if(!q)return '';
-  const ag=kalAgRaten(q.titel,{categories:q.categories})||'';
+  const memoT=titelMemoGet(q.titel)||{};
+  const art=memoT.art||zeilenArtRaten(q.titel);
+  const ag=memoT.ag||kalAgRaten(q.titel,{categories:q.categories})||
+    (art==='pruefung'?'IHK Köln':art==='gremium'?'DIHK':'');
   const t=zeilenTitelTeile(q.titel,ag);
-  const kurs=t.kurs||kursMemoGet(ag,'');
-  const agOpts=AUFTRAGGEBER.map(a=>'<option value="'+esc(a)+'"'+(a===ag?' selected':'')+'>'+esc(a)+'</option>').join('')+
-    '<option value="__frei"'+(ag?'':' selected')+'>Andere …</option>';
+  const kurs=memoT.kurs!==undefined?memoT.kurs:(art==='seminar'?(t.kurs||kursMemoGet(ag,'')):t.kurs);
+  const thema=memoT.thema||t.thema;
+  const ges=memoT.ges!==undefined?memoT.ges:(t.ges||((state.settings.kgMemo||{})[ag]||{}).gesellschaft||'');
+  const gesOpts=GESELLSCHAFTEN.map(g=>'<option value="'+esc(g)+'"'+(g===ges?' selected':'')+'>'+esc(g)+'</option>').join('')+
+    '<option value="__frei"'+(ges&&!GESELLSCHAFTEN.includes(ges)?' selected':'')+'>Andere …</option>';
+  const online=memoT.modus?memoT.modus==='online':q.online;
+  /* DIHK steht nicht in AUFTRAGGEBER — ohne diese Unterscheidung waere keine
+     Option ausgewaehlt und das Feld faellt still auf den ersten Eintrag. */
+  const agBekannt=AUFTRAGGEBER.includes(ag);
+  const agOpts=AUFTRAGGEBER.map(a=>'<option value="'+esc(a)+'"'+(agBekannt&&a===ag?' selected':'')+'>'+esc(a)+'</option>').join('')+
+    '<option value="__frei"'+(agBekannt?'':' selected')+'>Andere …</option>';
+  const artOpts=[['seminar','Seminar'],['pruefung','IHK-Prüfung'],['gremium','DIHK-Gremium']]
+    .map(a=>'<option value="'+a[0]+'"'+(a[0]===art?' selected':'')+'>'+a[1]+'</option>').join('');
   return '<div class="zeile-editor" style="border-top:1px solid var(--line);margin-top:var(--a2);padding-top:var(--a2)">'+
     '<div class="grid2">'+
       '<div class="f"><label>Auftraggeber</label><select id="zeAg" class="ag-select">'+agOpts+'</select>'+
-        '<input type="text" id="zeAgFrei" placeholder="Name des Auftraggebers" style="margin-top:var(--a1);display:'+(ag?'none':'block')+'"></div>'+
-      '<div class="f"><label>Kurs</label><input type="text" id="zeKurs" list="kursListe" value="'+esc(kurs)+'" placeholder="z. B. Versicherungsfachmann 34d"></div>'+
+        '<input type="text" id="zeAgFrei" placeholder="Name des Auftraggebers" value="'+esc(agBekannt?'':ag)+'" style="margin-top:var(--a1);display:'+(agBekannt?'none':'block')+'"></div>'+
+      '<div class="f"><label>Art</label><select id="zeArt">'+artOpts+'</select></div>'+
     '</div>'+
     '<div class="grid2">'+
-      '<div class="f"><label>Thema</label><input type="text" id="zeThema" value="'+esc(t.thema)+'" placeholder="z. B. Unfallversicherung"></div>'+
+      '<div class="f"><label>Kurs</label><input type="text" id="zeKurs" list="kursListe" value="'+esc(kurs)+'" placeholder="'+(art==='seminar'?'z. B. Versicherungsfachmann 34d':'bei Prüfung und Gremium meist leer')+'"></div>'+
+      '<div class="f"><label>Thema</label><input type="text" id="zeThema" value="'+esc(thema)+'" placeholder="z. B. Unfallversicherung"></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div class="f"><label>Gesellschaft</label><select id="zeGes">'+gesOpts+'</select>'+
+        '<input type="text" id="zeGesFrei" placeholder="Name der Gesellschaft" value="'+esc(GESELLSCHAFTEN.includes(ges)?'':ges)+'" style="margin-top:var(--a1);display:'+(ges&&!GESELLSCHAFTEN.includes(ges)?'block':'none')+'"></div>'+
       '<div class="f"><label>Form</label><select id="zeModus">'+
-        '<option value="praesenz"'+(q.online?'':' selected')+'>Präsenz</option>'+
-        '<option value="online"'+(q.online?' selected':'')+'>Online</option></select></div>'+
+        '<option value="praesenz"'+(online?'':' selected')+'>Präsenz</option>'+
+        '<option value="online"'+(online?' selected':'')+'>Online</option></select></div>'+
     '</div>'+
     '<div class="grid2">'+
-      '<div class="f"><label>Beginn</label><input type="time" id="zeVon" step="300" value="'+esc(q.zeitVon)+'" placeholder="09:00"></div>'+
-      '<div class="f"><label>Ende</label><input type="time" id="zeBis" step="300" value="'+esc(q.zeitBis)+'" placeholder="17:00"></div>'+
+      '<div class="f"><label>Beginn</label><input type="time" step="300" id="zeVon" value="'+esc(q.zeitVon||'09:00')+'"></div>'+
+      '<div class="f"><label>Ende</label><input type="time" step="300" id="zeBis" value="'+esc(q.zeitBis||'17:00')+'"></div>'+
     '</div>'+
+    /* Der Titel laesst sich erst bauen, wenn Kurs und Thema dastehen — deshalb
+       steht der Schalter hier und nicht bei „Auf Konvention bringen", das beides
+       nicht kennt. Voreingestellt nur beim eigenen, teilnehmerlosen Termin:
+       sonst geht eine Aktualisierung an alle oder die Aenderung lebt nur in der
+       eigenen Postfachkopie. */
+    '<label style="display:flex;gap:8px;align-items:center;margin-bottom:var(--a1)">'+
+      '<input type="checkbox" id="zeTitel"'+(q.eigen?' checked':'')+'>'+
+      '<span>Titel in Outlook angleichen</span></label>'+
+    '<div class="hint" id="zeTitelVorschau" style="margin:0 0 var(--a2)"></div>'+
+    (Object.keys(memoT).length?'<div class="hint" style="margin:0 0 var(--a2)">Vorbelegt aus einem früheren Termin gleichen Titels.</div>':'')+
     '<div class="hint" style="margin:0 0 var(--a2)">'+dfmt(q.datum)+
       ' · '+(q.eigen?'eigener Termin — geänderte Zeiten gehen auch nach Outlook, dazu die Kennung im Text'
-                   :'Einladung — Zeiten gelten nur im Cockpit, in Outlook werden nur die Kategorien gesetzt')+'</div>'+
+            :q.organisator?'eigener Termin mit Teilnehmern — jede Änderung an Titel oder Zeit verschickt Outlook als Aktualisierung an alle'
+            :'Einladung — Zeiten gelten nur im Cockpit; ein geänderter Titel steht nur in deiner Kopie und kann von einer Aktualisierung des Veranstalters überschrieben werden')+'</div>'+
     '<div class="chipreihe">'+
-      '<button type="button" class="minibtn" id="zeSpeichern" data-zequelle="'+quelle+'">Seminar erfassen</button>'+
+      '<button type="button" class="minibtn" id="zeSpeichern" data-zequelle="'+quelle+'">'+
+        (art==='pruefung'?'Prüfung erfassen':art==='gremium'?'Termin erfassen':'Seminar erfassen')+'</button>'+
       '<button type="button" class="minibtn" id="zeAbbrechen" data-zequelle="'+quelle+'">Abbrechen</button>'+
     '</div></div>';
 }
+/* Vorschau des Titels, den der Schalter schreiben wuerde — sonst sieht man das
+   Ergebnis erst hinterher im Kalender. */
+function zeTitelVorschau(){
+  const box=el('zeTitelVorschau'), sel=el('zeAg'); if(!box||!sel)return;
+  const frei=el('zeAgFrei');
+  const ag=sel.value==='__frei'?((frei&&frei.value)||''):sel.value;
+  const k=el('zeKurs'), th=el('zeThema'), gs=el('zeGes'), gf=el('zeGesFrei');
+  const ges=gs?(gs.value==='__frei'?((gf&&gf.value)||''):gs.value):'';
+  box.textContent='Neuer Titel: '+terminTitelBauen(ag,(k&&k.value)||'',(th&&th.value)||'',ges);
+}
 function zeilenEditorNeuzeichnen(quelle){
   if(quelle==='kal')renderKalender(); else kalLaufRendern();
+  zeTitelVorschau();
 }
 function zeilenEditorOeffnen(quelle,id){
   const offen=zeilenEditor&&zeilenEditor.quelle===quelle&&zeilenEditor.id===id;
@@ -5828,9 +6034,16 @@ async function zeilenEditorSpeichern(){
   const ag=sel==='__frei'?el('zeAgFrei').value.trim():sel;
   if(!ag){toast('Bitte den Auftraggeber wählen oder eintragen');return}
   const kurs=el('zeKurs').value.trim(), thema=el('zeThema').value.trim();
+  const gSel=el('zeGes')?el('zeGes').value:'';
+  const ges=gSel==='__frei'?((el('zeGesFrei')||{}).value||'').trim():gSel;
   const online=el('zeModus').value==='online';
   const zVon=el('zeVon').value, zBis=el('zeBis').value;
   if(zVon&&zBis&&zBis<=zVon){toast('Das Ende liegt vor dem Beginn');return}
+  /* IHK-Pruefungen rechnet das IHK-Portal ab — typ 'ihk' haelt sie aus der
+     Reisekostenrechnung heraus und stellt sie in die IHK-Liste. Die
+     DIHK-Ausschusssitzung ist dagegen eine gewoehnliche Dienstreise. */
+  const art=el('zeArt')?el('zeArt').value:'seminar';
+  const artWort=art==='pruefung'?'Prüfung':art==='gremium'?'Termin':'Seminar';
   const memo=(state.settings.kgMemo||{})[ag]||{};
   const trip={
     id:uid(), ag:ag, ziel:online?'Online':(q.ort||''), zielAdresse:online?'':(q.ort||''),
@@ -5838,24 +6051,32 @@ async function zeilenEditorSpeichern(){
     von:q.datum, bis:q.datumBis||q.datum, beginn:zVon||'', ende:zBis||'',
     anreise:'', abreise:'', mitternacht:false, ueber8h:true,
     mahl:{fr:0,mi:0,ab:0}, hotelFr:true, bewertung:0, bewNotiz:'', belege:[],
-    vm:'auto', km:0, bahn:0, typ:'dozent', modus:online?'online':'praesenz', ihkNotiz:'',
-    kategorie:memo.kategorie||'', gesellschaft:memo.gesellschaft||'',
+    vm:'auto', km:0, bahn:0, typ:art==='pruefung'?'ihk':'dozent', modus:online?'online':'praesenz', ihkNotiz:'',
+    kategorie:memo.kategorie||'', gesellschaft:ges||memo.gesellschaft||'',
     status:{bahn:false,hotel:false,termine:true,unterlagen:false},
     auftragsnr:'', honorar:0, honEinheit:'tag', honSatz:0, honAnzahl:0,
     rechnungModus:'einzel', pauschale:0, rechnungGestellt:false,
     entwurf:false, abgerechnet:false, outlookIds:[q.id]
   };
   state.trips.push(trip);
-  if(kurs)kursMemoUpdate(ag,memo.gesellschaft||'',kurs);
+  if(kurs&&art==='seminar')kursMemoUpdate(ag,memo.gesellschaft||'',kurs);
+  /* Erst jetzt merken — nach Charles' Kontrolle, nicht nach dem Raten. */
+  titelMemoSet(q.titel,{ag:ag,ges:ges,kurs:kurs,thema:thema,modus:online?'online':'praesenz',art:art});
   await save();
   let hinweis='verknüpft über die Termin-ID';
+  const titelWunsch=el('zeTitel')&&el('zeTitel').checked;
+  const neuerTitel=terminTitelBauen(ag,kurs,thema,ges);
+  let titelGesetzt=false;
   try{
-    if(q.eigen){
+    if(q.eigen||q.organisator){
       const roh=await graph('/me/events/'+encodeURIComponent(q.id)+'?$select=body,categories');
       const altText=String((roh.body&&roh.body.content)||'').replace(/<[^>]+>/g,'').trim();
       const neuerText=bezugLesen(altText)?altText:(altText?altText+'\n\n':'')+bezugKennung('reise',trip.id);
       const kats=[...new Set([...(roh.categories||[]),...terminKategorien(ag)])];
-      const nutz={categories:kats, body:{contentType:'text',content:neuerText}};
+      const nutz={categories:kats};
+      /* Text nur beim eigenen, teilnehmerlosen Termin: bei einem Termin mit
+         Teilnehmern geht jede Textaenderung als Aktualisierung an alle raus. */
+      if(q.eigen)nutz.body={contentType:'text',content:neuerText};
       /* Zeiten nur mitschicken, wenn sie sich wirklich geaendert haben — ein
          unnoetiger start/end-PATCH wuerde eine Serieninstanz abkoppeln. Aus einem
          Ganztagestermin wird dabei ein Termin mit Uhrzeit; ohne isAllDay:false
@@ -5866,20 +6087,34 @@ async function zeilenEditorSpeichern(){
         nutz.end={dateTime:(q.datumBis||q.datum)+'T'+zBis+':00',timeZone:'Europe/Berlin'};
         if(q.allDay)nutz.isAllDay=false;
       }
+      if(titelWunsch&&neuerTitel&&neuerTitel!==q.titel){nutz.subject=neuerTitel;titelGesetzt=true}
       await graph('/me/events/'+encodeURIComponent(q.id),{method:'PATCH',body:JSON.stringify(nutz)});
-      hinweis=zeitNeu?'Zeit, Kennung und Kategorien in Outlook gesetzt':'Kennung und Kategorien in Outlook gesetzt';
+      hinweis=[titelGesetzt?'Titel':'',zeitNeu?'Zeit':'',q.eigen?'Kennung':'','Kategorien'].filter(Boolean).join(', ')+' in Outlook gesetzt'+
+        (q.teilnehmer&&(titelGesetzt||zeitNeu)?' — Teilnehmer bekommen eine Aktualisierung':'');
       const ck=kalCache.find(x=>x.id===q.id);
-      if(ck&&zeitNeu){ck.zeit=zVon;ck.zeitBis=zBis;ck.allDay=false}
-      const c=kalCache.find(x=>x.id===q.id); if(c)c.categories=kats;
+      if(ck){ck.categories=kats; if(zeitNeu){ck.zeit=zVon;ck.zeitBis=zBis;ck.allDay=false} if(titelGesetzt)ck.titel=neuerTitel}
     }else{
+      /* Einladung: die Kategorien liegen in der eigenen Postfachkopie und sind
+         unbedenklich. Der Titel gehoert dem Veranstalter — Exchange laesst die
+         Aenderung an der eigenen Kopie je nach Postfach zu oder weist sie ab.
+         Deshalb erst der Versuch mit Titel, bei Ablehnung derselbe PATCH ohne. */
       const kats=[...new Set([...(q.categories||[]),...terminKategorien(ag)])];
-      await graph('/me/events/'+encodeURIComponent(q.id),{method:'PATCH',body:JSON.stringify({categories:kats})});
-      hinweis='Einladung: Kategorien gesetzt, verknüpft über die Termin-ID';
-      const c=kalCache.find(x=>x.id===q.id); if(c)c.categories=kats;
+      const nutz={categories:kats};
+      if(titelWunsch&&neuerTitel&&neuerTitel!==q.titel){nutz.subject=neuerTitel;titelGesetzt=true}
+      try{
+        await graph('/me/events/'+encodeURIComponent(q.id),{method:'PATCH',body:JSON.stringify(nutz)});
+      }catch(err){
+        if(!titelGesetzt)throw err;
+        titelGesetzt=false;
+        await graph('/me/events/'+encodeURIComponent(q.id),{method:'PATCH',body:JSON.stringify({categories:kats})});
+      }
+      hinweis='Einladung: '+(titelGesetzt?'Titel und Kategorien gesetzt (nur in deiner Kopie)'
+        :(titelWunsch?'Titel von Outlook abgelehnt, Kategorien gesetzt':'Kategorien gesetzt'))+', verknüpft über die Termin-ID';
+      const c=kalCache.find(x=>x.id===q.id); if(c){c.categories=kats; if(titelGesetzt)c.titel=neuerTitel}
     }
   }catch(e){
     zeilenEditor=null; zeilenEditorNeuzeichnen(quelle); render(); kpiStart();
-    toast('Seminar erfasst, aber Outlook nicht erreicht: '+e.message);
+    toast(artWort+' erfasst, aber Outlook nicht erreicht: '+e.message);
     return;
   }
   zeilenEditor=null;
@@ -5889,7 +6124,7 @@ async function zeilenEditorSpeichern(){
   }
   zeilenEditorNeuzeichnen(quelle);
   render(); kpiStart();
-  toast('Seminar erfasst — '+hinweis);
+  toast(artWort+' erfasst — '+hinweis);
 }
 /* Delegation am document: beide Listen werden komplett neu gerendert, ein
    direkt gebundener Listener ginge dabei verloren (Vorfall 14.08.). */
@@ -5903,6 +6138,15 @@ document.addEventListener('click',e=>{
 document.addEventListener('change',e=>{
   const s=e.target.closest('#zeAg'); if(!s)return;
   const frei=el('zeAgFrei'); if(frei)frei.style.display=s.value==='__frei'?'block':'none';
+  zeTitelVorschau();
+});
+document.addEventListener('change',e=>{
+  const s=e.target.closest('#zeGes'); if(!s)return;
+  const frei=el('zeGesFrei'); if(frei)frei.style.display=s.value==='__frei'?'block':'none';
+  zeTitelVorschau();
+});
+document.addEventListener('input',e=>{
+  if(e.target.closest('#zeKurs,#zeThema,#zeAgFrei,#zeGesFrei'))zeTitelVorschau();
 });
 /* Auftraggeber aus dem Titel raten — Titel folgt seiner Namenskonvention */
 function kalAgRaten(titel,evt){
@@ -6375,7 +6619,19 @@ function b64ToBlob(b64,mime){
   return new Blob([arr],{type:mime});
 }
 const KATEGORIEN=['Versicherung','Finanzanlage','Finanzierung','Immobilienmakler','Kommunikation','Sonstiges'];
-const GESELLSCHAFTEN=['Allgemein','Allianz','Astra','ÖVB'];
+const GESELLSCHAFTEN=['Allgemein','Allianz','Astra','DVAG','Gothaer','ÖVB','Standard Life','Zürich'];
+/* Kuerzel, unter denen die Gesellschaften in Termintiteln auftauchen. Getrennt
+   von AG_ALIAS: dort geht es um den Auftraggeber am Titelanfang, hier um die
+   Gesellschaft an beliebiger Stelle dahinter. „ÖVBS" und „ÖVB" sind dieselbe. */
+const GES_ALIAS={
+  'Allianz':['allianz'],
+  'Astra':['astra'],
+  'DVAG':['dvag'],
+  'Gothaer':['gothaer'],
+  'ÖVB':['övbs','övb','oevbs','oevb'],
+  'Standard Life':['standard life','standardlife'],
+  'Zürich':['zürich','zurich','zuerich']
+};
 const AUFTRAGGEBER=['Going Public Akademie','BWV Rheinland','IHK Köln','Zinal','Global Finanz','FHDW Mettmann'];
 /* Auftraggeber-Stammdaten für den Monatsblock (Stufe 2). Zwei Dinge stecken hier:
    die Monatspauschale (erscheint jeden Monat automatisch als Position) und die
@@ -6447,9 +6703,19 @@ function agKuerzel(ag){ return AG_KUERZEL[ag]||(ag||'').split(' ')[0].replace('!
 /* Einzige Stelle, die einen Termintitel baut — genutzt von planTermineBauen
    und vom Aufräumlauf. Aufbau: Kürzel · Kurs · Thema. Präsenz/Online gehört
    ins Ort-Feld, nicht hierher. */
-function terminTitelBauen(ag,kurs,thema){
-  const kopf=[agKuerzel(ag),(kurs||'').trim()].filter(Boolean).join(' ');
-  return thema?(kopf?kopf+' · '+thema:thema):(kopf||thema||'Seminar');
+function terminTitelBauen(ag,kurs,thema,ges){
+  /* Aufbau: Kuerzel Gesellschaft Kurs · Thema, z. B. „GP DVAG 34d · PV mdl.".
+     Die Gesellschaft steht seit v111 fest im Titel: sie entscheidet ueber
+     Ablageort und Abrechnung und stand vorher nur im Datensatz, obwohl Charles
+     sie in seinen eigenen Titeln immer mitschreibt. „Allgemein" ist der
+     Rueckfallwert und gehoert nicht in den Titel.
+     Der Mittelpunkt trennt Kurs und Thema. Fehlt der Kurs, trennt er nichts —
+     „IHK · 34d Prüfungen" waere ein Punkt ohne Aufgabe. */
+  const g=(ges||'').trim();
+  const kopf=[agKuerzel(ag),(/^allgemein$/i.test(g)?'':g),(kurs||'').trim()].filter(Boolean).join(' ');
+  const t=(thema||'').trim();
+  if(!(kurs||'').trim())return kopf?(t?kopf+' '+t:kopf):(t||'Seminar');
+  return t?(kopf+' · '+t):kopf;
 }
 /* Outlook-Kategorien, die ein von der App angelegter Termin bekommt:
    "Dozentur" als Sammelkategorie für alles Berufliche, dazu der Auftraggeber für Farbe/Filter. */
@@ -6468,10 +6734,27 @@ function evtKategorieAuftraggeber(evt){
   if(ag)return ag;
   return kats.some(k=>(k||'').toLowerCase()==='dozentur')?'':null;
 }
+/* Beruflich, aber kein Auftrag: Dozentenfeier, Jahresempfang, Betriebsausflug
+   eines Auftraggebers. „Privat" waere falsch (es ist beruflich), ein
+   Seminardatensatz auch — ohne dritten Weg bleibt so ein Termin ewig in der
+   Liste stehen und macht aus einem Arbeitsvorrat eine Mahnung. Die Titelregel
+   wirkt beim Lesen, kostet also keinen zweiten Graph-Schreibvorgang je Jahr. */
+const KAT_OHNE_AUFTRAG='Ohne Auftrag';
+function ohneAuftragTitel(){
+  if(!state.settings)state.settings={};
+  if(!Array.isArray(state.settings.ohneAuftragTitel))state.settings.ohneAuftragTitel=[];
+  return state.settings.ohneAuftragTitel;
+}
+function istOhneAuftrag(evt){
+  if((evt.categories||[]).some(k=>(k||'').trim().toLowerCase()===KAT_OHNE_AUFTRAG.toLowerCase()))return true;
+  const t=String(evt.subject||evt.titel||'').replace(/\s+/g,' ').trim().toLowerCase();
+  return !!t&&ohneAuftragTitel().some(x=>String(x||'').replace(/\s+/g,' ').trim().toLowerCase()===t);
+}
 function evtIstBeruflich(evt){
   /* „Privat" schlaegt alles: die Kategorie ist Charles' ausdrueckliche Ansage,
      dass dieser Termin das Cockpit nichts angeht — auch bei fremden Einladungen. */
   if((evt.categories||[]).some(k=>(k||'').trim().toLowerCase()==='privat'))return false;
+  if(istOhneAuftrag(evt))return false;
   const perKat=evtKategorieAuftraggeber(evt);
   if(perKat!==null)return true;
   return !!titelAuftraggeber(evt.subject||evt.titel||'');
@@ -8011,8 +8294,8 @@ function kalLaufRendern(){
           (fehlt.length?' · fehlt: '+fehlt.join(', '):'')+(fremd?' · nur Kategorien möglich':'')+'</div>'+
         '<div class="chipreihe" style="margin-top:var(--a1)">'+
           '<button type="button" class="minibtn klein" data-kzeile="lauf:'+esc(evt.id)+'">Seminar erfassen</button>'+
-          '<button type="button" class="minibtn klein" data-kallauf="reise" data-i="'+i+'">Reise erfassen</button>'+
           '<button type="button" class="minibtn klein" data-kallauf="konvention" data-i="'+i+'">Auf Konvention bringen</button>'+
+          '<button type="button" class="minibtn klein" data-kallauf="ohneauftrag" data-i="'+i+'">Kein Auftrag</button>'+
           '<button type="button" class="minibtn klein" data-kallauf="privat" data-i="'+i+'">Privat</button>'+
         '</div>'+zeilenEditorHtml('lauf',evt.id)+'</div>';
     }).join('');
@@ -8051,6 +8334,25 @@ async function kalLaufPrivat(i){
     kalLaufRendern(); kpiStart(); toast('Als privat markiert');
   }catch(e){toast('Fehler: '+e.message)}
 }
+async function kalLaufOhneAuftrag(i){
+  const evt=kalLaufTreffer[i]; if(!evt)return;
+  const titel=String(evt.subject||'').replace(/\s+/g,' ').trim();
+  if(!confirm('„'+(titel||'(ohne Titel)')+'" als beruflich, aber ohne Auftrag ablegen?\n\n'+
+    'Der Termin bekommt in Outlook die Kategorie „'+KAT_OHNE_AUFTRAG+'" und verschwindet aus dieser Liste. '+
+    'Künftige Termine mit genau diesem Titel werden gleich mit übergangen.'))return;
+  try{
+    /* Die Sammelkategorie „Dozentur" faellt weg, sonst zaehlt der Termin ueber
+       evtKategorieAuftraggeber weiter als beruflicher Auftrag. */
+    const kats=[...new Set([...(evt.categories||[]).filter(k=>(k||'').toLowerCase()!=='dozentur'),KAT_OHNE_AUFTRAG])];
+    await graph('/me/events/'+encodeURIComponent(evt.id),{method:'PATCH',body:JSON.stringify({categories:kats})});
+    evt.categories=kats;
+    if(titel&&!ohneAuftragTitel().some(x=>String(x||'').replace(/\s+/g,' ').trim().toLowerCase()===titel.toLowerCase()))
+      ohneAuftragTitel().push(titel);
+    await save();
+    kalLaufTreffer.splice(i,1); kalUngeprueft=kalLaufTreffer.length;
+    kalLaufRendern(); kpiStart(); toast('Als „'+KAT_OHNE_AUFTRAG+'" abgelegt');
+  }catch(e){toast('Fehler: '+e.message)}
+}
 async function kalLaufKonvention(i){
   const evt=kalLaufTreffer[i]; if(!evt)return;
   const ag=evtKategorieAuftraggeber(evt)||titelAuftraggeber(evt.subject||'');
@@ -8079,30 +8381,6 @@ async function kalLaufKonvention(i){
     kalLaufTreffer.splice(i,1); kalUngeprueft=kalLaufTreffer.length;
     kalLaufRendern(); kpiStart(); toast('Termin auf Konvention gebracht');
   }catch(e){toast('Fehler: '+e.message)}
-}
-/* Reise aus dem Termin: der Termin ist die Quelle, nicht die Nachlese. Online
-   laeuft denselben Weg — als Reise mit online-Kennzeichen, ohne Fahrt und
-   Pauschalen, aber mit Honorar und Abrechnung. */
-function kalLaufReise(i){
-  const evt=kalLaufTreffer[i]; if(!evt)return;
-  const datum=(evt.start&&evt.start.dateTime||'').slice(0,10);
-  const ort=(evt.location&&evt.location.displayName)||'';
-  const online=!!evt.isOnlineMeeting||/online|teams|zoom/i.test(ort);
-  const ag=evtKategorieAuftraggeber(evt)||titelAuftraggeber(evt.subject||'')||'';
-  const teile=String(evt.subject||'').split('·');
-  bereichWechseln('seminare');
-  openFormPrefill({
-    auftraggeber:ag, zweck:(teile[1]||teile[0]||'').trim(),
-    kurs:teile.length>1?teile[0].replace(new RegExp('^'+agKuerzel(ag),'i'),'').trim():'',
-    von:datum, bis:(evt.end&&evt.end.dateTime||'').slice(0,10)||datum,
-    ziel:online?'Online':ort, zielAdresse:online?'':ort, online:online,
-    beginn:(evt.start&&evt.start.dateTime||'').slice(11,16),
-    ende:(evt.end&&evt.end.dateTime||'').slice(11,16)
-  });
-  /* Event-ID merken: fremde Termine koennen die Kennung nicht tragen, deshalb
-     haengt die Verknuepfung beim Speichern an der Reise. */
-  kalPendingEvent=evt.id;
-  toast('Aus dem Termin vorbelegt — bitte prüfen');
 }
 /* ---------- Kalender-Import als Pruefschritt ----------
    Frueher legte der Import direkt Reise-Entwuerfe an. Ein falsch erkannter
@@ -8673,7 +8951,7 @@ function kpiStart(){
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v105';
+const APP_VERSION='v112';
 const APP_STAND='18. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
@@ -8748,7 +9026,7 @@ document.addEventListener('click',e=>{
   try{
     if(b.dataset.kallauf==='privat')kalLaufPrivat(i);
     if(b.dataset.kallauf==='konvention')kalLaufKonvention(i);
-    if(b.dataset.kallauf==='reise')kalLaufReise(i);
+    if(b.dataset.kallauf==='ohneauftrag')kalLaufOhneAuftrag(i);
   }catch(err){toast('Fehlgeschlagen: '+(err&&err.message||err))}
 });
 document.addEventListener('click',e=>{const b=e.target.closest('[data-belegok]');if(b)belegUebernehmen(+b.getAttribute('data-belegok'))});
