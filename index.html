@@ -648,6 +648,17 @@ body{padding-bottom:64px}
     <div class="hint" id="planStatus"></div>
   </div>
 
+<div class="card" id="terminSheetCard" style="display:none">
+    <h2>Termine in Outlook anlegen</h2>
+    <div class="hint" id="terminSheetHinweis"></div>
+    <div id="terminSheetListe" style="margin-top:8px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button type="button" class="minibtn" id="btnTerminSheetOk">In Outlook anlegen</button>
+      <button type="button" class="minibtn rot" id="btnTerminSheetAb">Abbrechen</button>
+    </div>
+    <div class="hint" id="terminSheetStatus"></div>
+  </div>
+
 <div class="card" id="bahnCard" style="display:none">
     <h2>Bahnbuchung erkannt</h2>
     <div id="bahnDaten"></div>
@@ -3473,8 +3484,6 @@ async function reiseTermineAnlegen(){
   const uebersprungen=termine.filter(t=>t.verknuepft).length;
   termine=termine.filter(t=>!t.verknuepft);
   if(!termine.length){toast(uebersprungen?'Alle Tage sind schon verknüpft':'Keine Termine zu erstellen');return}
-  const liste=termine.map(t=>'· '+dfmt(t.datum)+' '+t.von+'–'+t.bis+'  '+t.subject+(t.konflikt?' ⚠':'')).join('\n');
-  if(!confirm('Diese '+termine.length+' Termine in Outlook anlegen'+(uebersprungen?' ('+uebersprungen+' Tag(e) übersprungen, schon verknüpft)':'')+'?\n\n'+liste))return;
   /* Die Kennung am Ende des Termintexts verknuepft den Termin mit der Reise —
      dasselbe Format wie bei Aufgaben seit v82. Sie ueberlebt Aenderungen an
      Titel oder Kategorie, weil sie nicht daran haengt. Dazu, was im Raum
@@ -3491,13 +3500,40 @@ async function reiseTermineAnlegen(){
     trip.quellMailWebLink?'Mail: '+trip.quellMailWebLink:''
   ].filter(Boolean).join('\n');
   const kennungText=zeilen+'\n\n'+bezugKennung('reise',editId);
+  /* Frueher stand hier ein confirm() mit einer Textliste: sichtbar, aber nicht
+     aenderbar. Die Zeiten sind geschaetzt (Fahrzeit, Seminarbeginn) — wer sie
+     nur lesen kann, legt sie falsch an und korrigiert sie danach in Outlook. */
+  terminVorschlag={termine:termine,ag:ag,kennungText:kennungText};
+  el('terminSheetHinweis').textContent=termine.length+' Termin(e) vorgeschlagen'+
+    (uebersprungen?' · '+uebersprungen+' Tag(e) übersprungen, schon verknüpft':'')+
+    ' · Zeiten sind Vorschläge und lassen sich hier ändern.';
+  el('terminSheetListe').innerHTML=terminZeilenHtml(termine);
+  el('terminSheetStatus').textContent='';
+  sheetAuf('terminSheetCard');
+}
+/* Der Vorschlag lebt zwischen Oeffnen und Anlegen — reiseTermineAnlegen kehrt
+   sofort zurueck, geschrieben wird erst auf Knopfdruck. Ein await auf einen
+   Dialog haette ein Promise offen gelassen, wenn das Sheet ueber Escape oder
+   Randklick zugeht (derselbe Fehler wie einst bei gdRequestToken). */
+let terminVorschlag=null;
+async function terminSheetAnlegen(){
+  if(!terminVorschlag)return;
+  const wirt=el('terminSheetListe');
+  const gelesen=terminZeilenLesen(wirt,terminVorschlag.termine);
+  if(gelesen.fehler){el('terminSheetStatus').textContent='Bei '+gelesen.fehler+' Termin(en) liegt das Ende nicht nach dem Beginn.';return}
+  if(!gelesen.termine.length){el('terminSheetStatus').textContent='Kein Termin ausgewählt.';return}
+  const btn=el('btnTerminSheetOk'); btn.disabled=true;
+  el('terminSheetStatus').innerHTML='<span class="spin"></span>Lege '+gelesen.termine.length+' Termine an …';
   let ok=0,zusammen=0;
-  for(const t of termine){
-    const r=await terminSchreiben(t,ag,kennungText);
+  for(const t of gelesen.termine){
+    const r=await terminSchreiben(t,terminVorschlag.ag,terminVorschlag.kennungText);
     if(r==='angelegt'||r==='zusammengelegt')ok++;
     if(r==='zusammengelegt')zusammen++;
   }
-  toast(ok+' von '+termine.length+' Terminen erledigt'+(zusammen?' ('+zusammen+' zusammengelegt)':''));
+  btn.disabled=false;
+  terminVorschlag=null;
+  sheetZu();
+  toast(ok+' von '+gelesen.termine.length+' Terminen erledigt'+(zusammen?' ('+zusammen+' zusammengelegt)':''));
 }
 
 /* Bestaetigungsmail als Outlook-ENTWURF anlegen — bewusst nur Entwurf, nie senden.
@@ -4572,12 +4608,22 @@ function renderMsStatus(){
     el('btnMsConnect').style.display='inline-block';el('btnMsDisconnect').style.display='none';
   }
 }
+/* Ohne den Prefer-Kopf gibt Graph start/end jedes Termins in UTC zurueck — im
+   Sommer zwei Stunden zu frueh (ein 09:00-Seminar stand als 07:00 in der Liste,
+   und die 60-Prozent-Ueberlappung in pruefeKonflikte rechnete gegen verschobene
+   Zeiten). Geschrieben wird ohnehin immer mit timeZone:'Europe/Berlin'; dieser
+   Kopf zieht das Lesen nach. Der Windows-Name deckt Sommer- und Winterzeit ab.
+   Nur Termin-Endpunkte: bei Mail wirkt der Kopf nicht, Exchange liefert dort
+   grundsaetzlich UTC. */
+const GRAPH_ZEITZONE='outlook.timezone="W. Europe Standard Time"';
 async function graph(path,opts){
   const tok=await msToken();
   if(!tok)throw new Error('Nicht mit Outlook verbunden');
   const eigeneHeader=(opts&&opts.headers)||{};
+  const kalenderPfad=/(calendarView|\/events|\/calendars)/i.test(path);
   const r=await fetch('https://graph.microsoft.com/v1.0'+path,Object.assign({},opts||{},{
-    headers:Object.assign({Authorization:'Bearer '+tok},(opts&&opts.body)?{'Content-Type':'application/json'}:{},eigeneHeader)
+    headers:Object.assign({Authorization:'Bearer '+tok},(opts&&opts.body)?{'Content-Type':'application/json'}:{},
+      kalenderPfad?{Prefer:GRAPH_ZEITZONE}:{},eigeneHeader)
   }));
   if(!r.ok){const t=await r.text();throw new Error('Graph '+r.status+': '+t.slice(0,180))}
   return r.status===204?null:r.json();
@@ -5130,10 +5176,7 @@ async function planZeigen(p){
   el('planTermine').innerHTML=(fahrMin?'<div class="hint">Fahrzeit ca. '+fahrMin+' Min → '+(fahrMin>60?'Vorabendanreise':'Anreise am Morgen (60 Min Puffer)')+'</div>':'')+'<div class="hint"><span class="spin"></span>Prüfe auf Terminkonflikte …</div>';
   await pruefeKonflikte(termine,p.auftraggeber);
   el('planTermine').innerHTML=(fahrMin?'<div class="hint">Fahrzeit ca. '+fahrMin+' Min → '+(fahrMin>60?'Vorabendanreise':'Anreise am Morgen (60 Min Puffer)')+'</div>':'')+
-    termine.map((t,i)=>
-    '<label style="display:flex;gap:8px;align-items:center;padding:5px 0;font-size:13.5px"><input type="checkbox" '+(t.konflikt?'':'checked')+' data-ti="'+i+'"> '+esc(t.subject)+' · '+dfmt(t.datum)+' '+t.von+'–'+t.bis+
-    (t.konflikt?' <span style="color:var(--rot)">⚠ vermutlich Duplikat von „'+esc(t.konflikt.subject)+'"</span>'
-      :(t.weitere?' <span style="opacity:.55">· '+t.weitere+' weitere(r) Termin(e) an diesem Tag</span>':''))+'</label>').join('');
+    terminZeilenHtml(termine);
   planAuftrag._termine=termine;
   el('planVorschau').scrollIntoView({behavior:'smooth'});
 }
@@ -5321,6 +5364,9 @@ async function terminSchreiben(t,ag,kennungText){
     return 'angelegt';
   }catch(e){return 'fehler'}
 }
+/* Anker der Vorabendanreise: nicht die Abfahrt ist gesetzt, sondern die Ankunft.
+   Sonst haengt die Ankunft an der Fahrzeit und liegt mal um 17, mal um 21 Uhr. */
+const ANREISE_ANKUNFT='18:00';
 function planTermineBauen(p){
   const ag=p.auftraggeber||'Auftraggeber', titel=p.zweck||'Seminar';
   const name=terminTitelBauen(ag,p.kurs,titel);
@@ -5328,10 +5374,13 @@ function planTermineBauen(p){
   const out=[];
   const d0=new Date(p.von+'T00:00'), d1=new Date((p.bis||p.von)+'T00:00');
   const fahrMin=p._fahrMin;
-  const dauerH=fahrMin?Math.max(1,Math.round(fahrMin/60)):3;
+  /* Vorabendanreise: Ankunft 18:00, Abfahrt um die Fahrzeit zurueckgerechnet.
+     Vorher stand starr 16:00 da — gleichgueltig, ob die Fahrt eine oder fuenf
+     Stunden dauert. Die Zeit bleibt im Vorschlag ein Feld, nicht Text. */
+  const abfahrtVorabend=minusMin(ANREISE_ANKUNFT,fahrMin||180);
   if(p.anreise&&p.anreise<p.von){
     /* Erfasste Vorabendanreise schlaegt jede Schaetzung */
-    out.push({subject:'Anreise '+name,datum:p.anreise,von:'16:00',bis:addH('16:00',dauerH),ort:p.zielAdresse||p.ziel||''});
+    out.push({subject:'Anreise '+name,datum:p.anreise,von:abfahrtVorabend,bis:ANREISE_ANKUNFT,ort:p.zielAdresse||p.ziel||''});
   }else if(fahrMin&&fahrMin<=60){
     /* Anreise am Seminarmorgen: Abfahrt = Beginn − Fahrzeit − 60 Min Puffer */
     const start=minusMin(beginn,fahrMin+60);
@@ -5339,8 +5388,7 @@ function planTermineBauen(p){
   }else{
     /* Vorabendanreise (Fahrzeit >1h oder unbekannt) */
     const vortag=new Date(d0);vortag.setDate(vortag.getDate()-1);
-    const dauer=fahrMin?Math.max(1,Math.round(fahrMin/60)):3;
-    out.push({subject:'Anreise '+name,datum:ymd(vortag),von:'16:00',bis:addH('16:00',dauer),ort:p.zielAdresse||p.ziel||''});
+    out.push({subject:'Anreise '+name,datum:ymd(vortag),von:abfahrtVorabend,bis:ANREISE_ANKUNFT,ort:p.zielAdresse||p.ziel||''});
   }
   for(let d=new Date(d0);d<=d1;d.setDate(d.getDate()+1)){
     out.push({subject:name,datum:ymd(d),von:beginn,bis:ende,ort:p.zielAdresse||p.ziel||''});
@@ -5354,12 +5402,46 @@ function planTermineBauen(p){
 }
 function minusMin(hm,min){const[a,b]=hm.split(':').map(Number);let t=a*60+b-min;if(t<0)t=0;return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0')}
 function addH(hm,h){const[a,b]=hm.split(':').map(Number);return String(Math.min(a+h,23)).padStart(2,'0')+':'+String(b).padStart(2,'0')}
+/* Vorschlagszeilen fuer anzulegende Termine — eine Bauart fuer beide Wege
+   (gespeicherte Reise und Reiseplaner). Die Zeiten stehen als Feld, nicht als
+   Text: die Vorbelegung ist eine Schaetzung aus Fahrzeit und Seminarzeit, die
+   letzte Entscheidung gehoert Charles. Zwei getrennte Listen wuerden binnen
+   eines Jahres unterschiedlich laufen. */
+function terminZeilenHtml(termine){
+  return termine.map((t,i)=>
+    '<div class="agrow" style="flex-direction:column;align-items:stretch;gap:var(--a1)">'+
+      '<label style="display:flex;gap:8px;align-items:center">'+
+        '<input type="checkbox" '+(t.konflikt?'':'checked')+' data-ti="'+i+'">'+
+        '<span style="font-weight:600">'+esc(t.subject)+'</span></label>'+
+      '<div class="hint" style="margin:0">'+dfmt(t.datum)+'</div>'+
+      '<div class="grid2">'+
+        '<div class="f"><label>Beginn</label><input type="time" step="300" data-tvon="'+i+'" value="'+esc(t.von)+'"></div>'+
+        '<div class="f"><label>Ende</label><input type="time" step="300" data-tbis="'+i+'" value="'+esc(t.bis)+'"></div>'+
+      '</div>'+
+      (t.konflikt?'<div class="hint" style="margin:0;color:var(--rot)">⚠ vermutlich Duplikat von „'+esc(t.konflikt.subject)+'"</div>'
+        :(t.weitere?'<div class="hint" style="margin:0">'+t.weitere+' weitere(r) Termin(e) an diesem Tag</div>':''))+
+    '</div>').join('');
+}
+/* Liest Haken und geaenderte Zeiten zurueck. Ein Ende vor dem Beginn wird nicht
+   geschrieben — Outlook nimmt es an und der Termin verschwindet aus der Ansicht. */
+function terminZeilenLesen(wirt,termine){
+  const raus=[]; let fehler=0;
+  termine.forEach((t,i)=>{
+    const cb=wirt.querySelector('[data-ti="'+i+'"]'); if(!cb||!cb.checked)return;
+    const v=wirt.querySelector('[data-tvon="'+i+'"]'), b=wirt.querySelector('[data-tbis="'+i+'"]');
+    const von=(v&&v.value)||t.von, bis=(b&&b.value)||t.bis;
+    if(!von||!bis||bis<=von){fehler++;return}
+    raus.push(Object.assign({},t,{von:von,bis:bis}));
+  });
+  return {termine:raus,fehler:fehler};
+}
 async function termineAnlegen(){
   if(!planAuftrag)return;
   const st=el('planStatus');
   const termine=planAuftrag._termine||planTermineBauen(planAuftrag);
-  const checks=[...el('planTermine').querySelectorAll('input[data-ti]')];
-  const auswahl=termine.filter((t,i)=>checks[i]&&checks[i].checked);
+  const gelesen=terminZeilenLesen(el('planTermine'),termine);
+  if(gelesen.fehler){st.textContent='Bei '+gelesen.fehler+' Termin(en) liegt das Ende nicht nach dem Beginn.';return}
+  const auswahl=gelesen.termine;
   if(!auswahl.length){st.textContent='Keine Termine ausgewählt.';return}
   st.innerHTML='<span class="spin"></span>Lege '+auswahl.length+' Termine an …';
   const kennungBasis='Angelegt vom Dozenten-Cockpit'+(planAuftrag.auftragsnummer?' · Auftrag '+planAuftrag.auftragsnummer:'');
@@ -5665,19 +5747,30 @@ function kalResetVerdrahten(){
    Verknuepfung: eigene Termine tragen die Kennung im Text, Einladungen koennen
    das nicht — dort haengt die Verknuepfung ueber die Event-ID am Datensatz. */
 let zeilenEditor=null;
+/* Ein Ganztagestermin endet bei Graph am Folgetag um 00:00 — ungeprueft
+   uebernommen liefe jedes Tagesseminar im Datensatz ueber zwei Tage. */
+function endeAusGraph(datum,ende,allDay){
+  if(!ende)return datum;
+  if(!allDay)return ende;
+  const d=new Date(ende+'T12:00:00'); d.setDate(d.getDate()-1);
+  const raus=ymd(d);
+  return raus<datum?datum:raus;
+}
 function zeilenEditorQuelle(quelle,id){
   if(quelle==='kal'){
     const e=kalCache.find(x=>x.id===id); if(!e)return null;
-    return {id:e.id,titel:e.titel,datum:e.datum,datumBis:e.bis||e.datum,ort:e.ort||'',
-      online:!!e.online,eigen:!!e.eigen,categories:e.categories||[],
+    return {id:e.id,titel:e.titel,datum:e.datum,datumBis:endeAusGraph(e.datum,e.bis,e.allDay),ort:e.ort||'',
+      online:!!e.online,eigen:!!e.eigen,categories:e.categories||[],allDay:!!e.allDay,
       zeitVon:e.allDay?'':(e.zeit||''),zeitBis:e.allDay?'':(e.zeitBis||'')};
   }
   const evt=kalLaufTreffer.find(x=>x.id===id); if(!evt)return null;
   const s=(evt.start&&evt.start.dateTime)||'', b=(evt.end&&evt.end.dateTime)||'';
-  return {id:evt.id,titel:evt.subject||'',datum:s.slice(0,10),datumBis:b.slice(0,10)||s.slice(0,10),
+  return {id:evt.id,titel:evt.subject||'',datum:s.slice(0,10),
+    datumBis:endeAusGraph(s.slice(0,10),b.slice(0,10),!!evt.isAllDay),
     ort:(evt.location&&evt.location.displayName)||'',online:!!evt.isOnlineMeeting,
     eigen:evt.isOrganizer!==false&&(!Array.isArray(evt.attendees)||evt.attendees.length===0),
-    categories:evt.categories||[],zeitVon:s.slice(11,16),zeitBis:b.slice(11,16)};
+    categories:evt.categories||[],allDay:!!evt.isAllDay,
+    zeitVon:evt.isAllDay?'':s.slice(11,16),zeitBis:evt.isAllDay?'':b.slice(11,16)};
 }
 /* Titel nach der Konvention "Kuerzel Kurs · Thema" zerlegen — nur als Vorschlag,
    entschieden wird im Feld. */
@@ -5707,8 +5800,13 @@ function zeilenEditorHtml(quelle,id){
         '<option value="praesenz"'+(q.online?'':' selected')+'>Präsenz</option>'+
         '<option value="online"'+(q.online?' selected':'')+'>Online</option></select></div>'+
     '</div>'+
-    '<div class="hint" style="margin:0 0 var(--a2)">'+dfmt(q.datum)+(q.zeitVon?' '+q.zeitVon+'–'+q.zeitBis:'')+
-      ' · '+(q.eigen?'eigener Termin, bekommt die Kennung im Text':'Einladung — verknüpft über die Termin-ID, Kategorien werden gesetzt')+'</div>'+
+    '<div class="grid2">'+
+      '<div class="f"><label>Beginn</label><input type="time" id="zeVon" step="300" value="'+esc(q.zeitVon)+'" placeholder="09:00"></div>'+
+      '<div class="f"><label>Ende</label><input type="time" id="zeBis" step="300" value="'+esc(q.zeitBis)+'" placeholder="17:00"></div>'+
+    '</div>'+
+    '<div class="hint" style="margin:0 0 var(--a2)">'+dfmt(q.datum)+
+      ' · '+(q.eigen?'eigener Termin — geänderte Zeiten gehen auch nach Outlook, dazu die Kennung im Text'
+                   :'Einladung — Zeiten gelten nur im Cockpit, in Outlook werden nur die Kategorien gesetzt')+'</div>'+
     '<div class="chipreihe">'+
       '<button type="button" class="minibtn" id="zeSpeichern" data-zequelle="'+quelle+'">Seminar erfassen</button>'+
       '<button type="button" class="minibtn" id="zeAbbrechen" data-zequelle="'+quelle+'">Abbrechen</button>'+
@@ -5731,11 +5829,13 @@ async function zeilenEditorSpeichern(){
   if(!ag){toast('Bitte den Auftraggeber wählen oder eintragen');return}
   const kurs=el('zeKurs').value.trim(), thema=el('zeThema').value.trim();
   const online=el('zeModus').value==='online';
+  const zVon=el('zeVon').value, zBis=el('zeBis').value;
+  if(zVon&&zBis&&zBis<=zVon){toast('Das Ende liegt vor dem Beginn');return}
   const memo=(state.settings.kgMemo||{})[ag]||{};
   const trip={
     id:uid(), ag:ag, ziel:online?'Online':(q.ort||''), zielAdresse:online?'':(q.ort||''),
     zweck:thema||q.titel||'Seminar', kurs:kurs,
-    von:q.datum, bis:q.datumBis||q.datum, beginn:q.zeitVon||'', ende:q.zeitBis||'',
+    von:q.datum, bis:q.datumBis||q.datum, beginn:zVon||'', ende:zBis||'',
     anreise:'', abreise:'', mitternacht:false, ueber8h:true,
     mahl:{fr:0,mi:0,ab:0}, hotelFr:true, bewertung:0, bewNotiz:'', belege:[],
     vm:'auto', km:0, bahn:0, typ:'dozent', modus:online?'online':'praesenz', ihkNotiz:'',
@@ -5755,10 +5855,21 @@ async function zeilenEditorSpeichern(){
       const altText=String((roh.body&&roh.body.content)||'').replace(/<[^>]+>/g,'').trim();
       const neuerText=bezugLesen(altText)?altText:(altText?altText+'\n\n':'')+bezugKennung('reise',trip.id);
       const kats=[...new Set([...(roh.categories||[]),...terminKategorien(ag)])];
-      await graph('/me/events/'+encodeURIComponent(q.id),{method:'PATCH',body:JSON.stringify({
-        categories:kats, body:{contentType:'text',content:neuerText}
-      })});
-      hinweis='Kennung und Kategorien in Outlook gesetzt';
+      const nutz={categories:kats, body:{contentType:'text',content:neuerText}};
+      /* Zeiten nur mitschicken, wenn sie sich wirklich geaendert haben — ein
+         unnoetiger start/end-PATCH wuerde eine Serieninstanz abkoppeln. Aus einem
+         Ganztagestermin wird dabei ein Termin mit Uhrzeit; ohne isAllDay:false
+         weist Graph alles ausser Mitternacht zurueck. */
+      const zeitNeu=zVon&&zBis&&(zVon!==q.zeitVon||zBis!==q.zeitBis);
+      if(zeitNeu){
+        nutz.start={dateTime:q.datum+'T'+zVon+':00',timeZone:'Europe/Berlin'};
+        nutz.end={dateTime:(q.datumBis||q.datum)+'T'+zBis+':00',timeZone:'Europe/Berlin'};
+        if(q.allDay)nutz.isAllDay=false;
+      }
+      await graph('/me/events/'+encodeURIComponent(q.id),{method:'PATCH',body:JSON.stringify(nutz)});
+      hinweis=zeitNeu?'Zeit, Kennung und Kategorien in Outlook gesetzt':'Kennung und Kategorien in Outlook gesetzt';
+      const ck=kalCache.find(x=>x.id===q.id);
+      if(ck&&zeitNeu){ck.zeit=zVon;ck.zeitBis=zBis;ck.allDay=false}
       const c=kalCache.find(x=>x.id===q.id); if(c)c.categories=kats;
     }else{
       const kats=[...new Set([...(q.categories||[]),...terminKategorien(ag)])];
@@ -7828,7 +7939,7 @@ async function autoKalenderCheck(){
     const heute=new Date();
     const bisD=new Date();bisD.setMonth(bisD.getMonth()+6);
     const von=ymd(heute), bis=ymd(bisD);
-    const alle=await calendarViewAlle(von,bis,'id,subject,start,end,location,categories,isOnlineMeeting,isOrganizer,attendees,body');
+    const alle=await calendarViewAlle(von,bis,'id,subject,start,end,location,categories,isOnlineMeeting,isOrganizer,attendees,isAllDay,body');
     const evts=alle.filter(e=>{
       if(istPrivatTermin(e))return false;
       if(titelIstReiseNebentermin(e.subject))return false;
@@ -8562,7 +8673,7 @@ function kpiStart(){
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v103';
+const APP_VERSION='v105';
 const APP_STAND='18. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
@@ -8787,6 +8898,8 @@ el('aufraeumListe').addEventListener('click',ev=>{
 el('btnEingangReload').addEventListener('click',()=>{eingangMailsLaden();renderGtasks(false)});
 el('btnCockpitLesen').addEventListener('click',eingangAlleAuswerten);
 el('btnTermineAnlegen').addEventListener('click',termineAnlegen);
+el('btnTerminSheetOk').addEventListener('click',terminSheetAnlegen);
+el('btnTerminSheetAb').addEventListener('click',()=>{terminVorschlag=null;sheetZu()});
 el('btnAlsReise').addEventListener('click',alsReise);
 
 /* ---------- Start ---------- */
