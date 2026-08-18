@@ -1129,6 +1129,17 @@ body{padding-bottom:64px}
 
 
 
+<div class="card" id="kurseCard">
+    <h2>Kurse &amp; Lehrgänge
+      <span class="tools"><button type="button" class="hilfe" data-tip="Auswahlliste für das Kursfeld in Reise, Meeting und Werkstatt. Kein Fachgebiet — die Kategorie steuert weiterhin die Ablage. Freitext bleibt überall möglich; ein neu getippter Kurs landet zusätzlich über das Kursgedächtnis in der Liste." aria-label="Erklärung">?</button></span>
+    </h2>
+    <div id="kurseListeBox" style="margin-top:var(--a2)"></div>
+    <div style="display:flex;gap:var(--a2);margin-top:var(--a2);flex-wrap:wrap">
+      <input type="text" id="kursNeu" placeholder="z. B. Fachwirt für Finanzberatung IHK" style="flex:1 1 200px">
+      <button type="button" class="minibtn" id="btnKursNeu">Kurs erfassen</button>
+    </div>
+  </div>
+
 <div class="card">
     <h2>Verbindungen</h2>
     <div class="f" style="margin-top:6px"><label>Outlook (Optima)</label>
@@ -1227,6 +1238,12 @@ body{padding-bottom:64px}
     <div class="grid2">
       <div class="f"><label>Seminar von</label><input type="date" id="fVon"></div>
       <div class="f"><label>Seminar bis</label><input type="date" id="fBis"></div>
+    </div>
+    <!-- Ohne diese beiden Felder baut planTermineBauen jeden Seminartag stur
+         09:00-17:00; der Duplikatabgleich rechnet dann gegen die falsche Spanne. -->
+    <div class="grid2" id="fZeitWrap">
+      <div class="f"><label>Beginn</label><input type="time" id="fBeginn" step="300" placeholder="09:00"></div>
+      <div class="f"><label>Ende</label><input type="time" id="fEnde" step="300" placeholder="17:00"></div>
     </div>
     <div class="grid2" id="fReiseTageWrap">
       <div class="f"><label>Anreise (nur bei Vorabend)</label><input type="date" id="fAnreise"></div>
@@ -1611,6 +1628,10 @@ async function load(){
     state.settings.accounts.unshift('SCC Kreditkarte (Mastercard •0838)');
   // Migration: fehlendes account-Feld bei bestehenden Tools mit "" ergänzen
   state.tools.forEach(t=>{ if(t.account===undefined)t.account=''; });
+  // Migration v103: lokale Ignorier-Listen -> Outlook-Kategorie "Privat"
+  privatMigrieren();
+  // Startbestand der Kursliste anlegen, falls noch keine gepflegt ist
+  kurseListe();
 }
 async function save(){
   try{
@@ -1685,6 +1706,8 @@ function openForm(id){
   el('fZiel').value=t?(t.zielAdresse||t.ziel||''):''; el('fZweck').value=t?t.zweck||'':'';
   el('fKurs').value=t?(t.kurs||''):'';
   el('fVon').value=t?t.von:''; el('fBis').value=t?t.bis||'':'';
+  if(el('fBeginn'))el('fBeginn').value=t?(t.beginn||''):'';
+  if(el('fEnde'))el('fEnde').value=t?(t.ende||''):'';
   if(el('fAnreise'))el('fAnreise').value=t?(t.anreise||''):'';
   if(el('fAbreise'))el('fAbreise').value=t?(t.abreise||''):'';
   el('fMitternacht').checked=t?!!t.mitternacht:false;
@@ -1809,6 +1832,8 @@ function openFormPrefill(p){
   el('fZweck').value=zweck;
   if(el('fKurs')&&p.kurs)el('fKurs').value=p.kurs;
   el('fVon').value=p.von||''; el('fBis').value=p.bis||p.von||'';
+  if(el('fBeginn'))el('fBeginn').value=p.beginn||'';
+  if(el('fEnde'))el('fEnde').value=p.ende||'';
   syncTage();
   el('fAuftragsnr').value=p.auftragsnummer||'';
   const honorar=zahlAus(p.honorarGesamt)||(zahlAus(p.honorarProTermin)*(zahlAus(p.anzahlTermine)||1));
@@ -1997,6 +2022,7 @@ function formData(){
     ag:agSel==='__frei'?(el('fAgFrei').value.trim()||'Sonstige'):agSel,
     ziel:el('fZiel').value.trim(), zweck:el('fZweck').value.trim(), kurs:el('fKurs').value.trim(),
     von:el('fVon').value, bis:el('fBis').value||el('fVon').value,
+    beginn:(el('fBeginn')&&el('fBeginn').value)||'', ende:(el('fEnde')&&el('fEnde').value)||'',
     anreise:(el('fAnreise')&&el('fAnreise').value)||'', abreise:(el('fAbreise')&&el('fAbreise').value)||'',
     zielAdresse:(selZiel&&selZiel.adresse)?selZiel.adresse:(editId?((state.trips.find(x=>x.id===editId)||{}).zielAdresse||''):''),
     mitternacht:el('fMitternacht').checked, ueber8h:el('f8h').checked,
@@ -3437,7 +3463,9 @@ async function reiseTermineAnlegen(){
   const ag=(el('fAg').value==='__frei'&&el('fAgFrei'))?el('fAgFrei').value:el('fAg').value;
   const p={auftraggeber:ag,zweck:el('fZweck').value||'Seminar',kurs:el('fKurs').value||'',von:von,bis:bis,
     anreise:(el('fAnreise')&&el('fAnreise').value)||'', abreise:(el('fAbreise')&&el('fAbreise').value)||'',
-    ziel:el('fZiel').value,zielAdresse:el('fZiel').value,beginn:'09:00',ende:'17:00'};
+    ziel:el('fZiel').value,zielAdresse:el('fZiel').value,
+    beginn:(el('fBeginn')&&el('fBeginn').value)||'09:00',
+    ende:(el('fEnde')&&el('fEnde').value)||'17:00'};
   let termine=planTermineBauen(p);
   await pruefeKonflikte(termine,ag,editId);
   /* Tage, an denen schon ein mit dieser Reise verknüpfter Termin liegt,
@@ -5352,14 +5380,52 @@ function alsReise(){
 
 /* ---------- Kalender (Outlook ist führend) ---------- */
 let kalTage=30, kalCache=[];
-function kalIgnoriert(){ if(!Array.isArray(state.settings.kalIgnoriert))state.settings.kalIgnoriert=[]; return state.settings.kalIgnoriert; }
-/* Dauerhaft ignorierte Titel — für wiederkehrende Privattermine (Kicken, Training …).
-   Wichtig: Das blendet sie NUR im Kalender-Reiter aus. Sie bleiben im Outlook-Kalender
-   und lösen weiterhin Terminkonflikte aus — genau dafür sind sie ja da. */
-function kalIgnoriertTitel(){ if(!Array.isArray(state.settings.kalIgnoriertTitel))state.settings.kalIgnoriertTitel=[]; return state.settings.kalIgnoriertTitel; }
-function titelIgnoriert(titel){
+/* Privat ist eine Outlook-Kategorie, keine lokale Liste. Sie steht im Termin
+   selbst, wirkt in jeder Ansicht und am Handy, ueberlebt Geraetewechsel und
+   Speicher-Reset — und darf auch an fremden Einladungen gesetzt werden, weil
+   sie in der eigenen Postfachkopie liegt und keine Aktualisierung an die
+   Teilnehmer ausloest. Die alten Listen kalIgnoriert/kalIgnoriertTitel blendeten
+   denselben Termin nur im Kalender-Reiter aus; in der Sechs-Monats-Liste und in
+   der Konfliktpruefung stand er weiter — zwei Wahrheiten fuer dieselbe Ansage. */
+function privatTitel(){ if(!Array.isArray(state.settings.privatTitel))state.settings.privatTitel=[]; return state.settings.privatTitel; }
+/* Aus der alten Einzel-Ignorierliste uebernommene Termin-IDs: sie bekommen die
+   Kategorie, sobald sie das naechste Mal geladen werden. */
+function privatNachzug(){ if(!Array.isArray(state.settings.privatNachzug))state.settings.privatNachzug=[]; return state.settings.privatNachzug; }
+function titelIstPrivat(titel){
   const t=(titel||'').trim().toLowerCase();
-  return kalIgnoriertTitel().some(x=>x.toLowerCase()===t);
+  return !!t&&privatTitel().some(x=>String(x||'').trim().toLowerCase()===t);
+}
+function privatMigrieren(){
+  if(!state.settings)return;
+  if(Array.isArray(state.settings.kalIgnoriertTitel)){
+    const ziel=privatTitel();
+    state.settings.kalIgnoriertTitel.forEach(t=>{if(t&&!titelIstPrivat(t))ziel.push(t)});
+    delete state.settings.kalIgnoriertTitel;
+  }
+  if(Array.isArray(state.settings.kalIgnoriert)){
+    const nach=privatNachzug();
+    state.settings.kalIgnoriert.forEach(id=>{if(id&&!nach.includes(id))nach.push(id)});
+    delete state.settings.kalIgnoriert;
+  }
+}
+/* Einen Termin als privat kategorisieren — die Sammelkategorie "Dozentur"
+   faellt dabei weg, sonst zaehlt er weiter als beruflich. */
+async function privatSetzen(evtId,kats){
+  const neu=[...new Set([...(kats||[]).filter(k=>(k||'').trim().toLowerCase()!=='dozentur'),'Privat'])];
+  await graph('/me/events/'+encodeURIComponent(evtId),{method:'PATCH',body:JSON.stringify({categories:neu})});
+  return neu;
+}
+/* Regel "Immer privat": kategorisiert Termine gleichen Titels beim naechsten
+   Laden mit, dazu die Nachzuegler aus der alten Einzelliste. */
+async function privatRegelAnwenden(){
+  const nach=privatNachzug();
+  const offen=kalCache.filter(e=>!istPrivatTermin(e)&&(titelIstPrivat(e.titel)||nach.includes(e.id)));
+  if(!offen.length)return;
+  for(const e of offen){
+    try{ e.categories=await privatSetzen(e.id,e.categories); }catch(err){}
+    const i=nach.indexOf(e.id); if(i>=0)nach.splice(i,1);
+  }
+  await save();
 }
 /* Findet heraus, ob ein Outlook-Termin schon zu einer Reise/einem Meeting gehört.
    Erst über die gespeicherte Verknüpfung, dann über einen plausiblen Auto-Treffer. */
@@ -5408,17 +5474,17 @@ async function kalenderLaden(){
       eigen:e.isOrganizer!==false&&(!Array.isArray(e.attendees)||e.attendees.length===0)
     })).filter(e=>e.datum);
     st.textContent='';
+    await privatRegelAnwenden();
     renderKalender();
   }catch(err){st.textContent='Fehler: '+err.message;box.innerHTML=''}
 }
 function renderKalender(){
   const box=el('kalListe');if(!box)return;
-  const ign=kalIgnoriert();
-  const sichtbar=kalCache.filter(e=>!ign.includes(e.id)&&!titelIgnoriert(e.titel));
-  const versteckt=kalIgnoriertTitel();
+  const sichtbar=kalCache.filter(e=>!istPrivatTermin(e));
+  const versteckt=privatTitel();
   const verstecktHtml=versteckt.length
-    ? '<div class="hint" style="margin-bottom:6px">Dauerhaft ausgeblendet: '+versteckt.map(t=>esc(t)).join(' · ')+
-      ' <button type="button" class="minibtn klein" id="btnIgnTitelReset" style="margin-left:4px">zurücksetzen</button></div>'
+    ? '<div class="hint" style="margin-bottom:6px">Automatisch privat: '+versteckt.map(t=>esc(t)).join(' · ')+
+      ' <button type="button" class="minibtn klein" id="btnIgnTitelReset" style="margin-left:4px">Regeln löschen</button></div>'
     : '';
   if(!sichtbar.length){box.innerHTML=verstecktHtml+'<div class="hint">Keine Termine im gewählten Zeitraum.</div>';kalResetVerdrahten();return}
   const heute=heuteISO();
@@ -5444,10 +5510,11 @@ function renderKalender(){
       if(e.eigen)aktionen+='<button type="button" class="minibtn klein" data-kbearb="'+e.id+'" >Bearbeiten</button>';
     }else{
       statusHtml='<span style="color:var(--grau);font-size:11.5px">○ nicht zugeordnet</span>';
-      aktionen='<button type="button" class="minibtn klein" data-kneu="'+e.id+'" >Als Reise</button>'+
+      aktionen='<button type="button" class="minibtn klein" data-kzeile="kal:'+e.id+'" >Seminar erfassen</button>'+
+        '<button type="button" class="minibtn klein" data-kneu="'+e.id+'" >Als Reise</button>'+
         '<button type="button" class="minibtn klein" data-kneumeet="'+e.id+'" >Als Meeting</button>'+
-        '<button type="button" class="minibtn klein" data-kign="'+e.id+'" >Ignorieren</button>'+
-        '<button type="button" class="minibtn klein" data-kigntitel="'+esc(e.titel)+'"  title="Alle Termine mit diesem Titel dauerhaft ausblenden">Immer</button>'+
+        '<button type="button" class="minibtn klein" data-kign="'+e.id+'" >Privat</button>'+
+        '<button type="button" class="minibtn klein" data-kigntitel="'+esc(e.titel)+'"  title="Termine mit diesem Titel künftig automatisch als privat kategorisieren">Immer privat</button>'+
         (e.eigen?'<button type="button" class="minibtn klein" data-kbearb="'+e.id+'" >Bearbeiten</button>':'');
     }
     return '<div style="border-bottom:1px solid var(--line);padding:9px 0'+(istHeute?';background:var(--rot-dim);margin:0 -14px;padding-left:14px;padding-right:14px':'')+'">'+
@@ -5457,7 +5524,7 @@ function renderKalender(){
       '</div>'+
       '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px">'+
         statusHtml+'<span style="display:flex;gap:4px;flex-wrap:wrap">'+aktionen+'</span>'+
-      '</div></div>';
+      '</div>'+zeilenEditorHtml('kal',e.id)+'</div>';
   }).join('');
   box.innerHTML=verstecktHtml+box.innerHTML;
   kalResetVerdrahten();
@@ -5487,12 +5554,20 @@ function renderKalender(){
   box.querySelectorAll('[data-kneu]').forEach(b=>b.addEventListener('click',()=>kalAlsReise(b.dataset.kneu)));
   box.querySelectorAll('[data-kneumeet]').forEach(b=>b.addEventListener('click',()=>kalAlsMeeting(b.dataset.kneumeet)));
   box.querySelectorAll('[data-kign]').forEach(b=>b.addEventListener('click',async()=>{
-    kalIgnoriert().push(b.dataset.kign);await save();renderKalender();toast('Termin ausgeblendet');
+    const e=kalCache.find(x=>x.id===b.dataset.kign);if(!e)return;
+    b.disabled=true;b.textContent='…';
+    try{
+      e.categories=await privatSetzen(e.id,e.categories);
+      await save();renderKalender();toast('In Outlook als privat kategorisiert');
+    }catch(err){b.disabled=false;b.textContent='Privat';toast('Fehler: '+err.message)}
   }));
   box.querySelectorAll('[data-kigntitel]').forEach(b=>b.addEventListener('click',async()=>{
     const t=b.dataset.kigntitel;
-    if(!confirm('Alle Termine mit dem Titel "'+t+'" dauerhaft im Kalender-Reiter ausblenden?\n\nSie bleiben in Outlook stehen und lösen weiterhin Terminkonflikte aus.'))return;
-    kalIgnoriertTitel().push(t);await save();renderKalender();toast('"'+t+'" wird nicht mehr angezeigt');
+    if(!confirm('Termine mit dem Titel "'+t+'" künftig automatisch als privat kategorisieren?\n\nDie Kategorie wird in Outlook gesetzt und wirkt damit überall — auch am Handy und in der Konfliktprüfung.'))return;
+    if(!titelIstPrivat(t))privatTitel().push(t);
+    await save();
+    try{ await privatRegelAnwenden(); }catch(err){}
+    renderKalender();toast('"'+t+'" gilt jetzt als privat');
   }));
   /* Bestandstermin nachträglich in Outlook kategorisieren */
   box.querySelectorAll('[data-kkat]').forEach(b=>b.addEventListener('click',async()=>{
@@ -5576,10 +5651,148 @@ async function konfliktKalRender(){
 function kalResetVerdrahten(){
   const b=el('btnIgnTitelReset');if(!b)return;
   b.addEventListener('click',async()=>{
-    if(!confirm('Alle dauerhaft ausgeblendeten Titel wieder anzeigen?'))return;
-    state.settings.kalIgnoriertTitel=[];await save();renderKalender();toast('Wieder sichtbar');
+    if(!confirm('Alle Regeln „Immer privat" löschen?\n\nBereits gesetzte Outlook-Kategorien bleiben stehen — künftige Termine gleichen Titels werden nur nicht mehr automatisch kategorisiert.'))return;
+    state.settings.privatTitel=[];await save();renderKalender();toast('Regeln gelöscht');
   });
 }
+/* ---------- Gemeinsamer Zeileneditor ----------
+   EIN Editor, zweimal eingehaengt: in die Sechs-Monats-Liste (kalLaufRendern)
+   und in die Kalenderansicht (renderKalender). Zwei getrennte Editoren an zwei
+   Karten wuerden binnen eines Jahres unterschiedlich laufen.
+   Er legt bewusst NUR den Seminardatensatz an: Auftraggeber, Kurs, Thema,
+   Praesenz/Online. Kilometer, Verkehrsmittel, Buchungsstatus und Honorar
+   gehoeren in die Reiseplanung und wuerden hier doppelt gefuellt.
+   Verknuepfung: eigene Termine tragen die Kennung im Text, Einladungen koennen
+   das nicht — dort haengt die Verknuepfung ueber die Event-ID am Datensatz. */
+let zeilenEditor=null;
+function zeilenEditorQuelle(quelle,id){
+  if(quelle==='kal'){
+    const e=kalCache.find(x=>x.id===id); if(!e)return null;
+    return {id:e.id,titel:e.titel,datum:e.datum,datumBis:e.bis||e.datum,ort:e.ort||'',
+      online:!!e.online,eigen:!!e.eigen,categories:e.categories||[],
+      zeitVon:e.allDay?'':(e.zeit||''),zeitBis:e.allDay?'':(e.zeitBis||'')};
+  }
+  const evt=kalLaufTreffer.find(x=>x.id===id); if(!evt)return null;
+  const s=(evt.start&&evt.start.dateTime)||'', b=(evt.end&&evt.end.dateTime)||'';
+  return {id:evt.id,titel:evt.subject||'',datum:s.slice(0,10),datumBis:b.slice(0,10)||s.slice(0,10),
+    ort:(evt.location&&evt.location.displayName)||'',online:!!evt.isOnlineMeeting,
+    eigen:evt.isOrganizer!==false&&(!Array.isArray(evt.attendees)||evt.attendees.length===0),
+    categories:evt.categories||[],zeitVon:s.slice(11,16),zeitBis:b.slice(11,16)};
+}
+/* Titel nach der Konvention "Kuerzel Kurs · Thema" zerlegen — nur als Vorschlag,
+   entschieden wird im Feld. */
+function zeilenTitelTeile(titel,ag){
+  const teile=String(titel||'').split('·');
+  if(teile.length>1)
+    return {kurs:teile[0].replace(new RegExp('^'+agKuerzel(ag),'i'),'').trim(),thema:teile.slice(1).join('·').trim()};
+  return {kurs:'',thema:(teile[0]||'').trim()};
+}
+function zeilenEditorHtml(quelle,id){
+  if(!zeilenEditor||zeilenEditor.quelle!==quelle||zeilenEditor.id!==id)return '';
+  const q=zeilenEditorQuelle(quelle,id); if(!q)return '';
+  const ag=kalAgRaten(q.titel,{categories:q.categories})||'';
+  const t=zeilenTitelTeile(q.titel,ag);
+  const kurs=t.kurs||kursMemoGet(ag,'');
+  const agOpts=AUFTRAGGEBER.map(a=>'<option value="'+esc(a)+'"'+(a===ag?' selected':'')+'>'+esc(a)+'</option>').join('')+
+    '<option value="__frei"'+(ag?'':' selected')+'>Andere …</option>';
+  return '<div class="zeile-editor" style="border-top:1px solid var(--line);margin-top:var(--a2);padding-top:var(--a2)">'+
+    '<div class="grid2">'+
+      '<div class="f"><label>Auftraggeber</label><select id="zeAg" class="ag-select">'+agOpts+'</select>'+
+        '<input type="text" id="zeAgFrei" placeholder="Name des Auftraggebers" style="margin-top:var(--a1);display:'+(ag?'none':'block')+'"></div>'+
+      '<div class="f"><label>Kurs</label><input type="text" id="zeKurs" list="kursListe" value="'+esc(kurs)+'" placeholder="z. B. Versicherungsfachmann 34d"></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div class="f"><label>Thema</label><input type="text" id="zeThema" value="'+esc(t.thema)+'" placeholder="z. B. Unfallversicherung"></div>'+
+      '<div class="f"><label>Form</label><select id="zeModus">'+
+        '<option value="praesenz"'+(q.online?'':' selected')+'>Präsenz</option>'+
+        '<option value="online"'+(q.online?' selected':'')+'>Online</option></select></div>'+
+    '</div>'+
+    '<div class="hint" style="margin:0 0 var(--a2)">'+dfmt(q.datum)+(q.zeitVon?' '+q.zeitVon+'–'+q.zeitBis:'')+
+      ' · '+(q.eigen?'eigener Termin, bekommt die Kennung im Text':'Einladung — verknüpft über die Termin-ID, Kategorien werden gesetzt')+'</div>'+
+    '<div class="chipreihe">'+
+      '<button type="button" class="minibtn" id="zeSpeichern" data-zequelle="'+quelle+'">Seminar erfassen</button>'+
+      '<button type="button" class="minibtn" id="zeAbbrechen" data-zequelle="'+quelle+'">Abbrechen</button>'+
+    '</div></div>';
+}
+function zeilenEditorNeuzeichnen(quelle){
+  if(quelle==='kal')renderKalender(); else kalLaufRendern();
+}
+function zeilenEditorOeffnen(quelle,id){
+  const offen=zeilenEditor&&zeilenEditor.quelle===quelle&&zeilenEditor.id===id;
+  zeilenEditor=offen?null:{quelle,id};
+  zeilenEditorNeuzeichnen(quelle);
+}
+async function zeilenEditorSpeichern(){
+  if(!zeilenEditor)return;
+  const quelle=zeilenEditor.quelle, id=zeilenEditor.id;
+  const q=zeilenEditorQuelle(quelle,id); if(!q)return;
+  const sel=el('zeAg').value;
+  const ag=sel==='__frei'?el('zeAgFrei').value.trim():sel;
+  if(!ag){toast('Bitte den Auftraggeber wählen oder eintragen');return}
+  const kurs=el('zeKurs').value.trim(), thema=el('zeThema').value.trim();
+  const online=el('zeModus').value==='online';
+  const memo=(state.settings.kgMemo||{})[ag]||{};
+  const trip={
+    id:uid(), ag:ag, ziel:online?'Online':(q.ort||''), zielAdresse:online?'':(q.ort||''),
+    zweck:thema||q.titel||'Seminar', kurs:kurs,
+    von:q.datum, bis:q.datumBis||q.datum, beginn:q.zeitVon||'', ende:q.zeitBis||'',
+    anreise:'', abreise:'', mitternacht:false, ueber8h:true,
+    mahl:{fr:0,mi:0,ab:0}, hotelFr:true, bewertung:0, bewNotiz:'', belege:[],
+    vm:'auto', km:0, bahn:0, typ:'dozent', modus:online?'online':'praesenz', ihkNotiz:'',
+    kategorie:memo.kategorie||'', gesellschaft:memo.gesellschaft||'',
+    status:{bahn:false,hotel:false,termine:true,unterlagen:false},
+    auftragsnr:'', honorar:0, honEinheit:'tag', honSatz:0, honAnzahl:0,
+    rechnungModus:'einzel', pauschale:0, rechnungGestellt:false,
+    entwurf:false, abgerechnet:false, outlookIds:[q.id]
+  };
+  state.trips.push(trip);
+  if(kurs)kursMemoUpdate(ag,memo.gesellschaft||'',kurs);
+  await save();
+  let hinweis='verknüpft über die Termin-ID';
+  try{
+    if(q.eigen){
+      const roh=await graph('/me/events/'+encodeURIComponent(q.id)+'?$select=body,categories');
+      const altText=String((roh.body&&roh.body.content)||'').replace(/<[^>]+>/g,'').trim();
+      const neuerText=bezugLesen(altText)?altText:(altText?altText+'\n\n':'')+bezugKennung('reise',trip.id);
+      const kats=[...new Set([...(roh.categories||[]),...terminKategorien(ag)])];
+      await graph('/me/events/'+encodeURIComponent(q.id),{method:'PATCH',body:JSON.stringify({
+        categories:kats, body:{contentType:'text',content:neuerText}
+      })});
+      hinweis='Kennung und Kategorien in Outlook gesetzt';
+      const c=kalCache.find(x=>x.id===q.id); if(c)c.categories=kats;
+    }else{
+      const kats=[...new Set([...(q.categories||[]),...terminKategorien(ag)])];
+      await graph('/me/events/'+encodeURIComponent(q.id),{method:'PATCH',body:JSON.stringify({categories:kats})});
+      hinweis='Einladung: Kategorien gesetzt, verknüpft über die Termin-ID';
+      const c=kalCache.find(x=>x.id===q.id); if(c)c.categories=kats;
+    }
+  }catch(e){
+    zeilenEditor=null; zeilenEditorNeuzeichnen(quelle); render(); kpiStart();
+    toast('Seminar erfasst, aber Outlook nicht erreicht: '+e.message);
+    return;
+  }
+  zeilenEditor=null;
+  if(quelle==='lauf'){
+    const i=kalLaufTreffer.findIndex(x=>x.id===id);
+    if(i>=0){kalLaufTreffer.splice(i,1); kalUngeprueft=kalLaufTreffer.length}
+  }
+  zeilenEditorNeuzeichnen(quelle);
+  render(); kpiStart();
+  toast('Seminar erfasst — '+hinweis);
+}
+/* Delegation am document: beide Listen werden komplett neu gerendert, ein
+   direkt gebundener Listener ginge dabei verloren (Vorfall 14.08.). */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-kzeile]');
+  if(b){const i=b.dataset.kzeile.indexOf(':');zeilenEditorOeffnen(b.dataset.kzeile.slice(0,i),b.dataset.kzeile.slice(i+1));return}
+  if(e.target.closest('#zeSpeichern')){zeilenEditorSpeichern();return}
+  const ab=e.target.closest('#zeAbbrechen');
+  if(ab){const quelle=ab.dataset.zequelle;zeilenEditor=null;zeilenEditorNeuzeichnen(quelle)}
+});
+document.addEventListener('change',e=>{
+  const s=e.target.closest('#zeAg'); if(!s)return;
+  const frei=el('zeAgFrei'); if(frei)frei.style.display=s.value==='__frei'?'block':'none';
+});
 /* Auftraggeber aus dem Titel raten — Titel folgt seiner Namenskonvention */
 function kalAgRaten(titel,evt){
   return (evt?evtKategorieAuftraggeber(evt):null)||titelAuftraggeber(titel)||'';
@@ -5592,7 +5805,8 @@ function kalAlsReise(evtId){
   setTimeout(()=>{
     openFormPrefill({
       auftraggeber:ag, ziel:e.online?'':(e.ort||'').split(',')[0]||'', zweck:e.titel,
-      adresse:e.ort||'', von:e.datum, bis:e.bis||e.datum
+      adresse:e.ort||'', von:e.datum, bis:e.bis||e.datum,
+      beginn:e.allDay?'':(e.zeit||''), ende:e.allDay?'':(e.zeitBis||'')
     });
     reiseModus=e.online?'online':'praesenz';syncModus();
     if(memo.kategorie)el('fKategorie').value=memo.kategorie;
@@ -5758,7 +5972,7 @@ function bereichWechseln(b,ziel){
   if(b==='tools'){versionAnzeigen()}
   if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderProjekte();renderWerkstattAufgaben()}
   if(b==='abrechnung'){renderNachbereitung();render()}
-  if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true)}
+  if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true);renderKurse()}
   if(b==='werkstatt')renderJobs();
   if(b==='start')renderTbAuswertung();
   /* FAB ist jetzt ueberall sichtbar — der Schnellerfassen-Knopf soll in jedem Bereich
@@ -6192,12 +6406,51 @@ function kursMemoUpdate(ag,gesellschaft,kurs){
 function kursMemoGet(ag,gesellschaft){
   return ((state.settings||{}).kursMemo||{})[kursMemoKey(ag,gesellschaft)]||'';
 }
-/* Alle bisher genutzten Kurse als Vorschlagsliste — spart Tippen am Handy. */
+/* Gepflegte Kursliste. Bewusst state.settings und keine Code-Konstante: die
+   Liste ist erklaertermassen unvollstaendig, und jede Ergaenzung waere sonst
+   eine Auslieferung. KATEGORIEN bleibt davon unberuehrt — das ist die
+   Fachgebietsachse fuer die Ablage, nicht die Lehrgangsachse. */
+const KURSE_START=['Versicherungsfachmann 34d','Finanzanlagenfachmann 34f',
+  'Immobiliardarlehensvermittler 34i','Fachwirt für Finanzberatung IHK',
+  'Fachberater für Finanzdienstleistungen IHK',
+  'Bachelor Professional in Versicherungen und Finanzanlagen',
+  'Bachelor Professional in Finanzberatung',
+  'Ruhestandsplaner','Ruhestandsberater','Beratung & Verkauf'];
+function kurseListe(){
+  if(!state.settings)state.settings={};
+  if(!Array.isArray(state.settings.kurse))state.settings.kurse=KURSE_START.slice();
+  return state.settings.kurse;
+}
+/* Alle Kurse als Vorschlagsliste — gepflegte Liste plus alles, was schon
+   benutzt wurde. Spart Tippen am Handy, Freitext bleibt ueberall zulaessig. */
 function kursListeFuellen(){
   const dl=el('kursListe'); if(!dl)return;
-  const werte=new Set(Object.values((state.settings||{}).kursMemo||{}));
+  const werte=new Set(kurseListe());
+  Object.values((state.settings||{}).kursMemo||{}).forEach(k=>{if(k)werte.add(k)});
   (Array.isArray(state.meetings)?state.meetings:[]).forEach(m=>{if(m.kurs)werte.add(m.kurs)});
   dl.innerHTML=[...werte].filter(Boolean).sort().map(k=>'<option value="'+esc(k)+'">').join('');
+}
+function renderKurse(){
+  const box=el('kurseListeBox'); if(!box)return;
+  const liste=kurseListe();
+  box.innerHTML=liste.length
+    ? liste.map((k,i)=>'<div class="agrow"><span>'+esc(k)+'</span>'+
+        '<button type="button" class="minibtn klein rot" data-kursweg="'+i+'">Entfernen</button></div>').join('')
+    : '<div class="hint">Keine Kurse hinterlegt. Trag den ersten unten ein.</div>';
+  box.querySelectorAll('[data-kursweg]').forEach(b=>b.addEventListener('click',async()=>{
+    const i=+b.dataset.kursweg, name=kurseListe()[i];
+    if(!confirm('„'+name+'" aus der Auswahlliste entfernen?\n\nBereits erfasste Seminare behalten ihren Kurs.'))return;
+    kurseListe().splice(i,1); await save(); renderKurse(); kursListeFuellen(); toast('Kurs entfernt');
+  }));
+}
+async function kursErfassen(){
+  const feld=el('kursNeu'); if(!feld)return;
+  const name=feld.value.trim();
+  if(!name){toast('Bitte einen Kursnamen eintragen');return}
+  const liste=kurseListe();
+  if(liste.some(k=>k.toLowerCase()===name.toLowerCase())){toast('Steht schon in der Liste');return}
+  liste.push(name); liste.sort((a,b)=>a.localeCompare(b,'de'));
+  await save(); feld.value=''; renderKurse(); kursListeFuellen(); toast('Kurs erfasst');
 }
 function kgMemoUpdate(ag,kategorie,gesellschaft){
   if(!ag||!kategorie)return;
@@ -7591,7 +7844,7 @@ async function autoKalenderCheck(){
       const alsReise=(state.trips||[]).some(t=>t.von<=datum&&(t.bis||t.von)>=datum);
       /* Verknuepft oder schon als Reise erfasst = erledigt. Uebrig bleibt, was
          entweder noch kein Cockpit-Objekt hat oder von der Konvention abweicht. */
-      if(bez||alsReise)return terminAbweichung(e).length>0;
+      if(bez||alsReise||terminVerknuepft(e.id))return terminAbweichung(e).length>0;
       return true;
     });
     kalUngeprueft=kalLaufTreffer.length;
@@ -7606,16 +7859,36 @@ function terminAbweichung(evt){
   const kats=evt.categories||[];
   if(!kats.some(k=>(k||'').toLowerCase()==='dozentur'))raus.push('Kategorie');
   else if(ag&&!kats.some(k=>(k||'').toLowerCase()===ag.toLowerCase()))raus.push('Kategorie');
-  const text=String((evt.body&&evt.body.content)||'').replace(/<[^>]+>/g,'');
-  if(!bezugLesen(text))raus.push('Kennung');
+  /* Eine Einladung kann die Kennung nicht im Text tragen — Charles ist dort nicht
+     Organisator. Fuer sie zaehlt die Verknuepfung ueber die Event-ID am
+     Seminardatensatz. Ohne diese Unterscheidung stuende jede Einladung fuer
+     immer als „fehlt: Kennung" in der Liste. */
+  const fremd=evt.isOrganizer===false||(Array.isArray(evt.attendees)&&evt.attendees.length>0);
+  if(fremd){
+    if(!terminVerknuepft(evt.id))raus.push('Verknüpfung');
+  }else{
+    const text=String((evt.body&&evt.body.content)||'').replace(/<[^>]+>/g,'');
+    if(!bezugLesen(text)&&!terminVerknuepft(evt.id))raus.push('Kennung');
+  }
   return raus;
+}
+function terminVerknuepft(evtId){
+  return (state.trips||[]).some(t=>Array.isArray(t.outlookIds)&&t.outlookIds.includes(evtId));
 }
 function kalLaufRendern(){
   const box=el('kalenderHinweis'); if(!box)return;
   if(!kalLaufTreffer.length){box.style.display='none';box.innerHTML='';return}
   box.style.display='block';
+  /* Sammelknopf: Kategorien haengen am bereits erkannten Auftraggeber, sind
+     rueckgaengig zu machen und loesen auch bei Einladungen keine Aktualisierung
+     an Teilnehmer aus. Kurs, Thema und Praesenz/Online setzt dagegen nur Charles
+     je Zeile — geraten landet beides in Ablage und Abrechnung. */
+  const sammelbar=kalLaufTreffer.filter(e=>
+    (evtKategorieAuftraggeber(e)||titelAuftraggeber(e.subject||''))&&terminAbweichung(e).includes('Kategorie')).length;
   box.innerHTML='<div style="font-weight:600;margin-bottom:var(--a2)">🔔 '+kalLaufTreffer.length+
     ' Termin(e) in den nächsten sechs Monaten sind noch nicht sauber im Cockpit.</div>'+
+    (sammelbar?'<div class="chipreihe" style="margin-bottom:var(--a2)"><button type="button" class="minibtn" id="btnKalSammelKat">'+
+      'Alle mit erkanntem Auftraggeber kategorisieren ('+sammelbar+')</button></div>':'')+
     kalLaufTreffer.map((evt,i)=>{
       const datum=(evt.start&&evt.start.dateTime||'').slice(0,10);
       const fremd=evt.isOrganizer===false||(Array.isArray(evt.attendees)&&evt.attendees.length>0);
@@ -7624,13 +7897,37 @@ function kalLaufRendern(){
       return '<div class="agrow" style="flex-direction:column;align-items:stretch;gap:var(--a1)">'+
         '<div style="font-weight:600">'+esc(evt.subject||'(ohne Titel)')+'</div>'+
         '<div class="hint" style="margin:0">'+dfmt(datum)+(ag?' · '+esc(ag):' · Auftraggeber unklar')+
-          (fehlt.length?' · fehlt: '+fehlt.join(', '):'')+(fremd?' · fremde Einladung':'')+'</div>'+
+          (fehlt.length?' · fehlt: '+fehlt.join(', '):'')+(fremd?' · nur Kategorien möglich':'')+'</div>'+
         '<div class="chipreihe" style="margin-top:var(--a1)">'+
+          '<button type="button" class="minibtn klein" data-kzeile="lauf:'+esc(evt.id)+'">Seminar erfassen</button>'+
           '<button type="button" class="minibtn klein" data-kallauf="reise" data-i="'+i+'">Reise erfassen</button>'+
-          (fremd?'':'<button type="button" class="minibtn klein" data-kallauf="konvention" data-i="'+i+'">Auf Konvention bringen</button>')+
+          '<button type="button" class="minibtn klein" data-kallauf="konvention" data-i="'+i+'">Auf Konvention bringen</button>'+
           '<button type="button" class="minibtn klein" data-kallauf="privat" data-i="'+i+'">Privat</button>'+
-        '</div></div>';
+        '</div>'+zeilenEditorHtml('lauf',evt.id)+'</div>';
     }).join('');
+  const sk=el('btnKalSammelKat');
+  if(sk)sk.addEventListener('click',kalLaufAlleKategorisieren);
+}
+/* Setzt nur die Outlook-Kategorien, keine Kennung: die kann eine Einladung nicht
+   tragen, und ohne Seminardatensatz gaebe es ohnehin nichts zu verknuepfen. */
+async function kalLaufAlleKategorisieren(){
+  const ziele=kalLaufTreffer.map(e=>({evt:e,ag:evtKategorieAuftraggeber(e)||titelAuftraggeber(e.subject||'')}))
+    .filter(x=>x.ag&&terminAbweichung(x.evt).includes('Kategorie'));
+  if(!ziele.length){toast('Nichts zu kategorisieren');return}
+  if(!confirm(ziele.length+' Termin(e) in Outlook kategorisieren?\n\nGesetzt werden nur die Kategorien „Dozentur" und der Auftraggeber. Titel, Zeit und Text bleiben unangetastet.'))return;
+  const btn=el('btnKalSammelKat'); if(btn){btn.disabled=true;btn.textContent='…'}
+  let ok=0;
+  for(const z of ziele){
+    try{
+      const kats=[...new Set([...(z.evt.categories||[]),...terminKategorien(z.ag)])];
+      await graph('/me/events/'+encodeURIComponent(z.evt.id),{method:'PATCH',body:JSON.stringify({categories:kats})});
+      z.evt.categories=kats; ok++;
+    }catch(e){}
+  }
+  kalLaufTreffer=kalLaufTreffer.filter(e=>terminAbweichung(e).length>0);
+  kalUngeprueft=kalLaufTreffer.length;
+  kalLaufRendern(); kpiStart();
+  toast(ok+' von '+ziele.length+' Terminen kategorisiert');
 }
 /* Privat: setzt die Outlook-Kategorie und nimmt den Termin dauerhaft aus allen
    Cockpit-Pruefungen. Kein Loeschen, keine Aufgabe, keine Rueckfrage mehr. */
@@ -7646,14 +7943,28 @@ async function kalLaufPrivat(i){
 async function kalLaufKonvention(i){
   const evt=kalLaufTreffer[i]; if(!evt)return;
   const ag=evtKategorieAuftraggeber(evt)||titelAuftraggeber(evt.subject||'');
-  if(!ag){toast('Ohne erkannten Auftraggeber nicht möglich — bitte Reise erfassen');return}
-  if(!confirm('Kategorien auf ['+terminKategorien(ag).join(', ')+'] setzen und fehlende Kennung ergänzen?\n\nDer Titel bleibt unverändert.'))return;
+  if(!ag){toast('Ohne erkannten Auftraggeber nicht möglich — bitte Seminar erfassen');return}
+  /* Bei einer Einladung ist Charles nicht Organisator: der Text gehoert ihm nicht,
+     die Kennung kann dort nicht stehen. Die Kategorien dagegen liegen in der
+     eigenen Postfachkopie und loesen keine Aktualisierung an Teilnehmer aus. */
+  const fremd=evt.isOrganizer===false||(Array.isArray(evt.attendees)&&evt.attendees.length>0);
+  if(!confirm('Kategorien auf ['+terminKategorien(ag).join(', ')+'] setzen'+
+    (fremd?'?\n\nEinladung: nur die Kategorien werden gesetzt, Titel und Text bleiben unangetastet.'
+          :' und fehlende Kennung ergänzen?\n\nDer Titel bleibt unverändert.')))return;
   try{
-    const altText=String((evt.body&&evt.body.content)||'').replace(/<[^>]+>/g,'').trim();
-    const neuerText=bezugLesen(altText)?altText:(altText?altText+'\n\n':'')+bezugKennung('termin',evt.id);
-    await graph('/me/events/'+encodeURIComponent(evt.id),{method:'PATCH',body:JSON.stringify({
-      categories:terminKategorien(ag), body:{contentType:'text',content:neuerText}
-    })});
+    const kats=[...new Set([...(evt.categories||[]),...terminKategorien(ag)])];
+    const body={categories:kats};
+    if(!fremd){
+      const altText=String((evt.body&&evt.body.content)||'').replace(/<[^>]+>/g,'').trim();
+      const neuerText=bezugLesen(altText)?altText:(altText?altText+'\n\n':'')+bezugKennung('termin',evt.id);
+      body.body={contentType:'text',content:neuerText};
+    }
+    await graph('/me/events/'+encodeURIComponent(evt.id),{method:'PATCH',body:JSON.stringify(body)});
+    evt.categories=kats;
+    if(fremd&&terminAbweichung(evt).length){
+      kalLaufRendern(); kpiStart(); toast('Kategorien gesetzt — Verknüpfung fehlt noch');
+      return;
+    }
     kalLaufTreffer.splice(i,1); kalUngeprueft=kalLaufTreffer.length;
     kalLaufRendern(); kpiStart(); toast('Termin auf Konvention gebracht');
   }catch(e){toast('Fehler: '+e.message)}
@@ -8128,6 +8439,7 @@ el('btnDup').addEventListener('click',()=>{
   el('formTitle').textContent='Reise erfassen (Kopie)';
   el('fVon').value=''; el('fBis').value='';
   belege=[]; renderBelege();
+  /* Zeiten bleiben bewusst stehen — ein Kurs hat meist denselben Tagesrhythmus. */
   setLock(false); el('btnDup').style.display='none'; el('btnDelete').style.display='none';
   calcPreview(); toast('Kopie angelegt — neues Datum wählen');
 });
@@ -8250,8 +8562,8 @@ function kpiStart(){
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v102';
-const APP_STAND='17. August 2026';
+const APP_VERSION='v103';
+const APP_STAND='18. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
   let geladen=null;
@@ -8466,6 +8778,8 @@ document.querySelectorAll('.quicknav button[data-jump]').forEach(b=>b.addEventLi
 el('btnMsConnect').addEventListener('click',msConnect);
 el('btnMsDisconnect').addEventListener('click',msDisconnect);
 el('btnPostfachAufraeumen').addEventListener('click',postfachAufraeumenListe);
+el('btnKursNeu').addEventListener('click',kursErfassen);
+el('kursNeu').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();kursErfassen()}});
 el('aufraeumListe').addEventListener('click',ev=>{
   const b=ev.target.closest('[data-aufraeum]'); if(!b)return;
   postfachAufraeumenUebernehmen(+b.dataset.aufraeum);
