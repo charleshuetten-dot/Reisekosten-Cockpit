@@ -4917,17 +4917,19 @@ const EINGANG_ABLAGE_SONSTIGES='Sonstiges';
 let cockpitOrdner=null, eingangEintraege=[], eingangWartet=null, eingangMailKontextPending=null;
 
 /* Bewusst OHNE $filter: Umlaute und Leerzeichen im Ordnernamen brechen die
-   Graph-Filtersuche. Ordnerliste holen und in JS vergleichen — gesucht wird auf
-   Wurzelebene, direkt unter dem Posteingang und zuletzt eine Ebene tiefer.
-   Ein Graph-Fehler darf hier NICHT als „Ordner nicht gefunden" durchgehen: die
-   Meldung schickt Charles sonst in Outlook suchen, wo alles in Ordnung ist. */
-let cockpitOrdnerFehler='';
+   Graph-Filtersuche. Gesucht wird im GANZEN Ordnerbaum, Ebene fuer Ebene.
+   Grund: Das Postfach hat neben „Posteingang" einen zweiten Ordner „INBOX" mit
+   eigener Unterstruktur; welcher davon Graphs Kurzname `inbox` meint, ist nicht
+   verlaesslich. Drei feste Stufen haben den Ordner deshalb verfehlt, obwohl er
+   im Postfach steht. Ein Graph-Fehler darf ausserdem NICHT als „Ordner nicht
+   gefunden" durchgehen — die Meldung schickt Charles sonst in Outlook suchen. */
+let cockpitOrdnerFehler='', cockpitOrdnerBefund='';
 function ordnerName(s){
   return (s||'').replace(/\u00a0/g,' ').replace(/[-_]/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
 }
 async function cockpitOrdnerHolen(neu){
   if(cockpitOrdner&&!neu)return cockpitOrdner;
-  cockpitOrdnerFehler='';
+  cockpitOrdnerFehler=''; cockpitOrdnerBefund='';
   const liste=async(pfad)=>{
     try{
       const r=await graph(pfad+'?$top=200&$select=id,displayName,totalItemCount,childFolderCount');
@@ -4935,20 +4937,23 @@ async function cockpitOrdnerHolen(neu){
     }catch(e){cockpitOrdnerFehler=(e&&e.message)||'Outlook antwortet nicht';return null}
   };
   const finde=(arr,name)=>(arr||[]).find(f=>ordnerName(f.displayName)===name)||null;
-  const wurzel=await liste('/me/mailFolders');
-  let o=finde(wurzel,COCKPIT_ORDNER);
-  if(!o){
-    const imPosteingang=await liste('/me/mailFolders/inbox/childFolders');
-    o=finde(imPosteingang,COCKPIT_ORDNER);
-    /* Dritte Stufe: eine Ebene unter den Wurzelordnern. Kostet nichts ausser
-       Graph-Abfragen und findet den Ordner auch, wenn er unter „Dozentur" haengt. */
-    if(!o&&wurzel){
-      for(const f of wurzel.filter(x=>x.childFolderCount>0)){
-        const kinder=await liste('/me/mailFolders/'+encodeURIComponent(f.id)+'/childFolders');
-        o=finde(kinder,COCKPIT_ORDNER); if(o)break;
-      }
+  /* Breitensuche mit Deckel: bei 80 Abfragen ist Schluss, damit ein grosses
+     Postfach die Karte nicht minutenlang blockiert. */
+  let o=null, geprueft=0, abfragen=0;
+  let ebene=await liste('/me/mailFolders');
+  while(ebene&&ebene.length&&!o&&abfragen<80){
+    geprueft+=ebene.length;
+    o=finde(ebene,COCKPIT_ORDNER); if(o)break;
+    const naechste=[];
+    for(const f of ebene.filter(x=>x.childFolderCount>0)){
+      if(abfragen>=80)break;
+      abfragen++;
+      const kinder=await liste('/me/mailFolders/'+encodeURIComponent(f.id)+'/childFolders');
+      if(kinder)naechste.push.apply(naechste,kinder);
     }
+    ebene=naechste;
   }
+  cockpitOrdnerBefund=geprueft+' Ordner geprüft'+(msAccount&&msAccount.username?', angemeldet als '+msAccount.username:'');
   if(!o){cockpitOrdner=null;return null}
   const kinder=await liste('/me/mailFolders/'+encodeURIComponent(o.id)+'/childFolders');
   const erl=finde(kinder,COCKPIT_ERLEDIGT);
@@ -5001,7 +5006,7 @@ async function eingangZaehlen(){
     const o=await cockpitOrdnerHolen(true);
     if(o)n+=o.anzahl||0;
     else if(cockpitOrdnerFehler)hinweis='Outlook antwortet nicht auf die Ordnerabfrage: '+cockpitOrdnerFehler+' — der Ordner selbst ist damit nicht widerlegt.';
-    else hinweis='Ordner „Dozenten Cockpit" nicht gefunden — geprüft wurden oberste Ebene, Posteingang und eine Ebene darunter.';
+    else hinweis='Ordner „Dozenten Cockpit" nicht gefunden — '+(cockpitOrdnerBefund||'Postfach durchsucht')+'.';
     if(o&&!o.erledigtId)hinweis='Unterordner „Erledigt" fehlt — bearbeitete Mails bleiben sonst liegen.';
   }catch(e){}
   try{
@@ -9245,7 +9250,7 @@ function kpiStart(){
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v116';
+const APP_VERSION='v117';
 const APP_STAND='19. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
