@@ -108,15 +108,25 @@ header .wrap{padding:0 2px}
 button.kpi{width:100%;text-align:left;font:inherit;cursor:pointer;display:block}
 button.kpi:active{opacity:.85}
 
-.agrow{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:var(--s-text)}
+/* v116: Listenzeile nach dem Muster des Abrechnen-Bildschirms — Bezeichnung
+   links, darunter grau die Begruendung, Zahl rechtsbuendig und tabellarisch.
+   Die Begruendung ist optional: Zeilen ohne .warum sehen aus wie bisher. */
+.agrow{display:flex;justify-content:space-between;align-items:baseline;gap:var(--a3);padding:var(--a2) 0;border-bottom:1px solid var(--line);font-size:var(--s-text)}
 .agrow:last-child{border-bottom:none}
-.agrow .mono{font-weight:600}
+.agrow .mono{font-weight:600;text-align:right;white-space:nowrap}
+.agrow .warum{display:block;color:var(--grau);font-size:var(--s-klein);font-weight:400}
 
 .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px}
-.card h2{font-size:var(--s-karte);font-weight:700;text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+/* v116: Kartenkopf wie im Abrechnen-Bildschirm — Titel in gemischter
+   Schreibweise, Werkzeuge oder Status rechts, Trennlinie darunter. Versalien
+   trugen die Rangfolge bisher allein und liessen jede Karte gleich laut wirken. */
+.card h2{font-size:var(--s-karte);font-weight:700;margin-bottom:var(--a3);padding-bottom:var(--a3);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:var(--a2);flex-wrap:wrap}
+.card h2 .sub{display:block;font-family:'IBM Plex Sans',sans-serif;font-size:var(--s-text);font-weight:400;color:var(--grau);letter-spacing:0;margin-top:2px}
 .card h2 .cnt{font-family:'IBM Plex Mono',monospace;font-size:var(--s-klein);color:var(--grau);font-weight:400;text-transform:none}
 .card h2 .tools{display:flex;gap:8px}
-.minibtn{font-family:'Barlow Condensed',sans-serif;font-size:var(--s-text);font-weight:600;text-transform:uppercase;letter-spacing:.04em;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:8px 18px;min-height:var(--h-norm);cursor:pointer;transition:border-color .15s,background .15s;flex:0 0 auto;white-space:nowrap}
+/* v116: Knopfbeschriftungen in gemischter Schreibweise. Versalien liessen jeden
+   Knopf gleich laut rufen; die Rangfolge kommt jetzt aus Groesse und Flaeche. */
+.minibtn{font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:600;letter-spacing:.01em;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:8px 18px;min-height:var(--h-norm);cursor:pointer;transition:border-color .15s,background .15s;flex:0 0 auto;white-space:nowrap}
 .minibtn:hover{border-color:var(--ink)}
 .minibtn.rot{border-color:var(--rot);color:var(--rot)}
 /* Hauptaktion einer Karte — gefüllt, damit sie ohne Suchen ins Auge fällt.
@@ -134,14 +144,14 @@ button.kpi:active{opacity:.85}
    auseinanderfallen — aber mit ordentlichem Tippziel statt der früheren 11px/2px,
    die als Inline-Style überall die Klasse überschrieben haben. */
 .minibtn.klein{padding:6px 12px;font-size:var(--s-klein);min-height:var(--h-klein)}
-.minibtn.haupt:hover{background:var(--rot);border-color:var(--rot)}
+.minibtn.haupt:hover{background:#0D1829;border-color:#0D1829}
 
 .trip{border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;background:var(--paper);cursor:pointer;transition:border-color .15s}
 .trip:hover{border-color:var(--ink)}
 .trip.locked{background:#FAFBFC}
 .trip .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .trip .datum{font-family:'IBM Plex Mono',monospace;font-size:var(--s-klein);color:var(--grau)}
-.trip .summe{font-family:'IBM Plex Mono',monospace;font-size:var(--s-text);font-weight:600;white-space:nowrap}
+.trip .summe{font-family:'IBM Plex Mono',monospace;font-size:var(--s-text);font-weight:600;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
 .route{display:flex;align-items:center;gap:8px;margin:6px 0 4px;font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
 .route .strecke{flex:1;border-top:2px dotted var(--line);position:relative;height:2px;min-width:24px}
 .route .strecke::after{content:'';position:absolute;right:-1px;top:-4.5px;border:5px solid transparent;border-left:7px solid var(--ink)}
@@ -237,9 +247,11 @@ button.kpi:active{opacity:.85}
    Rahmen und Innenabstand kommen dort schon vom Sheet selbst. */
 .sheet .imSheet{border:0!important;padding:0!important;margin:0!important;background:transparent!important}
 .sheet .imSheet>h2{margin-bottom:12px}
-.sheet h2{font-size:var(--s-teil);font-weight:700;text-transform:uppercase;margin-bottom:12px}
+.sheet h2{font-size:var(--s-teil);font-weight:700;margin-bottom:var(--a3)}
 .f{margin-bottom:11px}
-.f label{display:block;font-size:var(--s-klein);font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);margin-bottom:4px}
+/* Feldbeschriftung wie in der Vorlage: klein, grau, gemischt — sie soll das Feld
+   benennen, nicht mit ihm konkurrieren. */
+.f label{display:block;font-size:var(--s-klein);font-weight:500;color:var(--grau);margin-bottom:var(--a1)}
 .f input[type=text],.f input[type=date],.f input[type=number],.f select{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px 10px;min-height:var(--h-norm);font-size:var(--s-text);font-family:inherit;background:var(--paper);color:var(--ink)}
 .f input:focus,.f select:focus{outline:2px solid var(--ink);outline-offset:1px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -248,7 +260,7 @@ button.kpi:active{opacity:.85}
 .check input{width:18px;height:18px;accent-color:var(--ink)}
 .check label{margin:0;text-transform:none;font-size:var(--s-text);letter-spacing:0;font-weight:400}
 .segment{display:flex;border:1.5px solid var(--line);border-radius:8px;overflow:hidden}
-.segment button{flex:1;padding:9px;border:none;background:var(--paper);font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:600;text-transform:uppercase;color:var(--grau);cursor:pointer}
+.segment button{flex:1;padding:9px;border:none;background:var(--paper);font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:600;color:var(--grau);cursor:pointer}
 .segment button.on{background:var(--ink);color:var(--paper)}
 /* Das Reise-Formular hat drei Bildschirme: planen, nachbereiten, abrechnen.
    Immer nur einer ist sichtbar — sonst steht beim Erfassen einer neuen Reise
@@ -257,7 +269,7 @@ button.kpi:active{opacity:.85}
 .formteil.on{display:block}
 /* Einheitliche Klappe fuer die Abschnitte im Sheet — ersetzt die frueher an jeder
    summary-Zeile wiederholten Inline-Stile. */
-.abschnitt>summary{font-size:var(--s-klein);font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer;padding:var(--a1) 0;list-style:none}
+.abschnitt>summary{font-size:var(--s-karte);font-weight:600;color:var(--ink);cursor:pointer;padding:var(--a2) 0;list-style:none}
 .abschnitt>summary::-webkit-details-marker{display:none}
 .abschnitt>summary::after{content:'+';float:right;color:var(--grau)}
 .abschnitt[open]>summary::after{content:'\2212'}
@@ -265,9 +277,13 @@ button.kpi:active{opacity:.85}
 .stepper{display:flex;align-items:center;gap:0;border:1.5px solid var(--line);border-radius:8px;overflow:hidden}
 .stepper button{width:38px;padding:7px 0;border:none;background:var(--paper);font-size:var(--s-karte);cursor:pointer;color:var(--ink)}
 .stepper span{flex:1;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:600}
-.calc{background:var(--bg);border-radius:8px;padding:10px 12px;font-size:var(--s-text);margin:12px 0}
-.calc .row{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
-.calc .row.sum{border-top:1px solid var(--line);margin-top:5px;padding-top:6px;font-weight:600}
+/* v116: Ergebniskasten — heller Grund, Kopfzeile, Posten darunter, Summe durch
+   Linie und Gewicht abgesetzt. Gilt fuer jede Summe im Cockpit, nicht nur fuer
+   die Abrechnung. */
+.calc{background:var(--bg);border-radius:var(--radius);padding:var(--a3) var(--a4);font-size:var(--s-text);margin:var(--a3) 0}
+.calc .row{display:flex;justify-content:space-between;align-items:baseline;gap:var(--a3);padding:3px 0}
+.calc .row .mono{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.calc .row.sum{border-top:1px solid var(--line);margin-top:var(--a2);padding-top:var(--a2);font-weight:600;font-size:var(--s-karte)}
 /* v114: Kopfzeile eines Bildschirms — Titel, graue Zweitzeile, Status rechts. */
 .bkopf{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--a2);
   border-bottom:1px solid var(--line);padding-bottom:var(--a3);margin-bottom:var(--a3)}
@@ -288,13 +304,16 @@ button.kpi:active{opacity:.85}
 .btnrow{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
 /* Radius 999px wie bei .minibtn — im Sheet standen bisher eckige und runde
    Knoepfe nebeneinander. Eine Form fuer alle Knoepfe. */
-button.primary,button.ghost,button.danger{font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-radius:999px;padding:11px 20px;min-height:var(--h-haupt);cursor:pointer}
-button.primary{background:var(--rot);color:var(--paper);border:none;flex:1 1 180px}
+button.primary,button.ghost,button.danger{font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:600;letter-spacing:.01em;border-radius:999px;padding:11px 20px;min-height:var(--h-haupt);cursor:pointer}
+/* v116: Hauptaktion wirkt durch Groesse und Gewicht, nicht durch Farbe. Rot war
+   hier doppelt vergeben — als Aktionsfarbe UND als Statusfarbe "offen". */
+button.primary{background:var(--ink);color:var(--paper);border:none;flex:1 1 180px}
+button.primary:hover{background:#0D1829}
 /* Die Fussleiste bleibt am unteren Rand des Sheets stehen: bei kleinem Fenster
    war "Speichern" sonst nur nach langem Scrollen erreichbar. Der negative
    bottom-Wert gleicht das Innenabstand des Sheets aus. */
 .sheet .btnrow{position:sticky;bottom:calc(-26px - env(safe-area-inset-bottom));background:var(--paper);padding-top:10px;padding-bottom:calc(26px + env(safe-area-inset-bottom));margin-bottom:calc(-26px - env(safe-area-inset-bottom));box-shadow:0 -10px 14px -10px rgba(20,35,60,.22)}
-button.primary:disabled{background:var(--line);cursor:default}
+button.primary:disabled{background:var(--line);color:var(--grau);cursor:default}
 button.ghost{background:var(--paper);color:var(--ink);border:1.5px solid var(--line)}
 button.danger{background:var(--paper);color:var(--rot);border:1.5px solid var(--rot)}
 
@@ -326,6 +345,9 @@ button.danger{background:var(--paper);color:var(--rot);border:1.5px solid var(--
 .fab .primary{flex:1;max-width:300px}
 
 .hint{font-size:var(--s-klein);color:var(--grau);margin-top:8px}
+/* v116: die Erklaerzeile direkt unter dem Kartenkopf ist die Zweitzeile der
+   Vorlage — sie klebt am Titel statt frei zu schweben. */
+.card h2+.hint{margin-top:calc(-1 * var(--a2));margin-bottom:var(--a3);font-size:var(--s-text)}
 .suggwrap{position:relative}
 .sugg{position:absolute;top:100%;left:0;right:0;background:var(--paper);border:1.5px solid var(--line);border-radius:8px;margin-top:3px;z-index:10;box-shadow:0 8px 20px rgba(20,35,60,.14);overflow:hidden;max-height:230px;overflow-y:auto}
 .sugg>div{padding:9px 10px;font-size:var(--s-text);cursor:pointer;border-bottom:1px solid var(--line)}
@@ -333,7 +355,7 @@ button.danger{background:var(--paper);color:var(--rot);border:1.5px solid var(--
 .sugg>div:hover,.sugg>div:focus{background:var(--bg);outline:2px solid var(--ink);outline-offset:-2px}
 .sugg .adr{display:block;font-size:var(--s-klein);color:var(--grau)}
 .sugg .star{color:var(--rot);font-size:var(--s-klein);margin-right:4px}
-details.card>summary{list-style:none;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+details.card>summary{list-style:none;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:var(--s-karte);font-weight:700;letter-spacing:.02em}
 details.card>summary::-webkit-details-marker{display:none}
 details.card>summary::after{content:'+';float:right;color:var(--grau);font-weight:600}
 details.card[open]>summary::after{content:'–'}
@@ -526,7 +548,7 @@ body{padding-bottom:64px}
     <h2>Seminartagebuch</h2>
     <div id="briefingBox"></div>
     <details style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">
-      <summary style="cursor:pointer;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau)">Auswertung — Jahr, Auftraggeber, Reise, Bewertung</summary>
+      <summary class="lbl-klein" style="cursor:pointer">Auswertung — Jahr, Auftraggeber, Reise, Bewertung</summary>
       <div id="tbAuswertung" style="margin-top:10px"></div>
     </details>
   </div>
@@ -705,7 +727,7 @@ body{padding-bottom:64px}
 
     <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau)">Kursordner</span>
+        <span class="lbl-klein">Kursordner</span>
         <button class="minibtn" id="btnOrdnerReload">Aktualisieren</button><button class="minibtn" id="btnPfadKopieren">Pfad kopieren</button>
       </div>
       <div class="hint">Klick auf einen Ordner blättert direkt hier weiter, Dateien öffnen sich in OneDrive.</div>
@@ -786,7 +808,7 @@ body{padding-bottom:64px}
     </div>
 
     <details style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
-      <summary style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer">Arbeitszeit erfassen (Stundensatz)</summary>
+      <summary class="lbl-klein" style="cursor:pointer">Arbeitszeit erfassen (Stundensatz)</summary>
       <div style="margin-top:8px">
         <div class="grid2">
           <div class="f"><label>Stunden</label><input type="number" id="azStunden" min="0" step="0.25" inputmode="decimal" placeholder="z. B. 1,5"></div>
@@ -1831,8 +1853,10 @@ function render(){
     const c=berechne(t);
     const dat=t.von===t.bis||!t.bis?dfmt(t.von):dfmt(t.von)+' – '+dfmt(t.bis);
     let badges='';
-    if(t.entwurf)badges+=' <span class="badge entwurf">Entwurf</span>';
-    if(t.abgerechnet)badges+=' <span class="badge fest">Abgerechnet</span>';
+    if(t.entwurf)badges+=' <span class="chip offen">Entwurf</span>';
+    else if(t.abgerechnet)badges+=' <span class="chip abgerechnet">abgerechnet</span>';
+    else if(t.rechnungGestellt)badges+=' <span class="chip geliefert">Rechnung gestellt</span>';
+    else if(t.nachbereitet)badges+=' <span class="chip arbeit">nachbereitet</span>';
     /* Abrechnen erscheint erst, wenn das Seminar gelaufen ist — vorher gibt es
        weder Auslagen noch eine Rechnung, und der Knopf waere nur Beiwerk. */
     const vorbei=(t.bis||t.von)<ymd(new Date());
@@ -4894,19 +4918,40 @@ let cockpitOrdner=null, eingangEintraege=[], eingangWartet=null, eingangMailKont
 
 /* Bewusst OHNE $filter: Umlaute und Leerzeichen im Ordnernamen brechen die
    Graph-Filtersuche. Ordnerliste holen und in JS vergleichen — gesucht wird auf
-   Wurzelebene und direkt unter dem Posteingang. */
+   Wurzelebene, direkt unter dem Posteingang und zuletzt eine Ebene tiefer.
+   Ein Graph-Fehler darf hier NICHT als „Ordner nicht gefunden" durchgehen: die
+   Meldung schickt Charles sonst in Outlook suchen, wo alles in Ordnung ist. */
+let cockpitOrdnerFehler='';
+function ordnerName(s){
+  return (s||'').replace(/\u00a0/g,' ').replace(/[-_]/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
+}
 async function cockpitOrdnerHolen(neu){
   if(cockpitOrdner&&!neu)return cockpitOrdner;
-  const suche=async(pfad,name)=>{
+  cockpitOrdnerFehler='';
+  const liste=async(pfad)=>{
     try{
-      const r=await graph(pfad+'?$top=100&$select=id,displayName,totalItemCount');
-      return (r.value||[]).find(f=>(f.displayName||'').trim().toLowerCase()===name)||null;
-    }catch(e){return null}
+      const r=await graph(pfad+'?$top=200&$select=id,displayName,totalItemCount,childFolderCount');
+      return r.value||[];
+    }catch(e){cockpitOrdnerFehler=(e&&e.message)||'Outlook antwortet nicht';return null}
   };
-  let o=await suche('/me/mailFolders',COCKPIT_ORDNER);
-  if(!o)o=await suche('/me/mailFolders/inbox/childFolders',COCKPIT_ORDNER);
+  const finde=(arr,name)=>(arr||[]).find(f=>ordnerName(f.displayName)===name)||null;
+  const wurzel=await liste('/me/mailFolders');
+  let o=finde(wurzel,COCKPIT_ORDNER);
+  if(!o){
+    const imPosteingang=await liste('/me/mailFolders/inbox/childFolders');
+    o=finde(imPosteingang,COCKPIT_ORDNER);
+    /* Dritte Stufe: eine Ebene unter den Wurzelordnern. Kostet nichts ausser
+       Graph-Abfragen und findet den Ordner auch, wenn er unter „Dozentur" haengt. */
+    if(!o&&wurzel){
+      for(const f of wurzel.filter(x=>x.childFolderCount>0)){
+        const kinder=await liste('/me/mailFolders/'+encodeURIComponent(f.id)+'/childFolders');
+        o=finde(kinder,COCKPIT_ORDNER); if(o)break;
+      }
+    }
+  }
   if(!o){cockpitOrdner=null;return null}
-  const erl=await suche('/me/mailFolders/'+encodeURIComponent(o.id)+'/childFolders',COCKPIT_ERLEDIGT);
+  const kinder=await liste('/me/mailFolders/'+encodeURIComponent(o.id)+'/childFolders');
+  const erl=finde(kinder,COCKPIT_ERLEDIGT);
   const altUnter=(cockpitOrdner&&cockpitOrdner.erledigtId===(erl?erl.id:null))?cockpitOrdner.unterordner:null;
   cockpitOrdner={id:o.id,anzahl:o.totalItemCount||0,erledigtId:erl?erl.id:null,unterordner:altUnter||{}};
   return cockpitOrdner;
@@ -4955,7 +5000,8 @@ async function eingangZaehlen(){
   try{
     const o=await cockpitOrdnerHolen(true);
     if(o)n+=o.anzahl||0;
-    else hinweis='Ordner „Dozenten Cockpit" nicht gefunden — er muss auf oberster Ebene oder direkt unter dem Posteingang liegen.';
+    else if(cockpitOrdnerFehler)hinweis='Outlook antwortet nicht auf die Ordnerabfrage: '+cockpitOrdnerFehler+' — der Ordner selbst ist damit nicht widerlegt.';
+    else hinweis='Ordner „Dozenten Cockpit" nicht gefunden — geprüft wurden oberste Ebene, Posteingang und eine Ebene darunter.';
     if(o&&!o.erledigtId)hinweis='Unterordner „Erledigt" fehlt — bearbeitete Mails bleiben sonst liegen.';
   }catch(e){}
   try{
@@ -8098,7 +8144,7 @@ async function renderBriefing(){
   html+='<div class="agrow"><span>'+dfmt(next.von)+(next.bis&&next.bis!==next.von?'\u2013'+dfmt(next.bis):'')+' \u00b7 '+esc(next.ag)+' \u2014 '+esc(next.zweck||'')+(next.modus==='online'?' <span style="color:var(--grau)">(Online)</span>':'')+'</span><span>'+esc(next.ziel||'')+'</span></div>';
   if(offen.length)html+='<div class="hint" style="color:var(--rot)">Noch offen: '+offen.join(', ')+'</div>';
   html+='<div id="tagebuchListe" style="margin-top:6px"><span class="spin"></span>Lade Seminartagebuch \u2026</div>';
-  html+='<details style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px"><summary style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--grau);cursor:pointer">Neuen Tagebucheintrag hinzuf\u00fcgen</summary>'+
+  html+='<details style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px"><summary class="lbl-klein" style="cursor:pointer">Neuen Tagebucheintrag hinzuf\u00fcgen</summary>'+
     '<div style="margin-top:8px"><textarea id="tagebuchText" rows="3" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:9px;font:400 14px/1.45 \'IBM Plex Sans\',sans-serif" placeholder="Notiz zu diesem Seminar \u2026"></textarea>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button type="button" class="minibtn" id="btnTagebuchDikt">\ud83c\udf99 Diktat</button><button type="button" class="minibtn" id="btnTagebuchSpeichern">Speichern</button></div>'+
     '<div class="hint" id="tagebuchStatus"></div></div></details>';
@@ -9199,7 +9245,7 @@ function kpiStart(){
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v114';
+const APP_VERSION='v116';
 const APP_STAND='19. August 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
