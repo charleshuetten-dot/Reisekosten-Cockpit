@@ -1878,7 +1878,7 @@ function render(){
 /* teil: welcher der drei Bildschirme geoeffnet wird. Ohne Angabe die Planung —
    eine neue Reise faengt immer dort an. */
 function openForm(id,teil){
-  editId=id||null; unlocked=false;
+  editId=id||null; unlocked=false; abAnhangPending=null;
   const t=id?state.trips.find(x=>x.id===id):null;
   const agSel=el('fAg');
   if(t&&![...agSel.options].some(o=>o.value===t.ag||o.text===t.ag)){agSel.value='__frei';el('fAgFrei').style.display='block';el('fAgFrei').value=t.ag}
@@ -3743,8 +3743,22 @@ async function reiseTermineAnlegen(){
   await pruefeKonflikte(termine,ag,editId);
   /* Tage, an denen schon ein mit dieser Reise verknüpfter Termin liegt,
      werden übersprungen — sonst legt "Termine anlegen" bei jedem Aufruf neue an. */
-  const uebersprungen=termine.filter(t=>t.verknuepft).length;
-  termine=termine.filter(t=>!t.verknuepft);
+  /* Kommt eine Auftragsbestaetigung zu einer Reise, deren Termine schon aus der
+     Terminanfrage stehen, waeren alle Tage "verknuepft" und die Bestaetigung
+     erreichte den Kalender nie. Deshalb: mit Bestaetigung werden verknuepfte
+     Termine zum Angleichen angeboten (je Zeile abzuhaken), ohne bleiben sie still. */
+  const datei=abAnhangPending; abAnhangPending=null;
+  termine.forEach(t=>{
+    if(!t.verknuepft)return;
+    if(!datei||!t.verknuepftEvt){t.modus='skip';return}
+    t.modus=(t.verknuepftEvt.isOrganizer&&!t.verknuepftEvt.hatTeilnehmer)?'angleichen':'einladung';
+    /* Zeiten des bestehenden Termins vorbelegen — sonst ueberschreibt die geschaetzte
+       Anreisezeit eine von Hand korrigierte. */
+    if(t.verknuepftEvt.von)t.von=t.verknuepftEvt.von;
+    if(t.verknuepftEvt.bis)t.bis=t.verknuepftEvt.bis;
+  });
+  const uebersprungen=termine.filter(t=>t.modus==='skip').length;
+  termine=termine.filter(t=>t.modus!=='skip');
   if(!termine.length){toast(uebersprungen?'Alle Tage sind schon verknüpft':'Keine Termine zu erstellen');return}
   /* Die Kennung am Ende des Termintexts verknuepft den Termin mit der Reise —
      dasselbe Format wie bei Aufgaben seit v82. Sie ueberlebt Aenderungen an
@@ -3767,9 +3781,10 @@ async function reiseTermineAnlegen(){
   /* Frueher stand hier ein confirm() mit einer Textliste: sichtbar, aber nicht
      aenderbar. Die Zeiten sind geschaetzt (Fahrzeit, Seminarbeginn) — wer sie
      nur lesen kann, legt sie falsch an und korrigiert sie danach in Outlook. */
-  terminVorschlag={termine:termine,ag:ag,kennungText:kennungText};
+  terminVorschlag={termine:termine,ag:ag,kennungText:kennungText,datei:datei,reiseId:editId};
   el('terminSheetHinweis').textContent=termine.length+' Termin(e) vorgeschlagen'+
     (uebersprungen?' · '+uebersprungen+' Tag(e) übersprungen, schon verknüpft':'')+
+    (datei?' · Auftragsbestätigung wird angehängt':'')+
     ' · Zeiten sind Vorschläge und lassen sich hier ändern.';
   el('terminSheetListe').innerHTML=terminZeilenHtml(termine);
   el('terminSheetStatus').textContent='';
@@ -3790,11 +3805,12 @@ async function terminSheetAnlegen(){
   el('terminSheetStatus').innerHTML='<span class="spin"></span>Lege '+gelesen.termine.length+' Termine an …';
   let ok=0,zusammen=0;
   for(const t of gelesen.termine){
-    const r=await terminSchreiben(t,terminVorschlag.ag,terminVorschlag.kennungText);
-    if(r==='angelegt'||r==='zusammengelegt')ok++;
-    if(r==='zusammengelegt')zusammen++;
+    const r=await terminSchreiben(t,terminVorschlag.ag,terminVorschlag.kennungText,terminVorschlag.datei,terminVorschlag.reiseId);
+    if(r==='angelegt'||r==='zusammengelegt'||r==='angeglichen'||r==='verknuepft')ok++;
+    if(r==='zusammengelegt'||r==='angeglichen'||r==='verknuepft')zusammen++;
   }
   btn.disabled=false;
+  save();
   terminVorschlag=null;
   sheetZu();
   toast(ok+' von '+gelesen.termine.length+' Terminen erledigt'+(zusammen?' ('+zusammen+' zusammengelegt)':''));
@@ -3889,7 +3905,7 @@ function eingangPrompt(listen){
     'GESELLSCHAFT ist das Unternehmen, für dessen Leute das Seminar stattfindet (z. B. '+GESELLSCHAFTEN.filter(g=>g!=='Allgemein').join(', ')+' oder eine andere). Bildet der Auftraggeber erkennbar seine EIGENEN Leute aus — etwa eine eigene Nachwuchs- oder 34d-Ausbildung ohne Bezug zu einem externen Drittunternehmen —, ist die Gesellschaft der Auftraggeber selbst, nicht „Allgemein". „Allgemein" bleibt der Rückfall nur bei echter Unklarheit, nicht wenn erkennbar keine dritte Gesellschaft beteiligt ist.\n'+
     'KATEGORIE ist das Fachthema, genau eines aus: '+KATEGORIEN.join(' | ')+'.\n'+
     'Sein Name ist Charles Hütten. In Tabellen und Listen (etwa einem Vorlesungs- oder Kursplan mit mehreren Dozenten) kann er als "Hütten, Charles" (Nachname zuerst) stehen.\n\n'+
-    'Bestimme, was daraus folgt — meist genau eine Sache, höchstens drei. Mehrere nur, wenn wirklich mehreres folgt (etwa ein Seminartermin UND eine Zuarbeit mit eigener Frist). Reine Bestätigungen ohne Handlung: leere Liste. Enthält die Mail einen zitierten älteren Verlauf (etwa unterhalb von "Von: … Gesendet: …"), zählt für eine Aufgabe nur die neueste, aktuell offene Anfrage — aus einer älteren Bitte, die durch die neuere Nachricht bereits überholt oder erledigt ist, wird KEINE eigene Aufgabe.\n\n'+
+    'Bestimme, was daraus folgt — meist genau eine Sache, höchstens vier. Mehrere nur, wenn wirklich mehreres folgt (etwa ein Seminartermin UND eine Zuarbeit mit eigener Frist). Reine Bestätigungen ohne Handlung: leere Liste. Enthält die Mail einen zitierten älteren Verlauf (etwa unterhalb von "Von: … Gesendet: …"), zählt für eine Aufgabe nur die neueste, aktuell offene Anfrage — aus einer älteren Bitte, die durch die neuere Nachricht bereits überholt oder erledigt ist, wird KEINE eigene Aufgabe.\n\n'+
     'Arten:\n'+
     '- "reise": Seminarauftrag oder Auftragsbestätigung mit Datum, Präsenz oder Online\n'+
     '- "arbeitsauftrag": Arbeit mit Abgabefrist ohne Seminartermin — WBT erstellen oder lektorieren, Klausuren korrigieren, Unterlagen erstellen\n'+
@@ -3899,7 +3915,8 @@ function eingangPrompt(listen){
     '- "ihk": Prüferentschädigung aus dem IHK-Portal (tibros)\n'+
     '- "bahn": Buchungsbestätigung der Deutschen Bahn\n\n'+
     'Antworte AUSSCHLIESSLICH mit JSON ohne Markdown:\n'+
-    '{"vorschlaege":[{"art":"…","kurz":"eine Zeile, was daraus folgt","unsicher":["feldname"],"felder":{…}}]}\n'+
+    '{"vorschlaege":[{"art":"…","kurz":"eine Zeile, was daraus folgt","anhang":0,"unsicher":["feldname"],"felder":{…}}]}\n'+
+    '"anhang" ist die Nummer des Dokuments (\\"Dokument 1\\", \\"Dokument 2\\" …), aus dem dieser Vorschlag stammt; 0, wenn er nur aus dem Mailtext folgt. Enthält die Nachricht mehrere Dokumente, die jeweils einen EIGENEN Auftrag bestätigen (andere Auftragsnummer, anderes Datum oder anderer Ort), wird JE DOKUMENT ein eigener Vorschlag erzeugt — nie zwei Aufträge in einem Vorschlag zusammenziehen. Gehören mehrere Dokumente zu demselben Auftrag (etwa Bestätigung und Teilnehmerliste), bleibt es ein Vorschlag mit der Nummer der Bestätigung. AGB, Datenschutzhinweise und Ähnliches erzeugen keinen Vorschlag.\n'+
     '"unsicher" nennt höchstens drei Feldnamen, deren Wert du geraten oder erschlossen hast, weil er nicht ausdrücklich dastand — das wichtigste zuerst. Was wörtlich im Text steht, gehört NICHT hinein.\n\n'+
     'Feldschema je Art:\n'+
     'reise: {"auftraggeber":"","gesellschaft":"","kategorie":"","auftragsnummer":"","zweck":"kurze Seminarbezeichnung","von":"YYYY-MM-DD","bis":"YYYY-MM-DD","beginn":"HH:MM","ende":"HH:MM","ziel":"Stadt","zielAdresse":"Name oder Adresse der Räumlichkeit wörtlich","honorarEinheit":"tag|block|stunde|pauschal","honorarProTermin":0,"anzahlTermine":1,"honorarGesamt":0,"ustBefreit":false,"online":false,"hinweise":"was am Seminartag vor Ort gebraucht wird"}\n'+
@@ -3944,7 +3961,8 @@ async function eingangDeuten(quelle,kopf){
        JSON.parse-Meldung, die vorher hier stand. */
     throw new Error('Antwort unvollständig oder fehlerhaft (evtl. sehr viele Termine) — bitte noch einmal versuchen');
   }
-  return (p.vorschlaege||[]).filter(v=>v&&v.art).slice(0,3).map(v=>({
+  return (p.vorschlaege||[]).filter(v=>v&&v.art).slice(0,4).map(v=>({
+    anhang:Math.max(0,parseInt(v.anhang,10)||0),
     /* „Liefer-Auftrag" ist als Wort weg; ein aelteres Modellwort faellt trotzdem
        nicht auf den Boden. */
     art:(v.art==='lieferauftrag'||v.art==='unterlagen')?'arbeitsauftrag':v.art,
@@ -4018,14 +4036,24 @@ async function eingangDatei(file, statusEl){
     /* Datei mitfuehren: eine erkannte Auftragsbestaetigung wandert beim Uebernehmen
        nach OneDrive, so wie es frueher abParseFile getan hat. */
     await eingangAufnehmen({quelle:'Datei · '+file.name,vorschlaege:v,
-      datei:{name:file.name,b64:b64Datei,mime:mimeDatei}});
+      dateien:b64Datei?[{name:file.name,b64:b64Datei,mime:mimeDatei}]:[]});
   }catch(e){ st.textContent='Konnte die Datei nicht auswerten: '+e.message; }
 }
 
 /* Ein Ziel je Art. Ausser bei der IHK-Abrechnung wird hier noch nichts gespeichert —
    der Vorschlag fuellt nur das Formular, gespeichert wird dort. */
+/* Welche Datei gehoert zu diesem Vorschlag? Nennt er ein Dokument, genau das.
+   Nennt er keins und gibt es nur eine Datei, diese. Sonst keine — lieber ohne
+   Anhang als mit der Bestaetigung eines anderen Auftrags. */
+function eingangDateiZu(v,eintrag){
+  const liste=(eintrag&&eintrag.dateien)||[];
+  if(v&&v.anhang&&liste[v.anhang-1])return liste[v.anhang-1];
+  if(liste.length===1)return liste[0];
+  return null;
+}
 async function eingangWeiterleiten(v, st, eintrag){
   const f=v.felder||{};
+  const datei=eingangDateiZu(v,eintrag);
   const melde=t=>{toast(t); if(st)st.textContent=''};
   if(v.art==='ihk'){
     const liste=ihkAbrListe();
@@ -4045,12 +4073,16 @@ async function eingangWeiterleiten(v, st, eintrag){
     /* Herkunftsmail merken — die Reise uebernimmt Absender und Mail-Link erst beim
        Speichern (formData() kennt nur Formularfelder), siehe kalPendingEvent-Muster. */
     if(eintrag&&eintrag.mailId)eingangMailKontextPending={vonName:eintrag.vonName||'',vonAdresse:eintrag.von||'',webLink:eintrag.webLink||''};
+    if(datei&&datei.b64&&datei.mime==='application/pdf')
+      abAnhangPending={name:datei.name||'Auftragsbestaetigung.pdf',b64:datei.b64,mime:'application/pdf'};
     /* Auftragsbestaetigung als Datei: gleich in die Auftragsablage des Jahres */
-    if(eintrag&&eintrag.datei&&eintrag.datei.b64&&msAccount){
+    if(datei&&datei.b64&&msAccount){
       try{
         const jahr=(f.von||heuteISO()).slice(0,4);
-        const name=((f.auftragsnummer||'Auftrag')+'_'+(f.auftraggeber||'').split(' ')[0]).replace(/[\\/:*?"<>|#%]/g,'')+(eintrag.datei.mime==='application/pdf'?'.pdf':'.jpg');
-        await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(eintrag.datei.b64,eintrag.datei.mime),eintrag.datei.mime);
+        /* Ohne Auftragsnummer das Seminardatum in den Namen — sonst ueberschreibt die
+           zweite Bestaetigung einer Mail die erste unter "Auftrag_<AG>.pdf". */
+        const name=((f.auftragsnummer||('Auftrag_'+(f.von||'')))+'_'+(f.auftraggeber||'').split(' ')[0]).replace(/[\\/:*?"<>|#%]/g,'')+(datei.mime==='application/pdf'?'.pdf':'.jpg');
+        await odPutFile('Dozentur/Aufträge/'+jahr+'/'+name,b64ToBlob(datei.b64,datei.mime),datei.mime);
         toast('In OneDrive abgelegt: Aufträge/'+jahr+'/'+name);
       }catch(e){/* Ablage optional */}
     }
@@ -4084,7 +4116,7 @@ async function eingangWeiterleiten(v, st, eintrag){
   }
   if(v.art==='bahn'){
     bereichWechseln('seminare');
-    bahnZeigen(f);
+    bahnZeigen(Object.assign({},f,{_datei:(datei&&datei.mime==='application/pdf')?datei:null}));
     melde('Bahnbuchung erkannt — Reise zuordnen');
     return;
   }
@@ -4915,6 +4947,10 @@ const EINGANG_PREIS='rund 1,5 Cent';
    neben der OneDrive-Ablage. Ohne erkennbaren Auftraggeber: Sonstiges. */
 const EINGANG_ABLAGE_SONSTIGES='Sonstiges';
 let cockpitOrdner=null, eingangEintraege=[], eingangWartet=null, eingangMailKontextPending=null;
+/* Auftragsbestaetigung, die beim Speichern der Reise an die Termine gehaengt wird.
+   Nur im Speicher — die Bytes gehoeren nicht in state. openForm leert sie, damit
+   eine spaeter geoeffnete andere Reise sie nicht erbt. */
+let abAnhangPending=null;
 
 /* Bewusst OHNE $filter: Umlaute und Leerzeichen im Ordnernamen brechen die
    Graph-Filtersuche. Gesucht wird im GANZEN Ordnerbaum, Ebene fuer Ebene.
@@ -5058,17 +5094,26 @@ async function eingangMailsLaden(){
    teuer. Auftragsbestaetigungen UND Kursplaene kommen fast immer als PDF, nicht
    im Mailtext selbst — ohne das liest Claude nur die Begleitmail, nie die
    eigentlichen Daten. */
-async function eingangAnhaengeHolen(mailId){
+async function eingangAnhaengeHolen(mailId,dateien){
   const bloecke=[];
   try{
     const d=await graph('/me/messages/'+encodeURIComponent(mailId)+'/attachments?$select=id,name,contentType,size,isInline');
     const kandidaten=(d.value||[]).filter(a=>
       !a.isInline && (/pdf/i.test(a.contentType||'')||/\.pdf$/i.test(a.name||'')) && (a.size||0)<8*1024*1024
-    ).slice(0,2);
+    ).slice(0,3);
     for(const a of kandidaten){
       try{
         const voll=await graph('/me/messages/'+encodeURIComponent(mailId)+'/attachments/'+encodeURIComponent(a.id));
-        if(voll&&voll.contentBytes)bloecke.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:voll.contentBytes}});
+        if(voll&&voll.contentBytes){
+          /* Nummer vor jedes Dokument: der Vorschlag nennt sie in "anhang" zurueck.
+             Zwei Bestaetigungen fuer zwei Auftraege in einer Mail waeren sonst nicht
+             auseinanderzuhalten, und jede Reise bekaeme beide PDFs. */
+          bloecke.push({type:'text',text:'Dokument '+(bloecke.filter(b=>b.type==='document').length+1)+': '+(voll.name||a.name||'Anhang.pdf')});
+          bloecke.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:voll.contentBytes}});
+          /* Die Bytes liegen ohnehin schon hier — aufbewahren statt nach dem Deuten
+             wegzuwerfen, damit die Bestaetigung in OneDrive und am Termin landet. */
+          if(dateien)dateien.push({name:voll.name||a.name||'Auftrag.pdf',b64:voll.contentBytes,mime:'application/pdf'});
+        }
       }catch(e){/* ein einzelner Anhang darf die Auswertung nicht kippen */}
     }
   }catch(e){/* Anhaenge-Liste nicht lesbar — Auswertung laeuft trotzdem mit reinem Mailtext weiter */}
@@ -5088,7 +5133,9 @@ async function eingangMailAuswerten(i){
     /* Fuer den spaeteren Termintext: wer hat geschrieben, und der Link zurueck zur Mail. */
     e.vonName=(m.from&&m.from.emailAddress&&m.from.emailAddress.name)||'';
     e.webLink=m.webLink||'';
-    const anhaenge=await eingangAnhaengeHolen(e.mailId);
+    const pdfs=[];
+    const anhaenge=await eingangAnhaengeHolen(e.mailId,pdfs);
+    if(pdfs.length&&!e.dateien)e.dateien=pdfs;
     e.vorschlaege=await eingangDeuten([{type:'text',text:kopf}].concat(anhaenge));
     for(const v of e.vorschlaege)await eingangKonfliktPruefen(v);
   }catch(err){ e.fehler=err.message; }
@@ -5383,7 +5430,9 @@ function bahnZeigen(p){
     '<div style="padding:6px 0"><b>'+eur(zahlAus(p.preisGesamt))+'</b>'+(p.buchungsnummer?' · Buchung '+esc(p.buchungsnummer):'')+'</div></div>';
   /* Reisen anbieten, deren Zeitraum zu einer der Fahrten passt (± 1 Tag für Vorabendanreise) */
   const passt=t=>fahrten.some(f=>f.datum&&f.datum>=tagVersetzt(t.von,-1)&&f.datum<=tagVersetzt(t.bis||t.von,1));
-  const kandidaten=state.trips.filter(passt);
+  /* Reise, deren Zielort in einem Zielbahnhof vorkommt, zuerst — sie ist dann vorgewählt */
+  const zielPasst=t=>{const z=(t.ziel||'').toLowerCase().split(/[ ,]/)[0];return !!z&&fahrten.some(f=>(f.nach||'').toLowerCase().includes(z)||(f.von||'').toLowerCase().includes(z))};
+  const kandidaten=state.trips.filter(passt).sort((a,b)=>(zielPasst(b)?1:0)-(zielPasst(a)?1:0));
   const rest=state.trips.filter(t=>!passt(t)).sort((a,b)=>(b.von||'').localeCompare(a.von||'')).slice(0,10);
   const opt=t=>'<option value="'+t.id+'">'+esc(dfmt(t.von)+' · '+(t.ag||'')+' '+(t.zweck||'')+(t.ziel?' ('+t.ziel+')':''))+'</option>';
   el('bahnReise').innerHTML=
@@ -5396,47 +5445,85 @@ function bahnZeigen(p){
   el('bahnCard').scrollIntoView({behavior:'smooth'});
   el('bahnStatus').textContent=kandidaten.length?'':'Keine passende Reise gefunden — bitte manuell wählen.';
 }
+/* Ersetzt nur den Bahn-Block im Termintext, alles andere — Cockpit-Block und
+   Kennung eingeschlossen — bleibt stehen. */
+function bahnBlockSetzen(altText,block){
+  const alt=String(altText||'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
+  const ohne=alt.replace(/(^|\n)Bahn:[\s\S]*?(?=\n\n|$)/,'').trim();
+  return block+(ohne?'\n\n'+ohne:'');
+}
 async function bahnUebernehmen(){
   const id=el('bahnReise').value;
   const t=state.trips.find(x=>String(x.id)===String(id));
   if(!t||!bahnBuchung){el('bahnStatus').textContent='Bitte eine Reise wählen.';return}
   const st=el('bahnStatus');st.textContent='Übernehme …';
   t.vm='bahn';
-  t.bahn=zahlAus(bahnBuchung.preisGesamt);
+  /* Hin- und Rueckfahrt kommen oft als zwei Buchungen. Frueher ueberschrieb die
+     zweite die erste — jetzt je Buchungsnummer ein Posten, t.bahn ist die Summe. */
+  t.bahnBuchungen=Array.isArray(t.bahnBuchungen)?t.bahnBuchungen:(+t.bahn?[{nr:'',preis:+t.bahn}]:[]);
+  const nr=bahnBuchung.buchungsnummer||'';
+  const preis=zahlAus(bahnBuchung.preisGesamt);
+  const vorhanden=nr&&t.bahnBuchungen.find(b=>b.nr===nr);
+  if(vorhanden)vorhanden.preis=preis;
+  else if(t.bahnBuchungen.length&&!confirm('Diese Reise hat schon Bahnkosten von '+eur(t.bahn)+'. Buchung '+(nr||'ohne Nummer')+' mit '+eur(preis)+' dazurechnen?\n\nAbbrechen = vorhandenen Betrag ersetzen.'))t.bahnBuchungen=[{nr:nr,preis:preis}];
+  else t.bahnBuchungen.push({nr:nr,preis:preis});
+  t.bahn=Math.round(t.bahnBuchungen.reduce((s,b)=>s+(+b.preis||0),0)*100)/100;
   t.status=t.status||{};t.status.bahn=true;
   /* Zugdetails an der Reise ablegen. Eigenes Feld: die Reise hat kein Notizfeld
      (t.notiz gehoert zum Tool-Stack), und formData() wuerde ein Fremdfeld ohnehin
      nicht kennen — deshalb ueberlagert das Speichern jetzt statt zu ersetzen. */
   const details=bahnBuchung.fahrten.map(f=>dfmt(f.datum)+' '+(f.abfahrt||'')+'–'+(f.ankunft||'')+' '+(f.von||'')+' → '+(f.nach||'')+(f.zug?' ('+f.zug+')':'')).join(' · ');
-  t.bahnInfo=(bahnBuchung.buchungsnummer?'Buchung '+bahnBuchung.buchungsnummer+' · ':'')+details;
+  const infoNeu=(bahnBuchung.buchungsnummer?'Buchung '+bahnBuchung.buchungsnummer+' · ':'')+details;
+  t.bahnInfo=(t.bahnInfo&&nr&&!t.bahnInfo.includes(nr)&&t.bahnBuchungen.length>1)?t.bahnInfo+' ‖ '+infoNeu:infoNeu;
   await save();
   /* Anreise-/Abreise-Termine in Outlook auf die echten Zeiten setzen */
-  let angepasst=0;
+  let angepasst=0, angehaengt=0;
   if(msAccount){
     for(let i=0;i<bahnBuchung.fahrten.length;i++){
       const f=bahnBuchung.fahrten[i];
       if(!f.datum||!f.abfahrt||!f.ankunft)continue;
-      /* Erste Fahrt = Anreise, letzte = Abreise/Rückreise */
-      const hin=(i===0);
+      /* Hin oder zurueck am Datum der Reise messen, nicht an der Position — eine
+         Buchung nur fuer die Rueckfahrt hat genau eine Fahrt, und die ist keine Anreise. */
+      const tv=t.von||'', tb=t.bis||t.von||'';
+      let hin;
+      if(f.datum<tv)hin=true;
+      else if(f.datum>tb)hin=false;
+      else if(tv!==tb)hin=(f.datum===tv);
+      else hin=bahnBuchung.fahrten.length>1?(i===0):((f.abfahrt||'')<(t.beginn||'12:00'));
       try{
-        const d=await graph('/me/calendarView?startDateTime='+f.datum+'T00:00:00&endDateTime='+f.datum+'T23:59:59&$top=50&$select=id,subject');
-        const treffer=(d.value||[]).find(e=>hin?/^anreise/i.test(e.subject||''):/^(abreise|rückreise|rueckreise)/i.test(e.subject||''));
+        const d=await graph('/me/calendarView?startDateTime='+f.datum+'T00:00:00&endDateTime='+f.datum+'T23:59:59&$top=50&$select=id,subject,body,isOrganizer,attendees');
+        const istRolle=e=>hin?/^anreise/i.test(e.subject||''):/^(abreise|rückreise|rueckreise)/i.test(e.subject||'');
+        const zuReise=e=>{const b=bezugLesen(String((e.body&&e.body.content)||'').replace(/<[^>]+>/g,''));
+          return (b&&b.art==='reise'&&b.id===t.id)||(Array.isArray(t.outlookIds)&&t.outlookIds.includes(e.id))};
+        /* Erst der mit dieser Reise verknuepfte Termin, dann irgendein An-/Abreisetermin des Tages */
+        const kand=(d.value||[]).filter(istRolle);
+        const treffer=kand.find(zuReise)||kand[0];
         if(!treffer)continue;
+        if(treffer.isOrganizer===false||(Array.isArray(treffer.attendees)&&treffer.attendees.length))continue;
         await graph('/me/events/'+encodeURIComponent(treffer.id),{
           method:'PATCH',
           body:JSON.stringify({
             start:{dateTime:f.datum+'T'+f.abfahrt+':00',timeZone:'Europe/Berlin'},
             end:{dateTime:f.datum+'T'+f.ankunft+':00',timeZone:'Europe/Berlin'},
             location:{displayName:(f.von||'')+' → '+(f.nach||'')},
-            body:{contentType:'text',content:(f.zug||'')+'\n'+(f.von||'')+' ab '+(f.abfahrt||'')+'\n'+(f.nach||'')+' an '+(f.ankunft||'')+(bahnBuchung.buchungsnummer?'\nBuchung '+bahnBuchung.buchungsnummer:'')}
+            /* Frueher ersetzte das den ganzen Text — samt Kennung. Der Termin galt danach
+               nicht mehr als verknuepft, und das naechste Speichern legte ihn doppelt an. */
+            body:{contentType:'text',content:bahnBlockSetzen(treffer.body&&treffer.body.content,
+              'Bahn: '+(f.zug||'')+'\n'+(f.von||'')+' ab '+(f.abfahrt||'')+'\n'+(f.nach||'')+' an '+(f.ankunft||'')+(bahnBuchung.buchungsnummer?'\nBuchung '+bahnBuchung.buchungsnummer:''))}
           })
         });
+        /* Das Ticket an die Fahrt, an der es gebraucht wird */
+        if(bahnBuchung._datei){
+          const nm=Object.assign({},bahnBuchung._datei,{name:'DB '+(bahnBuchung.buchungsnummer||bahnBuchung._datei.name.replace(/\.pdf$/i,''))+'.pdf'});
+          const r=await terminAnhangSetzen(treffer.id,nm);
+          if(r==='ok')angehaengt++;
+        }
         angepasst++;
       }catch(e){/* einzelner Termin darf fehlschlagen */}
     }
   }
   render();
-  st.textContent='Übernommen: '+eur(t.bahn)+' als Bahnkosten, Buchung abgehakt'+(angepasst?' · '+angepasst+' Outlook-Termin(e) auf die echten Zeiten gesetzt':'');
+  st.textContent='Übernommen: '+eur(t.bahn)+' als Bahnkosten, Buchung abgehakt'+(angepasst?' · '+angepasst+' Outlook-Termin(e) auf die echten Zeiten gesetzt':' · kein eigener An-/Abreisetermin gefunden')+(angehaengt?' · Ticket angehängt':'');
   toast('Bahnbuchung übernommen');
   await eingangAbschliessen('bahn');
   setTimeout(()=>{el('bahnCard').style.display='none';bahnBuchung=null},2500);
@@ -5527,7 +5614,7 @@ async function pruefeKonflikte(termine,ag,reiseId){
   /* Hauptkalender (leere id) plus die vom Nutzer gewählten Nebenkalender */
   const quellen=[{id:'',name:''}].concat(konfliktKalender());
   for(const t of termine){
-    t.konflikt=null; t.weitere=0; t.verknuepft=false;
+    t.konflikt=null; t.weitere=0; t.verknuepft=false; t.verknuepftEvt=null;
     const tVon=hmMin(t.von), tBis=hmMin(t.bis), dauer=Math.max(1,tBis-tVon);
     for(const q of quellen){
       try{
@@ -5538,7 +5625,21 @@ async function pruefeKonflikte(termine,ag,reiseId){
           if(evt.showAs==='free')continue;
           if(reiseId){
             const bez=bezugLesen(String((evt.body&&evt.body.content)||'').replace(/<[^>]+>/g,''));
-            if(bez&&bez.art==='reise'&&bez.id===reiseId){ t.verknuepft=true; continue }
+            /* Einladungen tragen keine Kennung — dort haengt die Verknuepfung an der
+               Event-ID in outlookIds (Entscheidung 14.08.). Ohne diese Pruefung galt
+               eine laengst verknuepfte Einladung bei jedem Speichern wieder als Duplikat. */
+            const reiseObj=(state.trips||[]).find(x=>x.id===reiseId);
+            const perId=reiseObj&&Array.isArray(reiseObj.outlookIds)&&reiseObj.outlookIds.includes(evt.id);
+            if((bez&&bez.art==='reise'&&bez.id===reiseId)||perId){
+              /* Ein Termin je Zeile: Anreise, Seminartag und Abreise liegen oft am selben Tag */
+              const rolle=x=>/^anreise\b/i.test(x||'')?'an':(/^abreise\b/i.test(x||'')?'ab':'tag');
+              const passt=rolle(t.subject)===rolle(evt.subject)||!t.verknuepftEvt;
+              t.verknuepft=true;
+              if(passt)t.verknuepftEvt={id:evt.id,subject:evt.subject||'',
+                von:(evt.start&&evt.start.dateTime||'').slice(11,16),bis:(evt.end&&evt.end.dateTime||'').slice(11,16),
+                isOrganizer:evt.isOrganizer!==false,hatTeilnehmer:Array.isArray(evt.attendees)&&evt.attendees.length>0};
+              continue;
+            }
           }
           const eVon=hmMin((evt.start&&evt.start.dateTime||'').slice(11,16));
           const eBis=hmMin((evt.end&&evt.end.dateTime||'').slice(11,16));
@@ -5623,7 +5724,72 @@ async function aufraeumUebernehmen(idx){
   }catch(e){toast('Fehler: '+e.message)}
 }
 
-async function terminSchreiben(t,ag,kennungText){
+/* Ersetzt den Cockpit-Block im Termintext (ab "Angelegt vom Dozenten-Cockpit" bis
+   zur Kennung) und laesst alles andere stehen — was Charles selbst in den Termin
+   geschrieben hat, gehoert ihm. */
+function cockpitBlockErsetzen(altText,neuerBlock){
+  const alt=String(altText||'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
+  const a=alt.indexOf('Angelegt vom Dozenten-Cockpit');
+  const m=/\[cockpit:(reise|job|termin):[A-Za-z0-9_-]+\]/.exec(alt);
+  if(a>=0&&m&&m.index>=a){
+    const vor=alt.slice(0,a).trim(), nach=alt.slice(m.index+m[0].length).trim();
+    return [vor,neuerBlock,nach].filter(Boolean).join('\n\n');
+  }
+  const ohneKennung=alt.replace(/\[cockpit:(reise|job|termin):[A-Za-z0-9_-]+\]/g,'').trim();
+  return (ohneKennung?ohneKennung+'\n\n':'')+neuerBlock;
+}
+/* Haengt die Auftragsbestaetigung an einen eigenen Termin. Graph nimmt ohne
+   Upload-Sitzung nur Anhaenge bis 3 MB; groessere bleiben in OneDrive. Liegt eine
+   Datei gleichen Namens schon am Termin, wird nichts doppelt angehaengt. */
+async function terminAnhangSetzen(evtId,datei){
+  if(!datei||!datei.b64||!evtId)return 'ohne';
+  if(Math.floor(datei.b64.length*3/4)>3*1024*1024)return 'zugross';
+  try{
+    const d=await graph('/me/events/'+encodeURIComponent(evtId)+'/attachments?$select=name');
+    if((d.value||[]).some(x=>(x.name||'').toLowerCase()===datei.name.toLowerCase()))return 'da';
+    await graph('/me/events/'+encodeURIComponent(evtId)+'/attachments',{method:'POST',body:JSON.stringify({
+      '@odata.type':'#microsoft.graph.fileAttachment',name:datei.name,contentType:datei.mime,contentBytes:datei.b64
+    })});
+    return 'ok';
+  }catch(e){console.error('terminAnhangSetzen',e);return 'fehler'}
+}
+function reiseEventMerken(reiseId,evtId){
+  const r=(state.trips||[]).find(x=>x.id===reiseId); if(!r||!evtId)return;
+  r.outlookIds=Array.isArray(r.outlookIds)?r.outlookIds:[];
+  if(!r.outlookIds.includes(evtId))r.outlookIds.push(evtId);
+}
+async function terminSchreiben(t,ag,kennungText,datei,reiseId){
+  let anhangHinweis='';
+  const anhaengen=async id=>{
+    const r=await terminAnhangSetzen(id,datei);
+    if(r==='zugross')anhangHinweis='PDF über 3 MB — liegt nur in OneDrive';
+    if(r==='fehler')anhangHinweis='PDF konnte nicht angehängt werden';
+    if(anhangHinweis)toast(anhangHinweis);
+  };
+  /* Schon verknuepft, Bestaetigung liegt vor: angleichen statt neu anlegen */
+  if(t.modus==='angleichen'&&t.verknuepftEvt){
+    try{
+      const id=t.verknuepftEvt.id;
+      const bestehend=await graph('/me/events/'+encodeURIComponent(id)+'?$select=body');
+      await graph('/me/events/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({
+        subject:t.subject,
+        categories:terminKategorien(ag),
+        start:{dateTime:t.datum+'T'+t.von+':00',timeZone:'Europe/Berlin'},
+        end:{dateTime:t.datum+'T'+t.bis+':00',timeZone:'Europe/Berlin'},
+        body:{contentType:'text',content:cockpitBlockErsetzen(bestehend.body&&bestehend.body.content,kennungText)}
+      })});
+      await anhaengen(id);
+      return 'angeglichen';
+    }catch(e){console.error('angleichen',e);return 'fehler'}
+  }
+  /* Fremde Einladung: Titel, Text und Anhang gehoeren dem Organisator. Nur die
+     Kategorien liegen in der eigenen Postfachkopie und duerfen gesetzt werden. */
+  if(t.modus==='einladung'&&t.verknuepftEvt){
+    try{
+      await graph('/me/events/'+encodeURIComponent(t.verknuepftEvt.id),{method:'PATCH',body:JSON.stringify({categories:terminKategorien(ag)})});
+      return 'verknuepft';
+    }catch(e){return 'fehler'}
+  }
   if(t.konflikt){
     if(t.konflikt.isOrganizer&&!t.konflikt.hatTeilnehmer){
       const zusammen=confirm('Vermutlich derselbe Termin schon im Kalender: „'+t.konflikt.subject+'".\n\n'+
@@ -5636,9 +5802,22 @@ async function terminSchreiben(t,ag,kennungText){
           await graph('/me/events/'+encodeURIComponent(t.konflikt.id),{method:'PATCH',body:JSON.stringify({
             subject:t.subject,
             categories:terminKategorien(ag),
-            body:{contentType:'text',content:(altText?altText+'\n\n':'')+kennungText}
+            body:{contentType:'text',content:cockpitBlockErsetzen(altText,kennungText)}
           })});
+          await anhaengen(t.konflikt.id);
           return 'zusammengelegt';
+        }catch(e){return 'fehler'}
+      }
+    }else if(reiseId){
+      /* Entscheidung 14.08.: die Einladung wird ueber ihre Event-ID mit der Reise
+         verknuepft, statt einen zweiten Termin danebenzustellen. */
+      if(confirm('Vermutlich derselbe Termin schon im Kalender: „'+t.konflikt.subject+'" — eine Einladung.\n\n'+
+        'Mit der Reise verknüpfen und Kategorien setzen? Titel, Text und Anhang bleiben beim Organisator.\n\n'+
+        'Abbrechen = eigenen Termin daneben anlegen.')){
+        try{
+          await graph('/me/events/'+encodeURIComponent(t.konflikt.id),{method:'PATCH',body:JSON.stringify({categories:terminKategorien(ag)})});
+          reiseEventMerken(reiseId,t.konflikt.id);
+          return 'verknuepft';
         }catch(e){return 'fehler'}
       }
     }else if(!confirm('Vermutlich derselbe Termin schon im Kalender: „'+t.konflikt.subject+'" — Einladung mit Teilnehmern, Titel kann nicht geändert werden.\n\nTrotzdem einen eigenen Termin anlegen?')){
@@ -5646,7 +5825,7 @@ async function terminSchreiben(t,ag,kennungText){
     }
   }
   try{
-    await graph('/me/events',{method:'POST',body:JSON.stringify({
+    const neu=await graph('/me/events',{method:'POST',body:JSON.stringify({
       subject:t.subject,
       start:{dateTime:t.datum+'T'+t.von+':00',timeZone:'Europe/Berlin'},
       end:{dateTime:t.datum+'T'+t.bis+':00',timeZone:'Europe/Berlin'},
@@ -5654,6 +5833,7 @@ async function terminSchreiben(t,ag,kennungText){
       categories:terminKategorien(ag),
       body:{contentType:'text',content:kennungText}
     })});
+    if(neu&&neu.id)await anhaengen(neu.id);
     return 'angelegt';
   }catch(e){return 'fehler'}
 }
@@ -5704,14 +5884,18 @@ function terminZeilenHtml(termine){
   return termine.map((t,i)=>
     '<div class="agrow" style="flex-direction:column;align-items:stretch;gap:var(--a1)">'+
       '<label style="display:flex;gap:8px;align-items:center">'+
-        '<input type="checkbox" '+(t.konflikt?'':'checked')+' data-ti="'+i+'">'+
-        '<span style="font-weight:600">'+esc(t.subject)+'</span></label>'+
+        '<input type="checkbox" '+((t.konflikt||t.modus==='angleichen'||t.modus==='einladung')?'':'checked')+' data-ti="'+i+'">'+
+        '<span style="font-weight:600">'+esc(t.subject)+'</span>'+
+        (t.modus==='angleichen'?' <span class="chip arbeit">angleichen</span>':'')+
+        (t.modus==='einladung'?' <span class="chip neutral">Einladung</span>':'')+'</label>'+
       '<div class="hint" style="margin:0">'+dfmt(t.datum)+'</div>'+
       '<div class="grid2">'+
         '<div class="f"><label>Beginn</label><input type="time" step="300" data-tvon="'+i+'" value="'+esc(t.von)+'"></div>'+
         '<div class="f"><label>Ende</label><input type="time" step="300" data-tbis="'+i+'" value="'+esc(t.bis)+'"></div>'+
       '</div>'+
-      (t.konflikt?'<div class="hint" style="margin:0;color:var(--rot)">⚠ vermutlich Duplikat von „'+esc(t.konflikt.subject)+'"</div>'
+      (t.modus==='angleichen'?'<div class="hint" style="margin:0">Besteht als „'+esc(t.verknuepftEvt.subject)+'" — abhaken, um Titel, Kategorien, Text und Anhang anzugleichen</div>'
+      :t.modus==='einladung'?'<div class="hint" style="margin:0">Einladung „'+esc(t.verknuepftEvt.subject)+'" — nur Kategorien möglich, PDF bleibt in OneDrive</div>'
+      :t.konflikt?'<div class="hint" style="margin:0;color:var(--rot-text)">⚠ vermutlich Duplikat von „'+esc(t.konflikt.subject)+'"</div>'
         :(t.weitere?'<div class="hint" style="margin:0">'+t.weitere+' weitere(r) Termin(e) an diesem Tag</div>':''))+
     '</div>').join('');
 }
@@ -9250,8 +9434,8 @@ function kpiStart(){
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v117';
-const APP_STAND='19. August 2026';
+const APP_VERSION='v118';
+const APP_STAND='16. September 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
   let geladen=null;
