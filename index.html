@@ -196,7 +196,8 @@ button.kpi:active{opacity:.85}
 .dropzone:hover,.dropzone.over{border-color:var(--rot);background:var(--rot-dim);color:var(--ink)}
 .bereiche{display:flex;gap:0;margin-top:14px;border:1px solid rgba(255,255,255,.28);border-radius:8px;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
 .bereiche button{background:transparent;border:0;color:rgba(255,255,255,.75);font:600 12.5px/1 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.07em;padding:9px 13px;cursor:pointer;white-space:nowrap;flex:0 0 auto}
-.bereiche button.on{background:var(--rot);color:var(--paper)}
+.bereiche button.on{background:var(--paper);color:var(--ink)}
+.bereiche button{min-height:var(--h-klein)}
 .mailrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:var(--s-text)}
 .mailrow:last-child{border-bottom:0}
 .mailrow .mfrom{color:var(--grau);font-size:var(--s-klein)}
@@ -403,13 +404,23 @@ label{font-size:var(--s-klein)}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;
   background:var(--ink);border-top:1px solid rgba(255,255,255,.12);
   padding-bottom:env(safe-area-inset-bottom)}
-.tabbar button{flex:1;background:transparent;border:0;color:rgba(255,255,255,.62);
-  display:flex;flex-direction:column;align-items:center;gap:2px;
-  padding:7px 2px 6px;cursor:pointer;font:600 10px/1.1 'Barlow Condensed',sans-serif;
-  text-transform:uppercase;letter-spacing:.04em;min-height:52px}
-.tabbar button .ic{font-size:var(--s-karte);line-height:1}
+/* Sechs Knoepfe, nur Symbol; Beschriftung steckt in aria-label und title.
+   min-width 48 px haelt auch auf 320 px Breite (6 x 48 = 288). */
+.tabbar button{flex:1;min-width:48px;min-height:52px;background:transparent;border:0;
+  color:rgba(255,255,255,.62);display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:4px;padding:6px 0;cursor:pointer;font-family:inherit}
+.tabbar button .ic{font-size:var(--s-teil);line-height:1}
+.tabbar button::after{content:"";width:5px;height:5px;border-radius:50%;background:transparent}
 .tabbar button.on{color:var(--paper)}
-.tabbar button.on .ic{filter:drop-shadow(0 0 6px rgba(255,80,80,.5))}
+.tabbar button.on::after{background:var(--paper)}
+.tabbar button:focus-visible{outline:2px solid var(--paper);outline-offset:-4px}
+/* Zahnrad in der Kopfzeile: einziger Weg zu den Einstellungen am Handy */
+header .wrap{position:relative}
+.zahnrad{position:absolute;top:0;right:0;width:48px;height:48px;border:0;border-radius:50%;
+  background:transparent;color:var(--paper);font-size:var(--s-teil);line-height:1;cursor:pointer}
+.zahnrad:hover,.zahnrad.on{background:rgba(255,255,255,.14)}
+.zahnrad:focus-visible{outline:2px solid var(--paper);outline-offset:2px}
+header .eyebrow,header h1{padding-right:52px}
 /* Platz schaffen, damit die Leiste nichts überdeckt */
 body{padding-bottom:64px}
 /* Das alte Reiter-Band nur noch auf Desktop zeigen; Handy nutzt die untere Leiste */
@@ -452,13 +463,8 @@ body{padding-bottom:64px}
   <div class="wrap">
     <div class="eyebrow">Charles Hütten</div>
     <h1>Dozenten-<em>Cockpit</em></h1>
-    <div class="bereiche">
-      <button id="tabStart" class="on">Start</button>
-      <button id="tabSeminare">Seminare</button>
-      <button id="tabWerkstatt">Werkstatt</button>
-      <button id="tabAbrechnung">Abrechnung</button>
-      <button id="tabTools">Einstellungen</button>
-    </div>
+    <button type="button" class="zahnrad" data-nav="einstellungen" aria-label="Einstellungen" title="Einstellungen">&#x2699;&#xFE0E;</button>
+    <div class="bereiche" id="bereichReiter"></div>
   </div>
 </header>
 
@@ -6765,48 +6771,70 @@ async function kalTerminAnlegen(){
   }catch(err){st.textContent='Fehler: '+err.message}
 }
 
-/* Bereichs-Wechsel */
-const BEREICHE=['start','seminare','werkstatt','abrechnung','tools'];
+/* Bereichs-Wechsel
+   Kachel-Konzept Schritt 1: sechs logische Bereiche plus Start. Solange die Karten
+   noch nicht umgezogen sind (Schritte 3-7), zeigt jeder logische Bereich auf einen
+   der alten Behaelter und springt dort zur passenden Karte. Wandert ein Bereich in
+   einen eigenen Behaelter, wird nur seine Zeile in NAV geaendert. */
+const NAV=[
+  {k:'start',        kurz:'',    name:'Start',         ic:'\u2302',        div:'Start'},
+  {k:'termine',      kurz:'TER', name:'Termine',       ic:'\u25F7',        div:'Seminare'},
+  {k:'tagebuch',     kurz:'TGB', name:'Tagebuch',      ic:'\u270E\uFE0E',  div:'Seminare',  ziel:'briefingCard'},
+  {k:'werkstatt',    kurz:'WST', name:'Werkstatt',     ic:'\u2692\uFE0E',  div:'Werkstatt'},
+  {k:'rechnungen',   kurz:'RAG', name:'Rechnungen',    ic:'\u20AC',        div:'Abrechnung', ziel:'agMonatCard'},
+  {k:'reisekosten',  kurz:'RSK', name:'Reisekosten',   ic:'\u21C4',        div:'Abrechnung', ziel:'sccCard'},
+  {k:'einstellungen',kurz:'EIN', name:'Einstellungen', ic:'\u2699\uFE0E',  div:'Tools'}
+];
+/* Alte Schluessel aus rund 40 Aufrufstellen; sie bleiben gueltig. */
+const NAV_ALIAS={seminare:'termine',abrechnung:'rechnungen',tools:'einstellungen',
+  kalender:['termine','kalCard'],reiseplanung:['termine','reiseplanCard']};
+const BEREICHE=['Start','Seminare','Werkstatt','Abrechnung','Tools'];
+let bereichAktiv='start';
+function navAufbauen(){
+  const knopf=(n,mitText)=>'<button type="button" data-nav="'+n.k+'" aria-label="'+n.name+'" title="'+n.name+'">'
+    +(mitText?esc(n.name):'<span class="ic" aria-hidden="true">'+n.ic+'</span>')+'</button>';
+  const reiter=el('bereichReiter'); if(reiter)reiter.innerHTML=NAV.map(n=>knopf(n,true)).join('');
+  /* Handy-Leiste ohne Einstellungen — die erreicht man ueber Zahnrad und Startkachel */
+  const leiste=el('tabbar'); if(leiste)leiste.innerHTML=NAV.filter(n=>n.k!=='einstellungen').map(n=>knopf(n,false)).join('');
+}
 function bereichWechseln(b,ziel){
-  /* Kalender und Reiseplanung sind seit dem Umbau keine eigenen Ebenen mehr,
-     sondern Karten in Seminare. Alte Aufrufe werden hier abgefangen, damit kein
-     Sprungziel ins Leere laeuft. */
-  if(b==='kalender'){ ziel=ziel||'kalCard'; b='seminare'; }
-  if(b==='reiseplanung'){ ziel=ziel||'reiseplanCard'; b='seminare'; }
+  /* Die Leiste steht im HTML hinter dem Skript; beim ersten Wechsel existiert sie. */
+  const leiste=el('tabbar'); if(leiste&&!leiste.childElementCount)navAufbauen();
+  const a=NAV_ALIAS[b];
+  if(Array.isArray(a)){ ziel=ziel||a[1]; b=a[0]; } else if(a){ b=a; }
+  const n=NAV.find(x=>x.k===b)||NAV[0];
+  b=n.k; bereichAktiv=b;
+  if(ziel===undefined)ziel=n.ziel;
   BEREICHE.forEach(x=>{
-    const div=el('bereich'+x.charAt(0).toUpperCase()+x.slice(1));
     /* Sichtbar = Inline-Stil leeren, damit das CSS entscheidet: 'block' überschrieb
        das display:grid von .wrap.spalten — der Desktop lief deshalb einspaltig. */
-    div.style.display=(x===b)?'':'none';
-    const tab=el('tab'+x.charAt(0).toUpperCase()+x.slice(1));
-    if(tab)tab.classList.toggle('on',x===b);
+    el('bereich'+x).style.display=(x===n.div)?'':'none';
   });
-  document.querySelectorAll('.tabbar button[data-nav]').forEach(btn=>{
-    btn.classList.toggle('on', btn.dataset.nav===b);
+  document.querySelectorAll('.tabbar button[data-nav],.bereiche button[data-nav],.zahnrad').forEach(btn=>{
+    const on=btn.dataset.nav===b;
+    btn.classList.toggle('on',on);
+    if(on)btn.setAttribute('aria-current','page'); else btn.removeAttribute('aria-current');
   });
-  if(b==='start'){renderGtasks(true);renderNachbereitung();renderBriefing();taskBoardLaden();autoKalenderCheck();kpiStart()}
-  if(b==='seminare'){renderMsStatus();renderMeetings();renderReiseplanung();kalenderLaden();konfliktKalRender();renderBriefing()}
-  if(b==='tools'){versionAnzeigen()}
-  if(b==='werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderProjekte();renderWerkstattAufgaben()}
-  if(b==='abrechnung'){renderNachbereitung();render()}
-  if(b==='tools'){renderTools();renderMsStatus();renderOdStatus();renderGtasks(true);renderKurse()}
-  if(b==='werkstatt')renderJobs();
-  if(b==='start')renderTbAuswertung();
-  /* FAB ist jetzt ueberall sichtbar — der Schnellerfassen-Knopf soll in jedem Bereich
-     erreichbar sein. "+ Reise erfassen" und CSV blenden sich bereichsabhaengig aus. */
+  const d=n.div;
+  if(d==='Start'){renderGtasks(true);renderNachbereitung();renderBriefing();taskBoardLaden();autoKalenderCheck();kpiStart();renderTbAuswertung()}
+  if(d==='Seminare'){renderMsStatus();renderMeetings();renderReiseplanung();kalenderLaden();konfliktKalRender();renderBriefing()}
+  if(d==='Werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderProjekte();renderWerkstattAufgaben();renderJobs()}
+  if(d==='Abrechnung'){renderNachbereitung();render()}
+  if(d==='Tools'){versionAnzeigen();renderTools();renderMsStatus();renderOdStatus();renderGtasks(true);renderKurse()}
+  /* FAB ist ueberall sichtbar — der Schnellerfassen-Knopf soll in jedem Bereich
+     erreichbar sein. "+ Reise erfassen" und CSV haengen am Behaelter. */
   document.querySelector('.fab').style.display='flex';
-  el('btnNew').style.display=(b==='abrechnung'||b==='seminare')?'':'none';
-  el('btnCsv').style.display=(b==='abrechnung')?'':'none';
-  el('btnCsv').style.display=(b==='abrechnung')?'inline-block':'none';
+  el('btnNew').style.display=(d==='Abrechnung'||d==='Seminare')?'':'none';
+  el('btnCsv').style.display=(d==='Abrechnung')?'inline-block':'none';
   window.scrollTo({top:0,behavior:'instant'});
-  /* Sprungziel innerhalb des Bereichs (z. B. Kalenderkarte aus einem alten Aufruf) */
-  if(ziel){ const k=el(ziel); if(k)setTimeout(()=>k.scrollIntoView({behavior:'smooth',block:'start'}),60); }
+  /* Sprungziel innerhalb des Behaelters. Ab Schritt 3 wird daraus die Unterseite. */
+  if(ziel){ const k=el(ziel); if(k&&k.offsetParent)setTimeout(()=>k.scrollIntoView({behavior:'smooth',block:'start'}),60); }
 }
 /* Navigation aus unterer Leiste, Kacheln und Mehr-Menü */
 function zurueckKnoepfeSetzen(){
   /* Am Desktop ist die obere Reiter-Leiste ausgeblendet — jeder Bereich außer Start
      bekommt oben einen "‹ Start"-Knopf, damit man ohne obere Leiste zurückfindet. */
-  ['Seminare','Werkstatt','Abrechnung','Tools'].forEach(name=>{
+  BEREICHE.filter(x=>x!=='Start').forEach(name=>{
     const bereich=el('bereich'+name);
     if(!bereich||bereich.querySelector('.zurueckStart'))return;
     const b=document.createElement('button');
@@ -6816,6 +6844,7 @@ function zurueckKnoepfeSetzen(){
   });
 }
 function navBinden(){
+  navAufbauen();
   zurueckKnoepfeSetzen();
   /* Event-Delegation am document: funktioniert unabhaengig davon, ob die Buttons
      (untere Leiste, Mehr-Menue) im HTML vor oder nach diesem Script stehen. Der
@@ -9434,7 +9463,7 @@ function kpiStart(){
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v118';
+const APP_VERSION='v119';
 const APP_STAND='16. September 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
@@ -9492,7 +9521,6 @@ el('iStart').addEventListener('click',importKalender);
 [el('modal'),el('importModal')].forEach(m=>m.addEventListener('click',e=>{if(e.target!==m)return;m.classList.remove('open');if(m.id==='importModal')importZuruecksetzen()}));
 
 /* Planung: Events */
-el('tabStart').addEventListener('click',()=>bereichWechseln('start'));
 navBinden();
 el('btnWerkzeugeStack').addEventListener('click',werkzeugeInStack);
 el('btnToolAufraeumen').addEventListener('click',()=>{if(confirm('Tool-Liste aufräumen? Claude-Varianten werden zu einem Eintrag zusammengeführt, „HeyGen / ElevenLabs" entfernt (die beiden gibt es einzeln), und ChatGPT, Telekom, Prompt Cowboy, Mentimeter auf inaktiv gesetzt. Beträge und Konten bleiben erhalten.'))toolAufraeumen()});
@@ -9578,10 +9606,6 @@ el('btnKalNeu').addEventListener('click',()=>{
 el('btnKalSpeichern').addEventListener('click',kalTerminAnlegen);
 el('btnKalAbbrechen').addEventListener('click',()=>{if(kalEditId)kalBearbeitenSchliessen();sheetZu()});
 el('kGanztag').addEventListener('change',()=>{el('kZeitWrap').style.display=el('kGanztag').value==='ja'?'none':'grid'});
-el('tabSeminare').addEventListener('click',()=>bereichWechseln('seminare'));
-el('tabWerkstatt').addEventListener('click',()=>bereichWechseln('werkstatt'));
-el('tabAbrechnung').addEventListener('click',()=>bereichWechseln('abrechnung'));
-el('tabTools').addEventListener('click',()=>bereichWechseln('tools'));
 el('btnToolNeu').addEventListener('click',()=>toolFormOeffnen(null));
 
 /* Arbeitsauftraege */
@@ -9709,13 +9733,7 @@ load().then(async()=>{
 });
 </script>
 <!-- Untere Navigationsleiste (Handy) -->
-<nav class="tabbar" id="tabbar">
-  <button data-nav="start"><span class="ic">🏠</span>Start</button>
-  <button data-nav="seminare"><span class="ic">🎓</span>Seminare</button>
-  <button data-nav="werkstatt"><span class="ic">🔧</span>Werkstatt</button>
-  <button data-nav="abrechnung"><span class="ic">📊</span>Abrechnung</button>
-  <button data-nav="tools"><span class="ic">⚙️</span>Einstellungen</button>
-</nav>
+<nav class="tabbar" id="tabbar" aria-label="Bereiche"></nav>
 
 </body>
 </html>
