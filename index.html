@@ -35,6 +35,16 @@
   /* Trefferflaechen: Hauptaktion 56, normaler Knopf und jedes Eingabefeld 48,
      kleiner Knopf 36 - und der nur in Listenzeilen und Filterleisten. */
   --h-haupt:56px; --h-norm:48px; --h-klein:36px;
+  /* Bereichsfarben der Startkacheln (Entscheidung 16.09.2026, hebt die vom 03.08.
+     auf). Nur fuer die Kachelflaechen - Chips, Fristen und Knoepfe bleiben bei den
+     vier Statusfarben. Je Bereich ein Verlauf von hell nach dunkel. */
+  --bf-ein-a:#1E293B; --bf-ein-b:#0F172A;
+  --bf-ter-a:#2563EB; --bf-ter-b:#1E40AF;
+  --bf-tgb-a:#8B5CF6; --bf-tgb-b:#6D28D9;
+  --bf-wst-a:#0D9488; --bf-wst-b:#0F766E;
+  --bf-rag-a:#15803D; --bf-rag-b:#166534;
+  --bf-rsk-a:#C2410C; --bf-rsk-b:#9A3412;
+  --bf-set-a:#64748B; --bf-set-b:#475569;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
@@ -71,7 +81,7 @@ header h1 em{font-style:normal;color:var(--rot)}
   .wrap.spalten>.spalte{display:flex;flex-direction:column;gap:20px;min-width:0}
   .wrap.spalten>.card,.wrap.spalten>details.card,.spalte>.card,.spalte>details.card{margin-bottom:0;width:auto}
   /* Kacheln, Zurück-Knopf, KPIs und breite Karten laufen über beide Spalten */
-  .wrap.spalten>.zurueckStart,.wrap.spalten>.kpis,.wrap.spalten>.vollbreite{grid-column:1 / -1}
+  .wrap.spalten>.kpis,.wrap.spalten>.vollbreite{grid-column:1 / -1}
   /* Die Startseite ist bewusst schmal: drei Bloecke untereinander lesen sich
      ruhiger als vier Kacheln nebeneinander. Die Arbeitsbereiche bleiben breit,
      dort stehen Monatsreihen und Auftraggeber-Tabellen. */
@@ -441,14 +451,44 @@ body{padding-bottom:64px}
    Desktop gab es danach ueberhaupt keine Navigation mehr, weil dort zugleich die
    untere Leiste ausgeblendet ist. Jetzt gilt sauber getrennt: breiter Schirm
    Reiter oben, schmaler Schirm untere Leiste. */
-.zurueckStart{display:inline-flex;align-items:center;gap:8px;background:var(--ink);
-  border:0;border-radius:999px;padding:11px 22px;margin-bottom:18px;
-  cursor:pointer;font:700 15px/1 'Barlow Condensed',sans-serif;text-transform:uppercase;
-  letter-spacing:.05em;color:var(--paper);box-shadow:0 2px 8px rgba(0,0,0,.15)}
-.zurueckStart:hover{background:var(--rot)}
-.zurueckStart .pfeil{font-size:var(--s-karte);line-height:1;margin-top:-2px}
-/* Am Handy nicht nötig — dort gibt es die untere Leiste mit Start */
-@media (pointer:coarse){ .zurueckStart{display:none} }
+
+
+/* ---------- Kacheln (Start und Bereiche) ---------- */
+/* Jeder Bereich oeffnet mit seinem Raster; eine Unterseite zeigt nur ihre Karten.
+   Was gerade gilt, setzt bereichAnsichtSetzen() ueber die Klasse .usAus. */
+.usAus{display:none!important}
+.bereichKacheln{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--a3);margin-top:var(--a4)}
+@media (min-width:900px){ .bereichKacheln{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--a4)} }
+.wrap.spalten>.bereichKacheln,.wrap.spalten>.zurueckRaster,.wrap.spalten>.usLeer{grid-column:1 / -1}
+.bereichTitel{grid-column:1 / -1;font-size:var(--s-teil);font-weight:700;margin-top:var(--a2)}
+.skachel{display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:var(--a2);
+  min-height:112px;padding:var(--a4);border:0;border-radius:16px;cursor:pointer;text-align:left;
+  color:var(--paper);font-family:inherit;box-shadow:0 2px 8px rgba(20,35,60,.14);
+  background:linear-gradient(135deg,var(--ka),var(--kb));transition:transform .12s,box-shadow .12s}
+.skachel:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(20,35,60,.2)}
+.skachel:active{transform:scale(.98)}
+.skachel:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.skachel .kic{font-size:30px;line-height:1}
+.skachel .kname{font-size:var(--s-karte);font-weight:700;line-height:1.15}
+.skachel.voll{grid-column:1 / -1;min-height:88px;flex-direction:row;align-items:center;justify-content:flex-start;gap:var(--a4)}
+.skachel{--ka:var(--bf-ein-a);--kb:var(--bf-ein-b)}
+/* Unterseiten-Kacheln tragen die Farbe ihres Bereichs, etwas heller als die Startkachel */
+.skachel.unter{min-height:96px}
+.skachel.bf-ter{--ka:var(--bf-ter-a);--kb:var(--bf-ter-b)} .skachel.bf-tgb{--ka:var(--bf-tgb-a);--kb:var(--bf-tgb-b)}
+.skachel.bf-wst{--ka:var(--bf-wst-a);--kb:var(--bf-wst-b)} .skachel.bf-rag{--ka:var(--bf-rag-a);--kb:var(--bf-rag-b)}
+.skachel.bf-rsk{--ka:var(--bf-rsk-a);--kb:var(--bf-rsk-b)} .skachel.bf-set{--ka:var(--bf-set-a);--kb:var(--bf-set-b)}
+.skachel[data-nav="eingang"]{--ka:var(--bf-ein-a);--kb:var(--bf-ein-b)}
+.skachel[data-nav="termine"]{--ka:var(--bf-ter-a);--kb:var(--bf-ter-b)}
+.skachel[data-nav="tagebuch"]{--ka:var(--bf-tgb-a);--kb:var(--bf-tgb-b)}
+.skachel[data-nav="werkstatt"]{--ka:var(--bf-wst-a);--kb:var(--bf-wst-b)}
+.skachel[data-nav="rechnungen"]{--ka:var(--bf-rag-a);--kb:var(--bf-rag-b)}
+.skachel[data-nav="reisekosten"]{--ka:var(--bf-rsk-a);--kb:var(--bf-rsk-b)}
+.skachel[data-nav="einstellungen"]{--ka:var(--bf-set-a);--kb:var(--bf-set-b)}
+#startFuss{text-align:center;color:var(--grau);font-size:var(--s-klein);margin:var(--a5) 0 var(--a4)}
+/* Zurueck aus einer Unterseite zum Raster des Bereichs */
+.zurueckRaster{display:inline-flex;align-items:center;gap:var(--a2);min-height:var(--h-norm);
+  padding:0 var(--a4);margin:var(--a3) 0;border:1.5px solid var(--line);border-radius:999px;
+  background:var(--paper);color:var(--ink);font-family:inherit;font-size:var(--s-text);font-weight:600;cursor:pointer}
 
 /* ---------- Zweispaltige Kartenreihe (IHK und DATEV) ---------- */
 .kacheln2{display:grid;grid-template-columns:1fr;gap:20px;align-items:start;margin-bottom:16px}
@@ -471,6 +511,10 @@ body{padding-bottom:64px}
 <div id="offlineBanner" style="display:none"></div>
 
 <div class="wrap schmal" id="bereichStart">
+<div class="bereichKacheln" id="kachelnStart"></div>
+<div id="startFuss"></div>
+<button type="button" class="zurueckRaster" data-zurueck="start"></button>
+<div class="empty usLeer">Hier ist gerade nichts.</div>
 
 <!-- Lagesatz statt Kennzahlenleiste: vier nackte Zahlen ohne Vergleichswert sind
      keine Uebersicht, sondern verkleidete Navigation. Ein Satz sagt, wie der Tag
@@ -517,37 +561,13 @@ body{padding-bottom:64px}
       <div class="hint" id="gtaskStatus"></div>
     </div>
   </div>
-<details class="card" id="taskCard" open>
-    <summary><h2 style="display:inline">Aufgaben</h2>
-      <span class="tools"><button class="minibtn" id="btnTaskReload">Aktualisieren</button><button class="minibtn haupt" id="btnTaskNeu">+ Aufgabe</button></span>
-    </summary>
-    <div class="hint">Aufgaben aus Microsoft To Do<button type="button" class="hilfe" data-tip="Ein Filter je Liste. „Alle&quot; zeigt alles, jeder Bereich (Optima, SCC, FRMD PASN, Privat, Auftraggeber) hat einen eigenen Chip. Geflaggte Outlook-Mails erscheinen unter „Gekennzeichnete E-Mail&quot;. Nach dem Anlegen neuer Listen auf „Aktualisieren&quot;." aria-label="Erklärung">?</button></div>
-    <div id="taskForm" style="display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
-      <div class="f"><label>Titel</label><input type="text" id="tkTitel" placeholder="z. B. Unterlagen Kapitel 3 überarbeiten"></div>
-      <div class="grid2">
-        <div class="f"><label>Liste</label>
-          <select id="tkKat"></select>
-        </div>
-        <div class="f"><label>Priorität</label>
-          <select id="tkPrio"><option value="normal">Normal</option><option value="high">Hoch</option><option value="low">Niedrig</option></select>
-        </div>
-      </div>
-      <div class="f"><label>Fällig am (optional)</label><input type="date" id="tkFaellig"></div>
-      <div class="f"><label>Bezug (optional)</label>
-        <select id="tkBezug"></select>
-      </div>
-      <div class="f"><label>Notiz (optional)</label><textarea id="tkNotiz" rows="2"></textarea></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-        <button type="button" class="minibtn" id="btnTaskSpeichern">Anlegen</button>
-        <button type="button" class="minibtn rot" id="btnTaskAbbrechen">Abbrechen</button>
-      </div>
-    </div>
-    <div id="taskFilter" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
-    <div id="taskBoard" style="margin-top:8px"></div>
-  </details>
+
 </div>
 
 <div class="wrap" id="bereichSeminare" style="display:none">
+<div class="bereichKacheln" id="kachelnSeminare"></div>
+<button type="button" class="zurueckRaster" data-zurueck=""></button>
+<div class="empty usLeer">Hier ist gerade nichts.</div>
 
 <!-- Seminartagebuch: gehoert zu den Seminaren -->
 <div class="card" id="briefingCard" style="display:none">
@@ -560,6 +580,12 @@ body{padding-bottom:64px}
   </div>
 
 <!-- Kalender: keine eigene Ebene mehr, sondern Ansicht in Seminare -->
+
+<div class="card" id="nachCard" style="display:none;border-color:var(--warn)">
+    <h2>Nachbereitung</h2>
+    <div class="hint">Gelaufene Seminare — Verpflegung prüfen und abhaken. Danach sind sie abrechnungsfertig.</div>
+    <div id="nachListe" style="margin-top:8px"></div>
+  </div>
 
 <div class="card" id="kalCard">
     <h2>Kalender
@@ -726,6 +752,38 @@ body{padding-bottom:64px}
 </div>
 
 <div class="wrap" id="bereichWerkstatt" style="display:none">
+<div class="bereichKacheln" id="kachelnWerkstatt"></div>
+<button type="button" class="zurueckRaster" data-zurueck=""></button>
+<div class="empty usLeer">Hier ist gerade nichts.</div>
+<!-- Aufgaben aus Microsoft To Do: seit v120 nur noch hier (Kachel-Konzept) -->
+<details class="card" id="taskCard" open>
+    <summary><h2 style="display:inline">Aufgaben</h2>
+      <span class="tools"><button class="minibtn" id="btnTaskReload">Aktualisieren</button><button class="minibtn haupt" id="btnTaskNeu">+ Aufgabe</button></span>
+    </summary>
+    <div class="hint">Aufgaben aus Microsoft To Do<button type="button" class="hilfe" data-tip="Ein Filter je Liste. „Alle&quot; zeigt alles, jeder Bereich (Optima, SCC, FRMD PASN, Privat, Auftraggeber) hat einen eigenen Chip. Geflaggte Outlook-Mails erscheinen unter „Gekennzeichnete E-Mail&quot;. Nach dem Anlegen neuer Listen auf „Aktualisieren&quot;." aria-label="Erklärung">?</button></div>
+    <div id="taskForm" style="display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
+      <div class="f"><label>Titel</label><input type="text" id="tkTitel" placeholder="z. B. Unterlagen Kapitel 3 überarbeiten"></div>
+      <div class="grid2">
+        <div class="f"><label>Liste</label>
+          <select id="tkKat"></select>
+        </div>
+        <div class="f"><label>Priorität</label>
+          <select id="tkPrio"><option value="normal">Normal</option><option value="high">Hoch</option><option value="low">Niedrig</option></select>
+        </div>
+      </div>
+      <div class="f"><label>Fällig am (optional)</label><input type="date" id="tkFaellig"></div>
+      <div class="f"><label>Bezug (optional)</label>
+        <select id="tkBezug"></select>
+      </div>
+      <div class="f"><label>Notiz (optional)</label><textarea id="tkNotiz" rows="2"></textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <button type="button" class="minibtn" id="btnTaskSpeichern">Anlegen</button>
+        <button type="button" class="minibtn rot" id="btnTaskAbbrechen">Abbrechen</button>
+      </div>
+    </div>
+    <div id="taskFilter" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
+    <div id="taskBoard" style="margin-top:8px"></div>
+  </details>
 
 <details class="card" id="werkstattCard" open>
     <summary>Unterlagen &amp; Prompts</summary>
@@ -880,7 +938,7 @@ body{padding-bottom:64px}
     </div>
   </div>
 
-<div class="card">
+<div class="card" id="wsAufgabenCard">
     <h2>Arbeitsaufgaben
       <span class="tools"><button class="minibtn" id="btnWsAufgabenReload">Aktualisieren</button></span>
     </h2>
@@ -888,7 +946,7 @@ body{padding-bottom:64px}
     <div id="wsAufgaben" style="margin-top:8px"></div>
   </div>
 
-<div class="card">
+<div class="card" id="werkzeugeCard">
     <h2>Werkzeuge</h2>
     <div class="hint">Absprung zu den Tools zum Erstellen. Bei Präsentation, Klausur und Unterlagen liefert Claude dir einen fertigen Start-Prompt.</div>
     <div id="werkzeugGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"></div>
@@ -938,21 +996,14 @@ body{padding-bottom:64px}
 </div>
 
 <div class="wrap" id="bereichAbrechnung" style="display:none">
+<div class="bereichKacheln" id="kachelnAbrechnung"></div>
+<button type="button" class="zurueckRaster" data-zurueck=""></button>
+<div class="empty usLeer">Hier ist gerade nichts.</div>
 
-  <div class="quicknav">
-    <button type="button" data-jump="agMonatCard">Auftraggeber</button>
-    <button type="button" data-jump="sccCard">SCC-Erstattung</button>
-    <button type="button" data-jump="portalKacheln">IHK &amp; DATEV</button>
-    <button type="button" data-jump="jahrCard">Jahr</button>
-  </div>
+  
 
 
 <!-- Nachbereitung: gehoert zur Abrechnung, nicht auf die Startseite -->
-<div class="card" id="nachCard" style="display:none;border-color:var(--warn)">
-    <h2>Nachbereitung</h2>
-    <div class="hint">Gelaufene Seminare — Verpflegung prüfen und abhaken. Danach sind sie abrechnungsfertig.</div>
-    <div id="nachListe" style="margin-top:8px"></div>
-  </div>
 
 <!-- Stufe 2, monatlich: SCC/Coaching stellt dem Auftraggeber in Rechnung.
      Steht oben, weil das die Frage ist, die er am häufigsten stellt. Eigener
@@ -1000,7 +1051,6 @@ body{padding-bottom:64px}
 
 <!-- IHK und DATEV sind dasselbe Muster: externes Portal, aus dem ein Beleg
      zurückkommt. Deshalb zwei gleich große Kacheln statt einer vollen Karte. -->
-<div class="kacheln2 vollbreite" id="portalKacheln">
 
   <div class="card" id="ihkCard" style="display:none">
     <h2>IHK-Portal</h2>
@@ -1055,42 +1105,13 @@ body{padding-bottom:64px}
     <div id="agList" style="margin-top:8px"></div>
   </details>
 
-<details class="card">
-    <summary>Daten &amp; App</summary>
-    <div class="f" style="margin-top:10px"><label>Heimatadresse (Startpunkt für km-Berechnung)</label><input type="text" id="setHome"></div>
-    <div class="f" style="margin-top:10px"><label>Claude öffnen in</label>
-      <select id="setClaudeZiel">
-        <option value="desktop">Desktop-App (claude://)</option>
-        <option value="web">Browser (claude.ai)</option>
-      </select>
-      <div class="hint">Bei „Desktop-App" öffnen Projekt- und Claude-Links direkt die installierte App. Funktioniert nicht, ist die App nicht installiert — dann auf Browser stellen.</div>
-    </div>
-    <div class="f" style="margin-top:10px"><label>Lokaler OneDrive-Pfad <span style="color:var(--grau);font-weight:400;text-transform:none;letter-spacing:0">— für „Pfad kopieren"; im Explorer in die Adresszeile klicken, dann steht er dort</span></label>
-      <input type="text" id="setLokalPfad" placeholder="C:\Users\DeinName\OneDrive - Optima Gruppe AG"></div>
-    <div class="f"><label>Link zum IHK-Tutor-Projekt (optional)</label><input type="text" id="setIhkTutorUrl" placeholder="https://…"></div>
-    <div class="f"><label>Google-Drive-Sync</label>
-      <div class="hint" id="odStatus"><span class="skel kurz" style="display:inline-block"></span></div>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <button class="minibtn" id="btnOdConnect" style="display:none">Mit Google Drive verbinden</button>
-        <button class="minibtn rot" id="btnOdDisconnect" style="display:none">Trennen</button>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button class="minibtn" id="btnBackup">Backup exportieren</button>
-      <button class="minibtn" id="btnRestore">Backup importieren</button>
-      <button class="minibtn" id="btnInstall" style="display:none">App installieren</button>
-      <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-      <button class="minibtn rot" id="btnNeuAufsetzen">Bewegungsdaten neu aufsetzen</button>
-      <button type="button" class="hilfe" data-tip="Zieht zuerst eine JSON-Sicherung und löscht dann Reisen, Arbeitsaufträge, Rechnungen und Meetings. Auftraggeber-Stammdaten, Tool-Stack, gelernte Kategorien und alle Verbindungen bleiben erhalten." aria-label="Erklärung">?</button>
-    </div>
-    <div class="hint" id="envHint"></div>
-  </details>
 
 </div>
 
 <div class="wrap" id="bereichTools" style="display:none">
+<div class="bereichKacheln" id="kachelnTools"></div>
+<button type="button" class="zurueckRaster" data-zurueck=""></button>
+<div class="empty usLeer">Hier ist gerade nichts.</div>
 
 <div class="kpis" id="toolKpis"></div>
 
@@ -1098,7 +1119,7 @@ body{padding-bottom:64px}
 
 <div class="card" id="toolWarnCard" style="display:none;background:var(--rot-dim);border-color:var(--rot)"></div>
 
-<div class="card vollbreite">
+<div class="card vollbreite" id="toolStackCard">
     <h2>Mein Tool-Stack
       <span class="tools"><button class="minibtn" id="btnAboImport">Abos importieren</button><button class="minibtn" id="btnToolAufraeumen">Aufräumen</button><button class="minibtn" id="btnWerkzeugeStack">Werkzeuge übernehmen</button><button class="minibtn haupt" id="btnToolNeu">+ Tool</button></span>
     </h2>
@@ -1182,7 +1203,7 @@ body{padding-bottom:64px}
     <div id="toolCheckErgebnis" style="margin-top:8px"></div>
   </details>
 
-<details class="card">
+<details class="card" id="toolVorschlagCard">
     <summary>Vorschläge — noch nicht erfasst</summary>
     <div class="hint" style="margin-top:8px">Tools, die zu deiner Arbeit passen könnten. Antippen legt sie mit Grunddaten an — Tarif und Kosten trägst du selbst ein.</div>
     <div id="toolVorschlaege" style="margin-top:8px"></div>
@@ -1201,7 +1222,7 @@ body{padding-bottom:64px}
     </div>
   </div>
 
-<div class="card">
+<div class="card" id="verbindungenCard">
     <h2>Verbindungen</h2>
     <div class="f" style="margin-top:6px"><label>Outlook (Optima)</label>
       <div class="hint" id="msStatus"><span class="skel kurz" style="display:inline-block"></span></div>
@@ -1220,13 +1241,46 @@ body{padding-bottom:64px}
     </div>
   </div>
 
-<div class="card">
+<div class="card" id="postfachCard">
     <h2>Postfach aufräumen</h2>
     <div class="hint">Mails, die flach in „Erledigt" liegen statt in einem Kürzel-Unterordner — etwa aus der Zeit vor dieser Umstellung, oder von Hand einsortiert. Prüft nur den Betreff, ruft Claude nicht auf. Ohne erkannten Auftraggeber wird nichts vorgeschlagen.</div>
     <button type="button" class="minibtn" id="btnPostfachAufraeumen" style="margin-top:8px">Jetzt prüfen</button>
     <div class="hint" id="aufraeumStatus" style="margin-top:6px"></div>
     <div id="aufraeumListe" style="margin-top:8px"></div>
   </div>
+
+<details class="card" id="datenCard">
+    <summary>Daten &amp; App</summary>
+    <div class="f" style="margin-top:10px"><label>Heimatadresse (Startpunkt für km-Berechnung)</label><input type="text" id="setHome"></div>
+    <div class="f" style="margin-top:10px"><label>Claude öffnen in</label>
+      <select id="setClaudeZiel">
+        <option value="desktop">Desktop-App (claude://)</option>
+        <option value="web">Browser (claude.ai)</option>
+      </select>
+      <div class="hint">Bei „Desktop-App" öffnen Projekt- und Claude-Links direkt die installierte App. Funktioniert nicht, ist die App nicht installiert — dann auf Browser stellen.</div>
+    </div>
+    <div class="f" style="margin-top:10px"><label>Lokaler OneDrive-Pfad <span style="color:var(--grau);font-weight:400;text-transform:none;letter-spacing:0">— für „Pfad kopieren"; im Explorer in die Adresszeile klicken, dann steht er dort</span></label>
+      <input type="text" id="setLokalPfad" placeholder="C:\Users\DeinName\OneDrive - Optima Gruppe AG"></div>
+    <div class="f"><label>Link zum IHK-Tutor-Projekt (optional)</label><input type="text" id="setIhkTutorUrl" placeholder="https://…"></div>
+    <div class="f"><label>Google-Drive-Sync</label>
+      <div class="hint" id="odStatus"><span class="skel kurz" style="display:inline-block"></span></div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="minibtn" id="btnOdConnect" style="display:none">Mit Google Drive verbinden</button>
+        <button class="minibtn rot" id="btnOdDisconnect" style="display:none">Trennen</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="minibtn" id="btnBackup">Backup exportieren</button>
+      <button class="minibtn" id="btnRestore">Backup importieren</button>
+      <button class="minibtn" id="btnInstall" style="display:none">App installieren</button>
+      <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button class="minibtn rot" id="btnNeuAufsetzen">Bewegungsdaten neu aufsetzen</button>
+      <button type="button" class="hilfe" data-tip="Zieht zuerst eine JSON-Sicherung und löscht dann Reisen, Arbeitsaufträge, Rechnungen und Meetings. Auftraggeber-Stammdaten, Tool-Stack, gelernte Kategorien und alle Verbindungen bleiben erhalten." aria-label="Erklärung">?</button>
+    </div>
+    <div class="hint" id="envHint"></div>
+  </details>
 
 <div class="vollbreite" id="versionZeile"></div>
 </div>
@@ -1257,7 +1311,6 @@ body{padding-bottom:64px}
     </div>
     <button type="button" class="minibtn" id="btnQuickZu" style="margin-top:12px;width:100%">Abbrechen</button>
   </div>
-</div>
 
 <!-- Wirt fuer Formulare, die frueher als eigene Karte neben ihrer Liste standen.
      Der Inhalt wird beim Oeffnen hierher verschoben und beim Schliessen zurueck. -->
@@ -2111,6 +2164,7 @@ function sheetAuf(id){
   karte.parentNode.insertBefore(sheetAnker,karte);
   el('sheetInhalt').appendChild(karte);
   karte.style.display='';
+  karte.classList.remove('usAus'); /* im Behaelter ausgeblendet, im Sheet sichtbar */
   karte.classList.add('imSheet');
   el('formSheet').classList.add('open');
   el('formSheet').scrollTop=0;
@@ -3360,7 +3414,7 @@ async function flaggeEinsortieren(id){
   const t=taskCache.find(x=>x.id===id); if(!t)return;
   const warFlagge=istFlaggenListe(t._listName);
   inboxAusFlagge={id:t.id, listId:t._listId, istFlagge:warFlagge};
-  bereichWechseln('start');
+  bereichWechseln('eingang');
   try{ await taskListenHolen(); }catch(e){}
   const listen=(taskListen||[]).map(l=>l.name).filter(n=>n&&!istFlaggenListe(n));
   /* Aufgaben aus der Standardliste tragen die Kategorie noch — die ist der beste
@@ -3724,8 +3778,8 @@ function quickOeffnen(){ el('quickModal').style.display='flex'; }
 function quickSchliessen(){ el('quickModal').style.display='none'; }
 function quickWahl(was){
   quickSchliessen();
-  if(was==='aufgabe'){ bereichWechseln('start'); const f=el('inboxText'); if(f){f.scrollIntoView({behavior:'smooth',block:'center'}); f.focus();} return; }
-  if(was==='memo'){ bereichWechseln('start'); const b=el('btnTbDikt')||el('btnInboxDikt'); if(b){b.scrollIntoView({behavior:'smooth',block:'center'}); b.click();} return; }
+  if(was==='aufgabe'){ bereichWechseln('eingang'); const f=el('inboxText'); if(f){f.scrollIntoView({behavior:'smooth',block:'center'}); f.focus();} return; }
+  if(was==='memo'){ bereichWechseln('tagebuch','briefingCard'); const b=el('btnTbDikt')||el('btnInboxDikt'); if(b){b.scrollIntoView({behavior:'smooth',block:'center'}); b.click();} return; }
   if(was==='reise'){ bereichWechseln('seminare'); openForm(null); return; }
   if(was==='job'){ bereichWechseln('werkstatt'); jobFormOeffnen(null); return; }
 }
@@ -4068,7 +4122,7 @@ async function eingangWeiterleiten(v, st, eintrag){
       ausschuss:f.ausschuss||da.ausschuss,art:f.art||da.art,status:f.status||da.status});
     else liste.push({id:uid(),vorgang:f.vorgang||'',beleg:f.beleg||'',datum:f.datum||'',
       betrag:zahlAus(f.betrag),ausschuss:f.ausschuss||'',art:f.art||'',status:f.status||'erfasst'});
-    await save(); bereichWechseln('abrechnung'); renderIhkAbr();
+    await save(); bereichWechseln('rechnungen','ihkCard'); renderIhkAbr();
     melde('IHK-Abrechnung übernommen');
     await eingangAbschliessen('ihk');
     return;
@@ -4121,13 +4175,13 @@ async function eingangWeiterleiten(v, st, eintrag){
     return;
   }
   if(v.art==='bahn'){
-    bereichWechseln('seminare');
+    bereichWechseln('termine','bahnCard');
     bahnZeigen(Object.assign({},f,{_datei:(datei&&datei.mime==='application/pdf')?datei:null}));
     melde('Bahnbuchung erkannt — Reise zuordnen');
     return;
   }
   /* Rückfall: Aufgabe */
-  bereichWechseln('start');
+  bereichWechseln('eingang');
   inboxVorschlag={prio:f.prio||'normal'};
   el('ibKat').innerHTML=inboxListenOptionen((taskListen||[]).map(l=>l.name).filter(Boolean), f.bereich||'');
   el('ibTitel').value=f.titel||'';
@@ -5161,7 +5215,7 @@ async function eingangAufnehmen(e){
   e.betreff=e.betreff||(e.vorschlaege&&e.vorschlaege[0]?eingangZeile(e.vorschlaege[0]):'Eingeworfen');
   for(const v of (e.vorschlaege||[]))await eingangKonfliktPruefen(v);
   eingangEintraege.unshift(e);
-  bereichWechseln('start');
+  bereichWechseln('eingang');
   eingangRendern();
 }
 
@@ -5334,7 +5388,7 @@ async function eingangAktion(was,i,j){
   }
   if(was==='werkstatt'){
     const f=v.felder||{};
-    bereichWechseln('werkstatt');
+    bereichWechseln('werkstatt','werkstattCard');
     if(el('werkstattCard'))el('werkstattCard').open=true;
     if(el('wsAuftrag'))el('wsAuftrag').value=(f.titel?f.titel+' — ':'')+(f.umfang||f.notiz||'');
     toast('Werkstatt vorbefüllt');
@@ -5445,7 +5499,7 @@ function bahnZeigen(p){
     (kandidaten.length?kandidaten.map(opt).join(''):'')+
     (rest.length?'<optgroup label="Andere Reisen">'+rest.map(opt).join('')+'</optgroup>':'')+
     (kandidaten.length||rest.length?'':'<option value="">Keine Reise erfasst</option>');
-  bereichWechseln('seminare');
+  bereichWechseln('termine','bahnCard');
   el('bahnCard').style.display='block';
   el('planVorschau').style.display='none';
   el('bahnCard').scrollIntoView({behavior:'smooth'});
@@ -6097,8 +6151,8 @@ function renderKalender(){
   kalResetVerdrahten();
   /* Sprünge zu bestehenden Einträgen */
   box.querySelectorAll('[data-kreise]').forEach(b=>b.addEventListener('click',()=>{bereichWechseln('abrechnung');setTimeout(()=>openForm(b.dataset.kreise),50)}));
-  box.querySelectorAll('[data-kmeet]').forEach(b=>b.addEventListener('click',()=>{bereichWechseln('seminare');setTimeout(()=>{el('meetCard').open=true;meetFormOeffnen(b.dataset.kmeet)},50)}));
-  box.querySelectorAll('[data-kabr]').forEach(b=>b.addEventListener('click',()=>{bereichWechseln('abrechnung');setTimeout(()=>{el('rechnungCard').scrollIntoView({behavior:'smooth'})},50)}));
+  box.querySelectorAll('[data-kmeet]').forEach(b=>b.addEventListener('click',()=>{bereichWechseln('tagebuch','meetCard');setTimeout(()=>{el('meetCard').open=true;meetFormOeffnen(b.dataset.kmeet)},50)}));
+  box.querySelectorAll('[data-kabr]').forEach(b=>b.addEventListener('click',()=>{bereichWechseln('rechnungen','rechnungCard')}));
   box.querySelectorAll('[data-kwerk]').forEach(b=>b.addEventListener('click',()=>{
     const [typ,id]=b.dataset.kwerk.split(':');
     const quelle=typ==='reise'?state.trips.find(x=>x.id===id):meetingsListe().find(x=>x.id===id);
@@ -6641,7 +6695,7 @@ let kalPendingEvent=null;
 function kalAlsMeeting(evtId){
   const e=kalCache.find(x=>x.id===evtId);if(!e)return;
   const ag=kalAgRaten(e.titel,e);
-  bereichWechseln('seminare');
+  bereichWechseln('tagebuch','meetCard');
   setTimeout(()=>{
     el('meetCard').open=true;
     meetFormOeffnen(null);
@@ -6655,7 +6709,7 @@ function kalAlsMeeting(evtId){
 let kalPendingMeetEvent=null;
 /* Werkstatt aus einer Quelle (Reise/Meeting) vorbefüllen — an zwei Stellen genutzt */
 function werkstattVorbefuellen(quelle){
-  bereichWechseln('werkstatt');
+  bereichWechseln('werkstatt','werkstattCard');
   setTimeout(()=>{
     el('werkstattCard').open=true;
     const bekannt=[...el('wsAg').options].some(o=>o.value===quelle.ag||o.text===quelle.ag);
@@ -6778,33 +6832,141 @@ async function kalTerminAnlegen(){
    einen eigenen Behaelter, wird nur seine Zeile in NAV geaendert. */
 const NAV=[
   {k:'start',        kurz:'',    name:'Start',         ic:'\u2302',        div:'Start'},
-  {k:'termine',      kurz:'TER', name:'Termine',       ic:'\u25F7',        div:'Seminare'},
-  {k:'tagebuch',     kurz:'TGB', name:'Tagebuch',      ic:'\u270E\uFE0E',  div:'Seminare',  ziel:'briefingCard'},
-  {k:'werkstatt',    kurz:'WST', name:'Werkstatt',     ic:'\u2692\uFE0E',  div:'Werkstatt'},
-  {k:'rechnungen',   kurz:'RAG', name:'Rechnungen',    ic:'\u20AC',        div:'Abrechnung', ziel:'agMonatCard'},
-  {k:'reisekosten',  kurz:'RSK', name:'Reisekosten',   ic:'\u21C4',        div:'Abrechnung', ziel:'sccCard'},
-  {k:'einstellungen',kurz:'EIN', name:'Einstellungen', ic:'\u2699\uFE0E',  div:'Tools'}
+  {k:'termine',      kurz:'TER', name:'Termine',       ic:'\u25F7',        div:'Seminare', emo:'\u{1F4C5}', farbe:'ter'},
+  {k:'tagebuch',     kurz:'TGB', name:'Tagebuch',      ic:'\u270E\uFE0E',  div:'Seminare', emo:'\u{1F4D3}', farbe:'tgb'},
+  {k:'werkstatt',    kurz:'WST', name:'Werkstatt',     ic:'\u2692\uFE0E',  div:'Werkstatt', emo:'\u{1F6E0}\uFE0F', farbe:'wst'},
+  {k:'rechnungen',   kurz:'RAG', name:'Rechnungen',    ic:'\u20AC',        div:'Abrechnung', emo:'\u{1F9FE}', farbe:'rag'},
+  {k:'reisekosten',  kurz:'RSK', name:'Reisekosten',   ic:'\u21C4',        div:'Abrechnung', emo:'\u{1F686}', farbe:'rsk'},
+  {k:'einstellungen',kurz:'EIN', name:'Einstellungen', ic:'\u2699\uFE0E',  div:'Tools', emo:'\u{2699}\uFE0F', farbe:'set'}
 ];
+/* Unterseiten je Bereich: eine Kachel oeffnet genau diese Karten. Karten, die hier
+   nicht stehen, sind auf keinem Weg mehr erreichbar - beim Anlegen einer Karte also
+   hier eintragen. Sheets (kalFormCard, jobFormCard, toolFormCard) brauchen keinen
+   Eintrag, sie werden in #formSheet gezeigt. */
+const UNTER={
+  start:[
+    {k:'eingang', name:'Eingang', emo:'\u{1F4E5}', karten:['eingangCard'], voll:true}
+  ],
+  termine:[
+    {k:'kalender',     name:'Kalender',      emo:'\u{1F4C5}', karten:['kalCard']},
+    {k:'reiseplanung', name:'Reiseplanung',  emo:'\u{1F5FA}\uFE0F', karten:['reiseplanCard','dictCard','planVorschau','terminSheetCard','bahnCard']},
+    {k:'pflege',       name:'Pflege',        emo:'\u{1F9F9}', karten:['konfliktCard','aufraeumCard']},
+    {k:'outlook',      name:'Outlook auslesen', emo:'\u{1F4E5}', nav:'eingang'}
+  ],
+  tagebuch:[
+    {k:'seminartagebuch', name:'Seminartagebuch', emo:'\u{1F4D3}', karten:['briefingCard']},
+    {k:'nachbereitung',   name:'Nachbereitung',   emo:'\u2705', karten:['nachCard']},
+    {k:'meetings',        name:'Konzeptionsmeetings', emo:'\u{1F399}\uFE0F', karten:['meetCard']}
+  ],
+  werkstatt:[
+    {k:'auftraege', name:'Arbeitsaufträge', emo:'\u{1F4E6}', karten:['jobCard']},
+    {k:'aufgaben',  name:'Aufgaben',        emo:'\u2705', karten:['taskCard','wsAufgabenCard']},
+    {k:'werkzeuge', name:'Werkzeuge',       emo:'\u{1F9F0}', karten:['werkzeugeCard']},
+    {k:'unterlagen',name:'Unterlagen & Kursordner', emo:'\u{1F4C1}', karten:['werkstattCard']}
+  ],
+  rechnungen:[
+    {k:'monat',  name:'Monat je Auftraggeber', emo:'\u{1F9FE}', karten:['agMonatCard']},
+    {k:'datev',  name:'DATEV-Rechnungen',      emo:'\u{1F4C4}', karten:['rechnungCard']},
+    {k:'ihk',    name:'IHK-Portal',            emo:'\u{1F3DB}\uFE0F', karten:['ihkCard']},
+    {k:'offen',  name:'Offene Posten',         emo:'\u{1F4B6}', karten:['offenCard']},
+    {k:'jahr',   name:'Jahresüberblick',       emo:'\u{1F4C8}', karten:['jahrCard','azCard']}
+  ],
+  reisekosten:[
+    {k:'scc',   name:'Halbjahresabrechnung SCC', emo:'\u{1F697}', karten:['sccCard']},
+    {k:'nachag',name:'Nach Auftraggeber',        emo:'\u{1F4CA}', karten:['agCard']}
+  ],
+  einstellungen:[
+    {k:'verbindungen', name:'Verbindungen',      emo:'\u{1F517}', karten:['verbindungenCard']},
+    {k:'kurse',        name:'Kurse & Lehrgänge', emo:'\u{1F393}', karten:['kurseCard']},
+    {k:'tools',        name:'Tools & Kosten',    emo:'\u{1F4B3}', karten:['toolKpis','toolKontenCard','toolWarnCard','toolStackCard','toolAuswertungCard','istKostenCard','gmailScanCard','toolCheckCard','toolVorschlagCard']},
+    {k:'postfach',     name:'Postfach aufräumen',emo:'\u{1F4EE}', karten:['postfachCard']},
+    {k:'daten',        name:'Daten & App',       emo:'\u{1F4BE}', karten:['datenCard','versionZeile']}
+  ]
+};
 /* Alte Schluessel aus rund 40 Aufrufstellen; sie bleiben gueltig. */
-const NAV_ALIAS={seminare:'termine',abrechnung:'rechnungen',tools:'einstellungen',
+const NAV_ALIAS={seminare:'termine',abrechnung:'rechnungen',tools:'einstellungen',eingang:['start','eingang'],
   kalender:['termine','kalCard'],reiseplanung:['termine','reiseplanCard']};
 const BEREICHE=['Start','Seminare','Werkstatt','Abrechnung','Tools'];
 let bereichAktiv='start';
 function navAufbauen(){
   const knopf=(n,mitText)=>'<button type="button" data-nav="'+n.k+'" aria-label="'+n.name+'" title="'+n.name+'">'
     +(mitText?esc(n.name):'<span class="ic" aria-hidden="true">'+n.ic+'</span>')+'</button>';
-  const reiter=el('bereichReiter'); if(reiter)reiter.innerHTML=NAV.map(n=>knopf(n,true)).join('');
+  const sichtbar=NAV.filter(n=>!n.versteckt);
+  const reiter=el('bereichReiter'); if(reiter)reiter.innerHTML=sichtbar.map(n=>knopf(n,true)).join('');
+  const fuss=el('startFuss'); if(fuss)fuss.textContent='Dozenten-Cockpit '+APP_VERSION;
   /* Handy-Leiste ohne Einstellungen — die erreicht man ueber Zahnrad und Startkachel */
-  const leiste=el('tabbar'); if(leiste)leiste.innerHTML=NAV.filter(n=>n.k!=='einstellungen').map(n=>knopf(n,false)).join('');
+  const leiste=el('tabbar'); if(leiste)leiste.innerHTML=sichtbar.filter(n=>n.k!=='einstellungen').map(n=>knopf(n,false)).join('');
+}
+function kachelHtml(nav,name,emo,klasse){
+  return '<button type="button" class="skachel'+(klasse||'')+'" data-nav="'+nav+'">'
+    +'<span class="kic" aria-hidden="true">'+emo+'</span><span class="kname">'+esc(name)+'</span></button>';
+}
+/* Raster eines Bereichs bauen. Start: Eingang in voller Breite, darunter die sechs
+   Bereiche. Sonst: die Unterseiten aus UNTER; data-nav traegt "bereich/unterseite". */
+function rasterBauen(n){
+  const raster=el('kacheln'+n.div); if(!raster)return;
+  if(n.k==='start'){
+    raster.innerHTML=kachelHtml('start/eingang','Eingang','\u{1F4E5}',' voll')
+      +NAV.filter(x=>x.emo).map(x=>kachelHtml(x.k,x.name,x.emo,'')).join('');
+    return;
+  }
+  const liste=UNTER[n.k]||[];
+  raster.innerHTML='<div class="bereichTitel">'+esc(n.name)+'</div>'
+    +liste.map(u=>kachelHtml(u.nav?u.nav:n.k+'/'+u.k,u.name,u.emo,' unter'+(u.voll?' voll':'')+' bf-'+(n.farbe||'ein'))).join('');
+}
+/* Sichtbarkeit im Behaelter: Raster ODER genau die Karten einer Unterseite.
+   Karten behalten ihren eigenen Inline-Stil (display:none aus den Renderern);
+   sind alle Karten einer Unterseite leer, steht dort "Hier ist gerade nichts." */
+function bereichAnsichtSetzen(n,unter){
+  const wrap=el('bereich'+n.div); if(!wrap)return;
+  const karten=unter?(unter.karten||[]):[];
+  let sichtbar=0;
+  [...wrap.children].forEach(kind=>{
+    let zeigen;
+    if(kind.classList.contains('bereichKacheln'))zeigen=!unter;
+    else if(kind.id==='startFuss')zeigen=!unter;
+    else if(kind.classList.contains('zurueckRaster'))zeigen=!!unter;
+    else if(kind.classList.contains('usLeer'))zeigen=false;
+    else zeigen=!!unter&&karten.includes(kind.id);
+    kind.classList.toggle('usAus',!zeigen);
+    if(zeigen&&!kind.classList.contains('zurueckRaster')&&kind.style.display!=='none')sichtbar++;
+  });
+  const z=wrap.querySelector('.zurueckRaster');
+  if(z){ z.innerHTML='<span aria-hidden="true">\u2039</span> '+esc(n.name); z.dataset.nav=n.k; }
+  /* Renderer blenden Karten erst nach dem Laden ein - deshalb zweimal nachsehen */
+  const leer=wrap.querySelector('.usLeer');
+  const pruefen=()=>{ if(!leer||!unter)return;
+    const offen=karten.some(id=>{const k=el(id);return k&&k.style.display!=='none'});
+    leer.classList.toggle('usAus',offen); };
+  setTimeout(pruefen,50); setTimeout(pruefen,900);
+}
+/* Unterseite zu einem Ziel finden: "bereich/unterseite", ein Unterseiten-Schluessel
+   oder eine Karten-ID. Liefert {bereich, unter} oder null. */
+function unterseiteFinden(b,ziel){
+  if(!ziel)return null;
+  let bk=b, uk=ziel;
+  if(ziel.includes('/')){ [bk,uk]=ziel.split('/'); }
+  const direkt=(UNTER[bk]||[]).find(u=>u.k===uk); if(direkt)return {bereich:bk,unter:direkt};
+  /* Karten-ID: erst im eigenen Bereich suchen, dann in denen mit demselben Behaelter */
+  const div=(NAV.find(x=>x.k===b)||{}).div;
+  const kandidaten=[b].concat(NAV.filter(x=>x.div===div&&x.k!==b).map(x=>x.k));
+  for(const k of kandidaten){ const u=(UNTER[k]||[]).find(u=>(u.karten||[]).includes(ziel)); if(u)return {bereich:k,unter:u}; }
+  return null;
 }
 function bereichWechseln(b,ziel){
   /* Die Leiste steht im HTML hinter dem Skript; beim ersten Wechsel existiert sie. */
   const leiste=el('tabbar'); if(leiste&&!leiste.childElementCount)navAufbauen();
+  if(typeof b==='string'&&b.includes('/')){ const t=b.split('/'); b=t[0]; ziel=ziel||t[1]; }
   const a=NAV_ALIAS[b];
   if(Array.isArray(a)){ ziel=ziel||a[1]; b=a[0]; } else if(a){ b=a; }
-  const n=NAV.find(x=>x.k===b)||NAV[0];
-  b=n.k; bereichAktiv=b;
+  let n=NAV.find(x=>x.k===b)||NAV[0];
+  b=n.k;
   if(ziel===undefined)ziel=n.ziel;
+  const treffer=unterseiteFinden(b,ziel);
+  if(treffer&&treffer.bereich!==b){ b=treffer.bereich; n=NAV.find(x=>x.k===b); }
+  bereichAktiv=b;
+  rasterBauen(n);
+  bereichAnsichtSetzen(n,treffer?treffer.unter:null);
   BEREICHE.forEach(x=>{
     /* Sichtbar = Inline-Stil leeren, damit das CSS entscheidet: 'block' überschrieb
        das display:grid von .wrap.spalten — der Desktop lief deshalb einspaltig. */
@@ -6816,10 +6978,10 @@ function bereichWechseln(b,ziel){
     if(on)btn.setAttribute('aria-current','page'); else btn.removeAttribute('aria-current');
   });
   const d=n.div;
-  if(d==='Start'){renderGtasks(true);renderNachbereitung();renderBriefing();taskBoardLaden();autoKalenderCheck();kpiStart();renderTbAuswertung()}
-  if(d==='Seminare'){renderMsStatus();renderMeetings();renderReiseplanung();kalenderLaden();konfliktKalRender();renderBriefing()}
-  if(d==='Werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderProjekte();renderWerkstattAufgaben();renderJobs()}
-  if(d==='Abrechnung'){renderNachbereitung();render()}
+  if(d==='Start'){renderGtasks(true);renderNachbereitung();renderBriefing();autoKalenderCheck();kpiStart();renderTbAuswertung()}
+  if(d==='Seminare'){renderMsStatus();renderMeetings();renderReiseplanung();kalenderLaden();konfliktKalRender();renderBriefing();renderNachbereitung()}
+  if(d==='Werkstatt'){ordnerLaden();renderAzListe();renderWerkzeuge();renderProjekte();renderWerkstattAufgaben();renderJobs();taskBoardLaden()}
+  if(d==='Abrechnung'){render()}
   if(d==='Tools'){versionAnzeigen();renderTools();renderMsStatus();renderOdStatus();renderGtasks(true);renderKurse()}
   /* FAB ist ueberall sichtbar — der Schnellerfassen-Knopf soll in jedem Bereich
      erreichbar sein. "+ Reise erfassen" und CSV haengen am Behaelter. */
@@ -6828,30 +6990,18 @@ function bereichWechseln(b,ziel){
   el('btnCsv').style.display=(d==='Abrechnung')?'inline-block':'none';
   window.scrollTo({top:0,behavior:'instant'});
   /* Sprungziel innerhalb des Behaelters. Ab Schritt 3 wird daraus die Unterseite. */
-  if(ziel){ const k=el(ziel); if(k&&k.offsetParent)setTimeout(()=>k.scrollIntoView({behavior:'smooth',block:'start'}),60); }
+  if(ziel&&!ziel.includes('/')){ const k=el(ziel); if(k&&k.offsetParent&&!(treffer&&treffer.unter.karten[0]===ziel))setTimeout(()=>k.scrollIntoView({behavior:'smooth',block:'start'}),60); }
 }
 /* Navigation aus unterer Leiste, Kacheln und Mehr-Menü */
-function zurueckKnoepfeSetzen(){
-  /* Am Desktop ist die obere Reiter-Leiste ausgeblendet — jeder Bereich außer Start
-     bekommt oben einen "‹ Start"-Knopf, damit man ohne obere Leiste zurückfindet. */
-  BEREICHE.filter(x=>x!=='Start').forEach(name=>{
-    const bereich=el('bereich'+name);
-    if(!bereich||bereich.querySelector('.zurueckStart'))return;
-    const b=document.createElement('button');
-    b.type='button';b.className='zurueckStart';b.dataset.nav='start';
-    b.innerHTML='<span class="pfeil">\u2039</span> Zurück zur Übersicht';
-    bereich.insertBefore(b,bereich.firstChild);
-  });
-}
 function navBinden(){
   navAufbauen();
-  zurueckKnoepfeSetzen();
   /* Event-Delegation am document: funktioniert unabhaengig davon, ob die Buttons
      (untere Leiste, Mehr-Menue) im HTML vor oder nach diesem Script stehen. Der
      frühere Direktbind lief, bevor die tabbar im DOM existierte — Klicks blieben tot. */
   document.addEventListener('click',e=>{
     const nav=e.target.closest('[data-nav]');
     if(nav){ bereichWechseln(nav.dataset.nav); return; }
+    if(e.target.closest('[data-zurueck]')){ bereichWechseln(bereichAktiv); return; }
   });
 }
 async function kShotParse(file){
@@ -9463,7 +9613,7 @@ function kpiStart(){
    uebereinstimmen ('dozenten-cockpit-' + APP_VERSION). Die Anzeige vergleicht
    beide: steht unten eine andere Zahl, laeuft im Browser noch eine alte
    Fassung - dann hat der Service Worker die neue Datei nicht uebernommen. */
-const APP_VERSION='v119';
+const APP_VERSION='v121';
 const APP_STAND='16. September 2026';
 async function versionAnzeigen(){
   const ziel=el('versionZeile'); if(!ziel)return;
@@ -9509,7 +9659,7 @@ el('envHint').textContent=IN_CLAUDE
   :'Läuft als Web-App: Daten liegen im Browser-Speicher dieses Geräts und werden per Google Drive synchronisiert. Kalender-Import und Mail-Auslese laufen über dein verbundenes Outlook.';
 
 el('btnImport').addEventListener('click',()=>{
-  if(!IN_CLAUDE&&!msAccount){toast('Bitte zuerst im Bereich Start Outlook verbinden');bereichWechseln('start');return}
+  if(!IN_CLAUDE&&!msAccount){toast('Bitte zuerst in den Einstellungen Outlook verbinden');bereichWechseln('einstellungen');return}
   const[v,b]=quartalsRange();el('iVon').value=v;el('iBis').value=b;
   importZuruecksetzen();el('importModal').classList.add('open');
 });
@@ -9668,9 +9818,6 @@ el('btnToolLoeschen').addEventListener('click',async()=>{
   state.tools=toolListe().filter(x=>x.id!==toolEditId);
   await save();sheetZu();toolEditId=null;renderTools();toast('Tool gelöscht');
 });
-document.querySelectorAll('.quicknav button[data-jump]').forEach(b=>b.addEventListener('click',()=>{
-  const t=el(b.dataset.jump); if(t)t.scrollIntoView({behavior:'smooth',block:'start'});
-}));
 el('btnMsConnect').addEventListener('click',msConnect);
 el('btnMsDisconnect').addEventListener('click',msDisconnect);
 el('btnPostfachAufraeumen').addEventListener('click',postfachAufraeumenListe);
@@ -9719,7 +9866,7 @@ load().then(async()=>{
          per Assistant nach Google Keep sprechen, spaeter von dort hierher teilen. */
       el('inboxText').value=geteilt;
       history.replaceState(null,'',location.pathname);
-      setTimeout(()=>{inboxSortieren();el('eingangCard').scrollIntoView({behavior:'smooth'})},300);
+      setTimeout(()=>{bereichWechseln('eingang');inboxSortieren()},300);
     }
   }catch(e){/* Share-Target optional */}
   bereichWechseln('start');
@@ -9727,7 +9874,7 @@ load().then(async()=>{
   try{
     if(new URLSearchParams(location.search).get('notiz')){
       history.replaceState(null,'',location.pathname);
-      setTimeout(()=>{el('eingangCard').scrollIntoView({behavior:'smooth'});inboxDiktToggle()},400);
+      setTimeout(()=>{bereichWechseln('eingang');inboxDiktToggle()},400);
     }
   }catch(e){/* Shortcut optional */}
 });
